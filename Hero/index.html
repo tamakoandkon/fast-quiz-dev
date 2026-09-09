@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>考试系统 · 预览版 · 把时间还给教学</title>
+
+    <!-- ===== SEO 基础 ===== -->
+    <title>考试系统预览版 · 智能组卷阅卷 · 把时间还给教学</title>
+    <meta
+      name="description"
+      content="考试系统预览版即将上线，支持分组、随机组卷、自动阅卷、自动收卷，6大模块全闭环，让组卷到阅卷全自动流转。"
+    />
+    <meta
+      name="keywords"
+      content="考试系统,在线考试,智能组卷,自动阅卷,在线阅卷,随机组卷,考试平台,教育SaaS"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://02888888.xyz" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>"
+    />
+    <!-- ===== Open Graph（社交分享卡片） ===== -->
+    <meta
+      property="og:title"
+      content="考试系统预览版 · 智能组卷阅卷 · 把时间还给教学"
+    />
+    <meta
+      property="og:description"
+      content="从分组到出分，6大模块无缝闭环，一次配置全程无忧。预览版即将上线。"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://fqz.02888888.xyz" />
+    <meta property="og:image" content="https://fqz.02888888.xyz/og-image.jpg" />
+    <!-- 如果没有图片，可以先留空或使用占位图 -->
+
+    <!-- ===== Twitter Card ===== -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="考试系统预览版 · 智能组卷阅卷" />
+    <meta
+      name="twitter:description"
+      content="6大模块全闭环，从组卷到阅卷全自动流转。"
+    />
+
+    <!-- ===== 结构化数据（JSON-LD） ===== -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "考试系统",
+        "version": "预览版",
+        "description": "智能组卷、自动阅卷、自动收卷，覆盖分组到出分全流程的在线考试系统。",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "CNY"
+        }
+      }
+    </script>
+
+    <style>
+      /* ===== 全局重置 & 基础 ===== */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --primary: #1e3a5f;
+        --primary-light: #2b5a8a;
+        --primary-dark: #0f263b;
+        --accent: #e67e22;
+        --accent-light: #f39c12;
+        --bg-light: #f8faff;
+        --bg-card: #ffffff;
+        --text-dark: #1a2634;
+        --text-muted: #3e4a5a;
+        --text-light: #6b7a8a;
+        --border-radius: 24px;
+        --shadow: 0 20px 40px -12px rgba(0, 20, 40, 0.2);
+        --shadow-hover: 0 30px 50px -16px rgba(0, 20, 40, 0.3);
+        --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --font-sans:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg-light);
+        color: var(--text-dark);
+        line-height: 1.6;
+        padding-top: 72px;
+      }
+
+      a {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* ===== 导航 ===== */
+      .navbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(30, 58, 95, 0.06);
+        z-index: 999;
+        padding: 0 24px;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: var(--transition);
+      }
+
+      .navbar.scrolled {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      }
+
+      .logo {
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: -0.02em;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .logo span {
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: 40px;
+        letter-spacing: 0.3px;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 28px;
+        list-style: none;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+
+      .nav-links a {
+        position: relative;
+        transition: var(--transition);
+      }
+
+      .nav-links a::after {
+        content: "";
+        position: absolute;
+        bottom: -4px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--accent);
+        transition: var(--transition);
+      }
+
+      .nav-links a:hover {
+        color: var(--primary);
+      }
+
+      .nav-links a:hover::after {
+        width: 100%;
+      }
+
+      .nav-cta {
+        background: var(--primary);
+        color: #fff !important;
+        padding: 8px 20px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+      }
+
+      .nav-cta::after {
+        display: none !important;
+      }
+
+      .nav-cta:hover {
+        background: var(--primary-light);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(30, 58, 95, 0.25);
+        color: #fff !important;
+      }
+
+      .mobile-toggle {
+        display: none;
+        flex-direction: column;
+        gap: 4px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+      }
+
+      .mobile-toggle span {
+        width: 28px;
+        height: 3px;
+        background: var(--primary);
+        border-radius: 4px;
+        transition: var(--transition);
+      }
+
+      /* ===== Hero ===== */
+      .hero {
+        padding: 60px 0 80px;
+        background: linear-gradient(145deg, #ffffff 0%, #f0f6ff 100%);
+        border-bottom: 1px solid rgba(30, 58, 95, 0.04);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: -30%;
+        right: -10%;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(
+          circle,
+          rgba(230, 126, 34, 0.06) 0%,
+          transparent 70%
+        );
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+      }
+
+      .hero-badge {
+        display: inline-block;
+        background: rgba(230, 126, 34, 0.12);
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 4px 16px;
+        border-radius: 40px;
+        letter-spacing: 0.4px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(230, 126, 34, 0.15);
+      }
+
+      .hero h1 {
+        font-size: 3.2rem;
+        font-weight: 800;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        color: var(--primary-dark);
+        margin-bottom: 16px;
+      }
+
+      .hero h1 em {
+        font-style: normal;
+        color: var(--accent);
+      }
+
+      .hero .subhead {
+        font-size: 1.3rem;
+        font-weight: 400;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+        border-left: 4px solid var(--accent);
+        padding-left: 20px;
+      }
+
+      .hero .desc {
+        font-size: 1.1rem;
+        color: var(--text-light);
+        max-width: 520px;
+        margin: 20px 0 32px;
+        line-height: 1.7;
+      }
+
+      .hero .desc strong {
+        color: var(--primary);
+        font-weight: 600;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+      }
+
+      .btn-primary {
+        display: inline-block;
+        background: var(--primary);
+        color: #fff;
+        font-weight: 600;
+        padding: 14px 38px;
+        border-radius: 60px;
+        font-size: 1rem;
+        transition: var(--transition);
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(30, 58, 95, 0.25);
+      }
+
+      .btn-primary:hover {
+        background: var(--primary-light);
+        transform: translateY(-2px);
+        box-shadow: 0 14px 32px rgba(30, 58, 95, 0.3);
+      }
+
+      .btn-outline {
+        display: inline-block;
+        background: transparent;
+        color: var(--primary);
+        font-weight: 600;
+        padding: 14px 32px;
+        border-radius: 60px;
+        font-size: 1rem;
+        border: 2px solid var(--primary);
+        transition: var(--transition);
+        cursor: pointer;
+      }
+
+      .btn-outline:hover {
+        background: var(--primary);
+        color: #fff;
+        transform: translateY(-2px);
+      }
+
+      .hero-visual {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .hero-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 32px 28px;
+        box-shadow: var(--shadow);
+        width: 100%;
+        max-width: 400px;
+        border: 1px solid rgba(30, 58, 95, 0.04);
+      }
+
+      .hero-card .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .hero-card .stat-item {
+        background: var(--bg-light);
+        padding: 16px 12px;
+        border-radius: 16px;
+        text-align: center;
+      }
+
+      .hero-card .stat-item .number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--primary);
+      }
+
+      .hero-card .stat-item .label {
+        font-size: 0.8rem;
+        color: var(--text-light);
+        margin-top: 2px;
+      }
+
+      .hero-card .promise-tag {
+        background: var(--accent);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 40px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 12px;
+      }
+
+      /* ===== 通用标题 ===== */
+      .section-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+        letter-spacing: -0.02em;
+        margin-bottom: 12px;
+      }
+
+      .section-subtitle {
+        font-size: 1.1rem;
+        color: var(--text-light);
+        max-width: 640px;
+        margin-bottom: 48px;
+      }
+
+      .section-center {
+        text-align: center;
+      }
+
+      .section-center .section-subtitle {
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      /* ===== 六大模块 ===== */
+      .modules {
+        padding: 80px 0;
+        background: #ffffff;
+      }
+
+      .modules-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+      }
+
+      .module-card {
+        background: var(--bg-card);
+        border-radius: var(--border-radius);
+        padding: 32px 28px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(30, 58, 95, 0.04);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .module-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--accent);
+        opacity: 0;
+        transition: var(--transition);
+      }
+
+      .module-card:hover {
+        transform: translateY(-6px);
+        box-shadow: var(--shadow-hover);
+        border-color: rgba(230, 126, 34, 0.12);
+      }
+
+      .module-card:hover::before {
+        opacity: 1;
+      }
+
+      .module-icon {
+        font-size: 2rem;
+        margin-bottom: 16px;
+        display: block;
+      }
+
+      .module-card h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 8px;
+      }
+
+      .module-card .tagline {
+        font-weight: 600;
+        color: var(--accent);
+        font-size: 0.95rem;
+        margin-bottom: 10px;
+        display: block;
+      }
+
+      .module-card p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+
+      .module-card .harvest {
+        display: block;
+        margin-top: 14px;
+        padding: 12px 16px;
+        background: var(--bg-light);
+        border-radius: 12px;
+        font-size: 0.9rem;
+        color: var(--primary);
+        border-left: 3px solid var(--accent);
+      }
+
+      .module-card .harvest strong {
+        font-weight: 700;
+      }
+
+      /* ===== 承诺表格（侧边栏风格） ===== */
+      .promise-section {
+        padding: 80px 0;
+        background: var(--bg-light);
+      }
+
+      .promise-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: start;
+      }
+
+      .promise-table-wrap {
+        background: #fff;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        border: 1px solid rgba(30, 58, 95, 0.04);
+      }
+
+      .promise-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .promise-table th {
+        background: var(--primary);
+        color: #fff;
+        font-weight: 600;
+        font-size: 1rem;
+        padding: 18px 24px;
+        text-align: left;
+      }
+
+      .promise-table td {
+        padding: 18px 24px;
+        border-bottom: 1px solid rgba(30, 58, 95, 0.04);
+        font-size: 0.95rem;
+      }
+
+      .promise-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .promise-table td:first-child {
+        font-weight: 600;
+        color: var(--primary);
+        width: 38%;
+      }
+
+      .promise-table td:last-child {
+        color: var(--text-muted);
+      }
+
+      .promise-highlight {
+        background: rgba(230, 126, 34, 0.05);
+        border-radius: 16px;
+        padding: 32px 28px;
+        border: 1px solid rgba(230, 126, 34, 0.12);
+      }
+
+      .promise-highlight .big-icon {
+        font-size: 2.4rem;
+        margin-bottom: 12px;
+        display: block;
+      }
+
+      .promise-highlight h3 {
+        font-size: 1.5rem;
+        color: var(--primary-dark);
+        margin-bottom: 12px;
+      }
+
+      .promise-highlight p {
+        color: var(--text-muted);
+        line-height: 1.8;
+      }
+
+      /* ===== CTA ===== */
+      .cta-section {
+        padding: 80px 0;
+        background: var(--primary-dark);
+        color: #fff;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cta-section::after {
+        content: "";
+        position: absolute;
+        bottom: -40%;
+        left: -20%;
+        width: 800px;
+        height: 800px;
+        background: radial-gradient(
+          circle,
+          rgba(230, 126, 34, 0.08) 0%,
+          transparent 70%
+        );
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      .cta-section .container {
+        position: relative;
+        z-index: 2;
+      }
+
+      .cta-section h2 {
+        font-size: 2.6rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 12px;
+      }
+
+      .cta-section .flow {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.75);
+        margin-bottom: 24px;
+        letter-spacing: 2px;
+      }
+
+      .cta-section .flow strong {
+        color: var(--accent-light);
+        font-weight: 600;
+      }
+
+      .cta-section .sub {
+        max-width: 520px;
+        margin: 0 auto 32px;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.05rem;
+      }
+
+      .cta-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: center;
+      }
+
+      .btn-cta-primary {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        padding: 16px 44px;
+        border-radius: 60px;
+        font-size: 1.1rem;
+        transition: var(--transition);
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 8px 28px rgba(230, 126, 34, 0.35);
+      }
+
+      .btn-cta-primary:hover {
+        background: var(--accent-light);
+        transform: translateY(-2px);
+        box-shadow: 0 14px 36px rgba(230, 126, 34, 0.45);
+      }
+
+      .btn-cta-outline {
+        background: transparent;
+        color: #fff;
+        font-weight: 600;
+        padding: 16px 40px;
+        border-radius: 60px;
+        font-size: 1.1rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        transition: var(--transition);
+        cursor: pointer;
+      }
+
+      .btn-cta-outline:hover {
+        border-color: #fff;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      /* ===== 底部 ===== */
+      .footer {
+        padding: 40px 0 28px;
+        background: #0a1724;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+        text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+      }
+
+      .footer a {
+        color: rgba(255, 255, 255, 0.6);
+        transition: var(--transition);
+      }
+
+      .footer a:hover {
+        color: #fff;
+      }
+
+      .footer .social {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        margin-bottom: 16px;
+        font-size: 1rem;
+      }
+
+      /* ===== 响应式 ===== */
+      @media (max-width: 1024px) {
+        .modules-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+          gap: 40px;
+          text-align: center;
+        }
+
+        .hero .desc {
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .hero .subhead {
+          border-left: none;
+          padding-left: 0;
+        }
+
+        .hero-actions {
+          justify-content: center;
+        }
+
+        .promise-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero h1 {
+          font-size: 2.5rem;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .nav-links {
+          display: none;
+          flex-direction: column;
+          position: absolute;
+          top: 72px;
+          left: 0;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(16px);
+          padding: 24px 28px;
+          gap: 16px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .nav-links.open {
+          display: flex;
+        }
+
+        .mobile-toggle {
+          display: flex;
+        }
+
+        .modules-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero h1 {
+          font-size: 2rem;
+        }
+
+        .section-title {
+          font-size: 1.8rem;
+        }
+
+        .cta-section h2 {
+          font-size: 2rem;
+        }
+
+        .promise-table td,
+        .promise-table th {
+          padding: 14px 16px;
+          font-size: 0.85rem;
+        }
+
+        .promise-table td:first-child {
+          width: 30%;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .hero h1 {
+          font-size: 1.7rem;
+        }
+        .hero .subhead {
+          font-size: 1rem;
+        }
+        .btn-primary,
+        .btn-outline {
+          padding: 12px 24px;
+          font-size: 0.9rem;
+        }
+        .container {
+          padding: 0 16px;
+        }
+        .hero-card .stat-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===== 导航 ===== -->
+    <nav class="navbar" id="navbar">
+      <div class="logo">📘 考试系统 <span>预览版</span></div>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#email">咨询 & 定制</a></li>
+        <li><a href="#modules">功能模块</a></li>
+        <li><a href="#promise">承诺</a></li>
+        <li><a href="#cta" class="nav-cta">立即体验</a></li>
+      </ul>
+      <button class="mobile-toggle" id="mobileToggle" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+
+    <!-- ===== HERO ===== -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-content">
+          <span class="hero-badge">🎯 预览版 · 即将上线</span>
+          <h1>
+            把时间还给教学，<br />
+            把精准留给<em>评价</em>。
+          </h1>
+          <div class="subhead">
+            考试系统预览版 即将上线，让组卷到阅卷全自动流转
+          </div>
+          <p class="desc">
+            告别手动排考、逐题批改、成绩统计的繁琐循环。<br />
+            从用户分组到自动收卷，<strong>6大模块无缝闭环</strong>，一次配置，全程无忧。
+          </p>
+          <div class="hero-actions">
+            <a href="#cta" class="btn-primary">🚀 立即体验</a>
+            <a href="#modules" class="btn-outline">查看模块</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <span style="font-weight: 700; color: var(--primary)"
+                >闭环效率</span
+              >
+              <span class="promise-tag">✨ 全自动</span>
+            </div>
+            <div class="stat-grid">
+              <div class="stat-item">
+                <div class="number">10min</div>
+                <div class="label">排考时间</div>
+              </div>
+              <div class="stat-item">
+                <div class="number">70%</div>
+                <div class="label">阅卷减负</div>
+              </div>
+              <div class="stat-item">
+                <div class="number">0</div>
+                <div class="label">投诉工单</div>
+              </div>
+              <div class="stat-item">
+                <div class="number">∞</div>
+                <div class="label">稳定并发</div>
+              </div>
+            </div>
+            <div
+              style="
+                margin-top: 12px;
+                font-size: 0.8rem;
+                color: var(--text-light);
+                text-align: center;
+              "
+            >
+              ⚡ 分组 → 组卷 → 答题 → 收卷 → 阅卷 → 出分
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 六大功能模块 ===== -->
+    <section class="modules" id="modules">
+      <div class="container">
+        <div class="section-center">
+          <h2 class="section-title">⚙️ 六大功能模块</h2>
+          <p class="section-subtitle">从组卷到出分，每一个环节都为你精雕细琢</p>
+        </div>
+        <div class="modules-grid">
+          <!-- 模块1 -->
+          <div class="module-card">
+            <span class="module-icon">👥</span>
+            <h3>用户分组</h3>
+            <span class="tagline">「3步完成万人考场编排」</span>
+            <p>
+              不再依赖Excel反复筛选。支持按班级、院系、角色一键分组，不同考生组自动匹配不同试卷与权限。
+            </p>
+            <span class="harvest"
+              ><strong>你的收获：</strong
+              >原本2天的排考工作，压缩到<strong>10分钟</strong>。</span
+            >
+          </div>
+
+          <!-- 模块2 -->
+          <div class="module-card">
+            <span class="module-icon">📝</span>
+            <h3>单选 · 多选 · 填空</h3>
+            <span class="tagline">「三大题型，覆盖日常测评全场景」</span>
+            <p>
+              从客观判断到精确拼写，我们打磨了最稳定的作答交互——误触？漏填？跳题？统统有防呆设计。
+            </p>
+            <span class="harvest"
+              ><strong>你的收获：</strong
+              >考生投诉“系统不好用”的工单，<strong>趋近于零</strong>。</span
+            >
+          </div>
+
+          <!-- 模块3 -->
+          <div class="module-card">
+            <span class="module-icon">🧠</span>
+            <h3>多种自动阅卷规则</h3>
+            <span class="tagline">「柔性判分，比人工更懂“酌情”」</span>
+            <p>
+              支持严格匹配、部分给分、关键词命中、多答案等效……哪怕填空题表述不同，系统也能智能识别。
+            </p>
+            <span class="harvest"
+              ><strong>你的收获：</strong
+              >主观题阅卷工作量减少<strong>70%</strong>，再也不会有“手抖批错分”的尴尬。</span
+            >
+          </div>
+
+          <!-- 模块4 -->
+          <div class="module-card">
+            <span class="module-icon">🎲</span>
+            <h3>高性能随机组卷</h3>
+            <span class="tagline">「点一下，卷子就出好了」</span>
+            <p>
+              按知识点、难度、题型设好规则，系统毫秒级抽题组卷。支持“同卷异序”或“千人千卷”。
+            </p>
+            <span class="harvest"
+              ><strong>你的收获：</strong
+              >组卷从“熬夜搭配”变成<strong>“喝口水就完成”</strong>，且邻座考生题目顺序完全不同，<strong>监考压力直降一半</strong>。</span
+            >
+          </div>
+
+          <!-- 模块5 -->
+          <div class="module-card">
+            <span class="module-icon">⚡</span>
+            <h3>高性能答题</h3>
+            <span class="tagline">「数千人同时作答，服务器稳如老狗」</span>
+            <p>
+              采用异步队列与缓存优化，交卷即走，绝不转圈。网络断了？答案早就在云端存好了。
+            </p>
+            <span class="harvest"
+              ><strong>你的收获：</strong
+              >考试当天<strong>不用守在机房</strong>，系统替你站好每一班岗。</span
+            >
+          </div>
+
+          <!-- 模块6 -->
+          <div class="module-card">
+            <span class="module-icon">⏰</span>
+            <h3>自动收卷</h3>
+            <span class="tagline">「到点即收，不用扯着嗓子喊“停笔”」</span>
+            <p>
+              到达预设截止时间，系统强制自动提交。未交卷？网络波动？系统后台实时守护每一份答卷。
+            </p>
+            <span class="harvest"
+              ><strong>你的收获：</strong
+              >收卷环节<strong>零争执、零遗漏</strong>，成绩准时生成。</span
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 承诺表格（侧边栏风格） ===== -->
+    <section class="promise-section" id="promise">
+      <div class="container promise-grid">
+        <div>
+          <h2 class="section-title">📋 给管理者的“一句话承诺”</h2>
+          <p class="section-subtitle" style="margin-bottom: 24px">
+            你操心的事，系统替你做的事
+          </p>
+          <div class="promise-table-wrap">
+            <table class="promise-table">
+              <thead>
+                <tr>
+                  <th>你操心的事</th>
+                  <th>系统替你做的事</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>考生信息整理</td>
+                  <td>一键导入，自动分组</td>
+                </tr>
+                <tr>
+                  <td>试卷难易搭配</td>
+                  <td>按规则随机抽取，自动平衡</td>
+                </tr>
+                <tr>
+                  <td>考试中途断网</td>
+                  <td>实时草稿保存，重连即续答</td>
+                </tr>
+                <tr>
+                  <td>收卷后统计成绩</td>
+                  <td>自动判卷 + 生成班级分析报告</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="promise-highlight">
+          <span class="big-icon">🛡️</span>
+          <h3>零运维 · 全自动闭环</h3>
+          <p>
+            <strong>预览版已实现全流程闭环：</strong><br />
+            分组 → 组卷 → 答题 → 收卷 → 阅卷 → 出分<br /><br />
+            你只负责出题，剩下的重复劳动，交给系统。
+          </p>
+          <div
+            style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap"
+          >
+            <span
+              style="
+                background: var(--primary);
+                color: #fff;
+                padding: 4px 16px;
+                border-radius: 40px;
+                font-size: 0.8rem;
+              "
+              >✅ 零争执</span
+            >
+            <span
+              style="
+                background: var(--primary);
+                color: #fff;
+                padding: 4px 16px;
+                border-radius: 40px;
+                font-size: 0.8rem;
+              "
+              >✅ 零遗漏</span
+            >
+            <span
+              style="
+                background: var(--primary);
+                color: #fff;
+                padding: 4px 16px;
+                border-radius: 40px;
+                font-size: 0.8rem;
+              "
+              >✅ 准时出分</span
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CTA 行动召唤 ===== -->
+    <section class="cta-section" id="cta">
+      <div class="container">
+        <h2>🚀 把时间还给教学</h2>
+        <div class="flow">
+          <strong>分组</strong> → <strong>组卷</strong> →
+          <strong>答题</strong> → <strong>收卷</strong> →
+          <strong>阅卷</strong> → <strong>出分</strong>
+        </div>
+        <p class="sub">
+          你只负责出题，剩下的重复劳动，交给系统。<br />
+          预览版已实现全流程闭环，一次配置，全程无忧。
+        </p>
+        <div class="cta-buttons">
+          <a href="#" class="btn-cta-primary">👉 立即体验</a>
+          <a href="#" class="btn-cta-outline">📖 查看文档</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 底部 ===== -->
+    <footer class="footer">
+      <div class="container">
+        <div class="social">
+          <a id="email" href="#email">📧 hollow264@163.com</a>
+          <!-- <a href="#">💬 讨论区</a> -->
+        </div>
+        <p style="margin-top: 8px">
+          &copy; 2026 FastQuiz · 预览版 · 把时间还给教学，把精准留给评价。
+        </p>
+      </div>
+    </footer>
+
+    <!-- ===== JavaScript ===== -->
+    <script>
+      (function () {
+        "use strict";
+
+        // 移动端菜单切换
+        const toggle = document.getElementById("mobileToggle");
+        const navLinks = document.getElementById("navLinks");
+
+        if (toggle && navLinks) {
+          toggle.addEventListener("click", function (e) {
+            e.stopPropagation();
+            navLinks.classList.toggle("open");
+          });
+
+          navLinks.querySelectorAll("a").forEach(function (link) {
+            link.addEventListener("click", function () {
+              navLinks.classList.remove("open");
+            });
+          });
+
+          document.addEventListener("click", function (e) {
+            if (!navLinks.contains(e.target) && !toggle.contains(e.target)) {
+              navLinks.classList.remove("open");
+            }
+          });
+        }
+
+        // 导航滚动效果
+        const navbar = document.getElementById("navbar");
+        function handleScroll() {
+          if (window.scrollY > 20) {
+            navbar.classList.add("scrolled");
+          } else {
+            navbar.classList.remove("scrolled");
+          }
+        }
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        handleScroll();
+
+        // 平滑锚点跳转
+        document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+          anchor.addEventListener("click", function (e) {
+            const href = this.getAttribute("href");
+            if (href === "#") return;
+            const target = document.querySelector(href);
+            if (target) {
+              e.preventDefault();
+              const offsetTop =
+                target.getBoundingClientRect().top + window.pageYOffset - 80;
+              window.scrollTo({
+                top: offsetTop,
+                behavior: "smooth",
+              });
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

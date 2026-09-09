@@ -1,0 +1,4 @@
+{
+  "apiBaseUrl": "https://localhost:7040",
+  "timeout": 10000
+}

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://fqz.02888888.xyz/sitemap.xml
