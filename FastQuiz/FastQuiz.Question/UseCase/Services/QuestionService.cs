@@ -8,6 +8,7 @@ using FastQuiz.Common.Validation;
 using FastQuiz.Question.Domain.Entities;
 using FastQuiz.Question.Domain.Exceptions;
 using FastQuiz.Question.Domain.Repositories;
+using FastQuiz.Question.Domain.Servcies;
 using FastQuiz.Question.UseCase.Command;
 using FastQuiz.Question.UseCase.Dto;
 using FastQuiz.Question.UseCase.Extensions;
@@ -27,7 +28,8 @@ public class QuestionService(
     IValidator<CreateQuestionCommand> _createQuestionCommandValidator,
     IValidator<UpdateQuestionCommand> _updateQuestionCommandValidator,
     IValidator<GetAllQuestionQuery> _getAllQuestionQueryQueryValidator,
-    IMapper _mapper
+    IMapper _mapper,
+    IQuestionRandomPicker _questionRandomPicker
 ) : IQuestionService
 {
     private readonly IEasyCachingProvider _cache =
@@ -168,80 +170,11 @@ public class QuestionService(
             .GetQuestionGroupByIdAsync(userId, tenantId, groupId)
             .ConfigureAwait(false);
 
-        var cachingKey = QuestionIdListCacheKey(groupId, query.Type, query.Level);
+        var result = await _questionRandomPicker
+            .PickAsync(groupId, query.Type, query.Level, query.Count)
+            .ConfigureAwait(false);
 
-        var cached = await _cache.GetAsync<IReadOnlyList<string>>(cachingKey).ConfigureAwait(false);
-
-        if (cached.HasValue)
-        {
-            var resultIds = RandomPick(cached.Value, query.Count);
-            var result = await _questionRepository.GetByIdAsync(resultIds).ConfigureAwait(false);
-            return [.. result.Select(x => _mapper.Map<QuestionDto>(x))];
-        }
-
-        var lockObj = _cacheLocks.GetOrAdd(cachingKey, new SemaphoreSlim(1, 1));
-        await lockObj.WaitAsync().ConfigureAwait(false);
-
-        try
-        {
-            var doubleCheck = await _cache
-                .GetAsync<IReadOnlyList<string>>(cachingKey)
-                .ConfigureAwait(false);
-            if (doubleCheck.HasValue)
-            {
-                var resultIdList = RandomPick(doubleCheck.Value, query.Count);
-                var resultQuestions = await _questionRepository
-                    .GetByIdAsync(resultIdList)
-                    .ConfigureAwait(false);
-                return [.. resultQuestions.Select(x => _mapper.Map<QuestionDto>(x))];
-            }
-
-            var idList = await _questionRepository
-                .GetQuestionIdsAsync(groupId, query.Type, query.Level)
-                .ConfigureAwait(false);
-
-            var expires = GetRandomExpiration();
-            await _cache.SetAsync(cachingKey, idList, expires).ConfigureAwait(false);
-
-            var resultIds = RandomPick(idList, query.Count);
-            var result = await _questionRepository.GetByIdAsync(resultIds).ConfigureAwait(false);
-            return [.. result.Select(x => _mapper.Map<QuestionDto>(x))];
-        }
-        finally
-        {
-            lockObj.Release();
-        }
-    }
-
-    private static TimeSpan GetRandomExpiration()
-    {
-        var baseExpiration = TimeSpan.FromHours(1);
-        var offsetMinutes = Random.Shared.Next(-10, 10);
-        return baseExpiration.Add(TimeSpan.FromMinutes(offsetMinutes));
-    }
-
-    private static IReadOnlyList<string> RandomPick(IReadOnlyList<string> idList, int count)
-    {
-        if (idList == null || idList.Count == 0 || count <= 0)
-        {
-            return [];
-        }
-
-        if (idList.Count < count)
-        {
-            throw new InsufficientQuestionException(idList.Count, count);
-        }
-
-        var list = idList.ToList();
-        var random = new Random();
-
-        for (int i = 0; i < count; i++)
-        {
-            int j = random.Next(i, list.Count);
-            (list[i], list[j]) = (list[j], list[i]);
-        }
-
-        return [.. list.Take(count)];
+        return [.. result.Select(x => _mapper.Map<QuestionDto>(x))];
     }
 
     public async Task UpdateQuestionAsync(
@@ -272,6 +205,8 @@ public class QuestionService(
         result.SetMarkupContent(command.Content);
         result.SetLevel(command.Level);
         result.SetType(command.Type);
+        result.SetRemark(command.Remark);
+
         var answers = command
             .Answers.Select(x => new QuestionAnswer(
                 _idGenerator.GenerateUlId(),
@@ -308,7 +243,7 @@ public class QuestionService(
             return;
         }
 
-        var group = await _questionGroupService
+        await _questionGroupService
             .GetQuestionGroupByIdAsync(userId, tenantId, question.GroupId)
             .ConfigureAwait(false);
 

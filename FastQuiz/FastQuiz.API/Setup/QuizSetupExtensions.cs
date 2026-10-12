@@ -1,4 +1,4 @@
-﻿using FastQuiz.Quiz.Infrastructure.Repositories;
+﻿using FastQuiz.API.Extensions;
 using FastQuiz.Quiz.Interface.Setup;
 
 namespace FastQuiz.API.Setup;
@@ -10,11 +10,11 @@ public static class QuizSetupExtensions
         IConfiguration configuration
     )
     {
-        var dbSetting = configuration.GetSection("Quiz").Get<QuizDbContextSettings>();
+        var quizDbInfo = configuration.GetQuizDatabaseConnection();
         services.AddQuizService(db =>
         {
-            db.ConnectionString = dbSetting.ConnectionString;
-            Console.WriteLine("Auth db connection is {0}", dbSetting.ConnectionString);
+            db.ConnectionString = quizDbInfo.ConnectionString;
+            db.Type = quizDbInfo.Type;
         });
         return services;
     }

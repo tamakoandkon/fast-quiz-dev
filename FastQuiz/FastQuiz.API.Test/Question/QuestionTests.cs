@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using FastQuiz.API.Test.Utils;
 using FastQuiz.API.Test.Utils.Helpers;
+using static FastQuiz.API.Test.Utils.Helpers.QuestionHelperExtensions;
 using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Question.Domain.Entities;
 using FastQuiz.Question.UseCase.Command;
@@ -24,7 +25,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var question = SeedDefaultCreateQuestionCommand();
 
         // Act
@@ -72,7 +73,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var question = new CreateQuestionCommand(content, level, QuestionType.SingleChoice, []);
 
         // Act
@@ -91,7 +92,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(Guid.NewGuid().ToString());
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var question = SeedDefaultCreateQuestionCommand();
 
         // Act
@@ -127,7 +128,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var command = SeedDefaultCreateQuestionCommand();
         var createdQuestion = await Sut.CreateQuestionAsync(userId, group.Id, command);
 
@@ -163,7 +164,7 @@ internal class QuestionTests : ApiTestBase
         var userId = User.DefaultAdminId;
         var otherUserId = Guid.NewGuid().ToString();
         var client = Sut.CreateClient(otherUserId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var command = SeedDefaultCreateQuestionCommand();
         var createdQuestion = await Sut.CreateQuestionAsync(userId, group.Id, command);
 
@@ -195,7 +196,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var questions = new List<QuestionDto>();
 
         for (int i = 0; i < 5; i++)
@@ -225,7 +226,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var questions = new List<QuestionDto>();
 
         // Create 5 questions
@@ -275,7 +276,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var questions = new List<QuestionDto>();
 
         // Create questions with different types and levels
@@ -317,7 +318,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var questions = new List<QuestionDto>();
 
         // Create 5 questions
@@ -371,7 +372,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var command = SeedDefaultCreateQuestionCommand();
         var createdQuestion = await Sut.CreateQuestionAsync(userId, group.Id, command);
         var putCommand = SeedDefaultUpdateQuestionCommand();
@@ -459,7 +460,7 @@ internal class QuestionTests : ApiTestBase
         var userId = User.DefaultAdminId;
         var otherUserId = Guid.NewGuid().ToString();
         var client = Sut.CreateClient(otherUserId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var command = SeedDefaultCreateQuestionCommand();
         var createdQuestion = await Sut.CreateQuestionAsync(userId, group.Id, command);
         var putCommand = SeedDefaultUpdateQuestionCommand();
@@ -497,7 +498,7 @@ internal class QuestionTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var command = SeedDefaultCreateQuestionCommand();
         var createdQuestion = await Sut.CreateQuestionAsync(userId, group.Id, command);
 
@@ -531,7 +532,7 @@ internal class QuestionTests : ApiTestBase
         var userId = User.DefaultAdminId;
         var otherUserId = Guid.NewGuid().ToString();
         var client = Sut.CreateClient(otherUserId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var command = SeedDefaultCreateQuestionCommand();
         var createdQuestion = await Sut.CreateQuestionAsync(userId, group.Id, command);
 
@@ -555,61 +556,134 @@ internal class QuestionTests : ApiTestBase
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    private async Task<QuestionGroupDto> CreateRamdomQuestionGroupAsync(string userId)
+    [Test]
+    public async Task GetAllQuestion_WhenLevelIsProvided_ShouldReturnQuestionsOfMatchLevel()
     {
-        var command = new CreateQuestionGroupCommand(
-            Guid.NewGuid().ToString(),
-            Guid.NewGuid().ToString()
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+
+        var level1Question = await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.SingleChoice, 1)
         );
-        return await Sut.CreateQuestionGroupAsync(userId, command);
+        await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.SingleChoice, 2)
+        );
+        await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.SingleChoice, 3)
+        );
+
+        // Act — 只按 level 过滤（type 传 null）
+        var response = await client.GetAsync(
+            UrlPackage.Question(group.Id, cursor: null, count: 10, type: null, level: 1)
+        );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var result = await response.ReadFromJsonWithEnumAsync<List<QuestionDto>>();
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(1);
+        result.Single().Id.ShouldBe(level1Question.Id);
+        result.Single().Level.ShouldBe(1);
     }
 
-    private static CreateQuestionCommand SeedDefaultCreateQuestionCommand(
-        QuestionType type = QuestionType.SingleChoice,
-        int level = 0
-    )
+    [Test]
+    public async Task GetAllQuestion_WhenGroupDoesNotOwnedUser_ShouldReturnForbidden()
     {
-        return new CreateQuestionCommand(
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(Guid.NewGuid().ToString());
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+        await Sut.CreateQuestionAsync(userId, group.Id, SeedDefaultCreateQuestionCommand());
+
+        // Act
+        var response = await client.GetAsync(
+            UrlPackage.Question(group.Id, cursor: null, count: 10)
+        );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Test]
+    public async Task PostQuestion_ShouldPersistAnswers()
+    {
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+        var command = SeedDefaultCreateQuestionCommand();
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            UrlPackage.QuestionWithGroupId(group.Id),
+            command
+        );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var result = await response.ReadFromJsonWithEnumAsync<QuestionDto>();
+        result.ShouldNotBeNull();
+        result.Answers.Count.ShouldBe(command.Answers.Count);
+
+        var createdQuestion = await Sut.GetQuestionByIdAsync(result.Id);
+        createdQuestion.ShouldNotBeNull();
+        createdQuestion.Answers.Count.ShouldBe(command.Answers.Count);
+        createdQuestion
+            .Answers.Select(a => a.SortOrder)
+            .OrderBy(x => x)
+            .ShouldBe(command.Answers.Select(a => a.SortOrder).OrderBy(x => x));
+    }
+
+    [Test]
+    public async Task PutQuestion_ShouldReplaceAnswers()
+    {
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+        var createdQuestion = await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand()
+        );
+        var putCommand = new UpdateQuestionCommand(
             Guid.NewGuid().ToString(),
-            level,
-            type,
+            2,
+            QuestionType.FillIn,
             [
                 new CreateQuestionAnswerCommand(
                     Guid.NewGuid().ToString(),
-                    false,
-                    0,
-                    MatchStrategy.Manual
-                ),
-                new CreateQuestionAnswerCommand(
-                    Guid.NewGuid().ToString(),
                     true,
-                    1,
+                    0,
                     MatchStrategy.Manual
                 ),
             ]
         );
-    }
 
-    private static UpdateQuestionCommand SeedDefaultUpdateQuestionCommand()
-    {
-        return new UpdateQuestionCommand(
-            Guid.NewGuid().ToString(),
-            1,
-            QuestionType.MultipleChoice,
-            [
-                new CreateQuestionAnswerCommand(
-                    Guid.NewGuid().ToString(),
-                    true,
-                    0,
-                    MatchStrategy.Manual
-                ),
-                new CreateQuestionAnswerCommand(
-                    Guid.NewGuid().ToString(),
-                    true,
-                    1,
-                    MatchStrategy.Manual
-                ),
-            ]
+        // Act
+        var response = await client.PutAsJsonAsync(
+            UrlPackage.Question(createdQuestion.Id),
+            putCommand
         );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var result = await Sut.GetQuestionByIdAsync(createdQuestion.Id);
+        result.ShouldNotBeNull();
+        result.MarkupContent.ShouldBe(putCommand.Content);
+        result.Level.ShouldBe(putCommand.Level);
+        result.Type.ShouldBe(putCommand.Type);
+
+        // 旧答案被整体替换为新的单条答案
+        result.Answers.Count.ShouldBe(putCommand.Answers.Count);
+        result.Answers.Single().SortOrder.ShouldBe(0);
     }
 }

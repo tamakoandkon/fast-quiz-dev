@@ -2,6 +2,7 @@
 using FastQuiz.Question.Domain.Exceptions;
 using FastQuiz.Question.Domain.Repositories;
 using FastQuiz.Question.Test.Infrastructure.Repositories.Utils;
+using FastQuiz.Test.Common;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using Q = FastQuiz.Question.Domain.Entities.Question;
@@ -28,6 +29,31 @@ public abstract class QuestionGroupRepositoryTestsBase
         var result = await Sut.FindByIdAsync(group.Id);
         result.ShouldNotBeNull();
         result.Id.ShouldBe(group.Id);
+    }
+
+    [Test]
+    public async Task Create_ShouldPersistAllFields()
+    {
+        // Arrange
+        var id = TestId.New();
+        var ownerId = TestId.New();
+        var group = QuestionGroupBuilder
+            .New()
+            .WithId(id)
+            .WithOwnerId(ownerId)
+            .WithName("GroupName")
+            .WithRemark("GroupRemark")
+            .Build();
+
+        // Act
+        await Sut.CreateAsync(group);
+
+        // Assert
+        var result = await Sut.FindByIdAsync(id);
+        result.ShouldNotBeNull();
+        result.OwnerId.ShouldBe(ownerId);
+        result.Name.ShouldBe("GroupName");
+        result.Remark.ShouldBe("GroupRemark");
     }
 
     [Test]
@@ -94,6 +120,26 @@ public abstract class QuestionGroupRepositoryTestsBase
     }
 
     [Test]
+    public async Task FindByIds_WhenSomeIdsMissing_ShouldReturnOnlyExisting()
+    {
+        // Arrange
+        var groups = QuestionGroupBuilder.New().BuildMany(2);
+        foreach (var group in groups)
+        {
+            await Sut.CreateAsync(group);
+        }
+
+        // Act
+        var result = await Sut.FindByIdAsync(
+            [.. groups.Select(x => x.Id), TestId.New(), TestId.New()]
+        );
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result.Select(x => x.Id).ShouldBe(groups.Select(g => g.Id), ignoreOrder: true);
+    }
+
+    [Test]
     public async Task FindByIds_WhenGroupDoesNotExist_ShouldReturnEmpty()
     {
         // Arrange
@@ -119,6 +165,47 @@ public abstract class QuestionGroupRepositoryTestsBase
         // Assert
         result.ShouldNotBeNull();
         result.Id.ShouldBe(group.Id);
+    }
+
+    [Test]
+    public async Task FindDtoById_WhenGroupHasQuestions_ShouldReturnQuestionCount()
+    {
+        // Arrange
+        var groupId = TestId.New();
+        var group = QuestionGroupBuilder.New().WithId(groupId).Build();
+        await Sut.CreateAsync(group);
+
+        var answers = new List<QuestionAnswer>();
+        await AddQuestionsAsync(
+            [
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId, answers),
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId, answers),
+                new Q(TestId.New(), QuestionType.FillIn, 1, "C", null, groupId, answers),
+            ]
+        );
+
+        // Act
+        var result = await Sut.FindDtoByIdAsync(groupId);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Id.ShouldBe(groupId);
+        result.Count.ShouldBe(3);
+    }
+
+    [Test]
+    public async Task FindDtoById_WhenGroupHasNoQuestions_ShouldReturnZeroCount()
+    {
+        // Arrange
+        var groupId = TestId.New();
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(groupId).Build());
+
+        // Act
+        var result = await Sut.FindDtoByIdAsync(groupId);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Count.ShouldBe(0);
     }
 
     [Test]
@@ -162,19 +249,23 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetAll_WhenForwardPagination_ShouldReturnNextPage()
     {
         // Arrange
+        var prefix = TestId.RandomToken();
         var builder = QuestionGroupBuilder.New().WithRandomOwnerId();
         var groups = Enumerable
             .Range(1, 5)
-            .Select(i => builder.WithId(i.ToString().PadLeft(3, '0')).Build())
+            .Select(i => builder.WithId(TestId.Sortable(i, prefix)).Build())
             .ToList();
 
         foreach (var g in groups)
             await Sut.CreateAsync(g);
 
+        // 取第 4 条（倒序第 2 条）的 Id 作为游标
+        var cursor = TestId.Sortable(4, prefix);
+
         // Act:
         var result = await Sut.GetAllAsync(
             groups[0].OwnerId,
-            cursor: "004",
+            cursor: cursor,
             count: 2,
             isPrevious: false,
             null
@@ -185,28 +276,29 @@ public abstract class QuestionGroupRepositoryTestsBase
         var inputIds = groups.Select(g => g.Id).ToHashSet();
         result.All(r => inputIds.Contains(r.Id)).ShouldBeTrue();
 
-        result.All(r => string.Compare(r.Id, "004", StringComparison.Ordinal) < 0).ShouldBeTrue();
+        result.All(r => string.Compare(r.Id, cursor, StringComparison.Ordinal) < 0).ShouldBeTrue();
 
         var ids = result.Select(r => r.Id).ToList();
-        ids[0].ShouldBe("003");
-        ids[1].ShouldBe("002");
+        ids[0].ShouldBe(TestId.Sortable(3, prefix));
+        ids[1].ShouldBe(TestId.Sortable(2, prefix));
     }
 
     [Test]
     public async Task GetAll_WhenPreviousPagination_ShouldReturnPreviousPageInCorrectOrder()
     {
         // Arrange
+        var prefix = TestId.RandomToken();
         var builder = QuestionGroupBuilder.New().WithRandomOwnerId();
         var groups = Enumerable
             .Range(1, 5)
-            .Select(i => builder.WithId(i.ToString().PadLeft(3, '0')).Build())
+            .Select(i => builder.WithId(TestId.Sortable(i, prefix)).Build())
             .ToList();
 
         foreach (var g in groups)
             await Sut.CreateAsync(g);
 
         // Act:
-        var cursor = "002";
+        var cursor = TestId.Sortable(2, prefix);
         var count = 2;
         var result = await Sut.GetAllAsync(
             groups[0].OwnerId,
@@ -235,15 +327,16 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetAll_WhenNamePrefixProvided_ShouldReturnOnlyGroupsWithMatchingNamePrefix()
     {
         // Arrange
+        var prefix = TestId.RandomToken();
         var builder = QuestionGroupBuilder.New().WithRandomOwnerId();
 
         var groups = new List<QuestionGroup>
         {
-            builder.WithId("001").WithName("Math_Primary").Build(),
-            builder.WithId("002").WithName("Math_Junior").Build(),
-            builder.WithId("003").WithName("Chinese_Primary").Build(),
-            builder.WithId("004").WithName("English_High").Build(),
-            builder.WithId("005").WithName("Math_High").Build(),
+            builder.WithId(TestId.Sortable(1, prefix)).WithName("Math_Primary").Build(),
+            builder.WithId(TestId.Sortable(2, prefix)).WithName("Math_Junior").Build(),
+            builder.WithId(TestId.Sortable(3, prefix)).WithName("Chinese_Primary").Build(),
+            builder.WithId(TestId.Sortable(4, prefix)).WithName("English_High").Build(),
+            builder.WithId(TestId.Sortable(5, prefix)).WithName("Math_High").Build(),
         };
 
         foreach (var g in groups)
@@ -258,17 +351,176 @@ public abstract class QuestionGroupRepositoryTestsBase
             namePrefix: "Math_"
         );
 
-        // Assert
+        // Assert — 命中 3 条，按 Id 倒序：第 5、2、1 条
         result.Count.ShouldBe(3);
-        result.Select(r => r.Id).ShouldBe(["005", "002", "001"]);
+        result
+            .Select(r => r.Id)
+            .ShouldBe([TestId.Sortable(5, prefix), TestId.Sortable(2, prefix), TestId.Sortable(1, prefix)]);
         result.All(r => r.Name.StartsWith("Math_")).ShouldBeTrue();
+    }
+
+    [Test]
+    public async Task GetAll_ShouldExposeQuestionCountPerGroup()
+    {
+        // Arrange
+        var ownerId = TestId.New();
+        var groupId1 = TestId.New();
+        var groupId2 = TestId.New();
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(groupId1).WithOwnerId(ownerId).Build());
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(groupId2).WithOwnerId(ownerId).Build());
+
+        var answers = new List<QuestionAnswer>();
+        await AddQuestionsAsync(
+            [
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId1, answers),
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId1, answers),
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId2, answers),
+            ]
+        );
+
+        // Act
+        var result = await Sut.GetAllAsync(
+            ownerId,
+            cursor: null,
+            count: 10,
+            isPrevious: false,
+            null
+        );
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result.Single(x => x.Id == groupId1).Count.ShouldBe(2);
+        result.Single(x => x.Id == groupId2).Count.ShouldBe(1);
+    }
+
+    [Test]
+    public async Task GetAll_ShouldNotReturnOtherOwnersGroups()
+    {
+        // Arrange
+        var myOwnerId = TestId.New();
+        var otherOwnerId = TestId.New();
+
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithOwnerId(myOwnerId).Build());
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithOwnerId(myOwnerId).Build());
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithOwnerId(otherOwnerId).Build());
+
+        // Act
+        var result = await Sut.GetAllAsync(
+            myOwnerId,
+            cursor: null,
+            count: 10,
+            isPrevious: false,
+            null
+        );
+
+        // Assert
+        result.Count.ShouldBe(2);
+        result.ShouldAllBe(x => x.OwnerId == myOwnerId);
+    }
+
+    [Test]
+    public async Task GetAll_WhenOwnerHasNoGroups_ShouldReturnEmpty()
+    {
+        // Arrange
+        var ownerId = TestId.New();
+
+        // Act
+        var result = await Sut.GetAllAsync(
+            ownerId,
+            cursor: null,
+            count: 10,
+            isPrevious: false,
+            null
+        );
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetAll_WhenNamePrefixAndPagingCombined_ShouldApplyBoth()
+    {
+        // Arrange
+        var ownerId = TestId.New();
+        var idPrefix = TestId.RandomToken();
+        var mathPrefix = $"Math_{TestId.RandomToken()}_";
+        var groups = new List<QuestionGroup>
+        {
+            QuestionGroupBuilder.New().WithId(TestId.Sortable(1, idPrefix)).WithOwnerId(ownerId).WithName($"{mathPrefix}P1").Build(),
+            QuestionGroupBuilder.New().WithId(TestId.Sortable(2, idPrefix)).WithOwnerId(ownerId).WithName($"{mathPrefix}P2").Build(),
+            QuestionGroupBuilder.New().WithId(TestId.Sortable(3, idPrefix)).WithOwnerId(ownerId).WithName($"{mathPrefix}P3").Build(),
+            QuestionGroupBuilder.New().WithId(TestId.Sortable(4, idPrefix)).WithOwnerId(ownerId).WithName("Chinese").Build(),
+        };
+        foreach (var g in groups)
+            await Sut.CreateAsync(g);
+
+        // Act — 只取 Math_ 前缀，按 Id 倒序，每页 2 条
+        var page1 = await Sut.GetAllAsync(
+            ownerId,
+            cursor: null,
+            count: 2,
+            isPrevious: false,
+            mathPrefix
+        );
+
+        // Assert — 命中 Math_ 的三条按 Id 倒序取前 2 条
+        page1.Count.ShouldBe(2);
+        page1.Select(x => x.Id).ShouldBe([TestId.Sortable(3, idPrefix), TestId.Sortable(2, idPrefix)]);
+        page1.ShouldAllBe(x => x.Name.StartsWith(mathPrefix));
+    }
+
+    [Test]
+    public async Task GetAll_WhenPreviousPageAfterForwardRoundTrip_ShouldReturnFirstPageIds()
+    {
+        // Arrange
+        var ownerId = TestId.New();
+        var prefix = TestId.RandomToken();
+        var groups = Enumerable
+            .Range(1, 5)
+            .Select(i =>
+                QuestionGroupBuilder
+                    .New()
+                    .WithId(TestId.Sortable(i, prefix))
+                    .WithOwnerId(ownerId)
+                    .Build()
+            )
+            .ToList();
+        foreach (var g in groups)
+            await Sut.CreateAsync(g);
+
+        var descendingIds = groups.Select(g => g.Id).OrderByDescending(x => x).ToList();
+
+        // Act — page1（首页 2 条）→ page2（下一页）→ 再向前翻回
+        var page1 = await Sut.GetAllAsync(ownerId, cursor: null, count: 2, isPrevious: false, null);
+        page1.Select(x => x.Id).ShouldBe(descendingIds.Take(2));
+
+        var page2 = await Sut.GetAllAsync(
+            ownerId,
+            cursor: page1[^1].Id,
+            count: 2,
+            isPrevious: false,
+            null
+        );
+        page2.Select(x => x.Id).ShouldBe(descendingIds.Skip(2).Take(2));
+
+        var back = await Sut.GetAllAsync(
+            ownerId,
+            cursor: page2[0].Id,
+            count: 2,
+            isPrevious: true,
+            null
+        );
+
+        // Assert — 向前翻回首页，顺序保持 Id 倒序
+        back.Select(x => x.Id).ShouldBe(descendingIds.Take(2));
     }
 
     [Test]
     public async Task GetCountByGroupIdAsync_WhenQuestionsExist_ShouldReturnCorrectCount()
     {
         // Arrange
-        var groupId = "TEST_GROUP_001";
+        var groupId = TestId.New();
         var questionType = QuestionType.SingleChoice;
         var level = 2;
 
@@ -282,12 +534,12 @@ public abstract class QuestionGroupRepositoryTestsBase
         var questions = new List<Q>
         {
             // 匹配的题目（3条）
-            new Q("Q001", QuestionType.SingleChoice, 2, "Test Q1 Content", null, groupId, answers),
-            new Q("Q002", QuestionType.SingleChoice, 2, "Test Q2 Content", null, groupId, answers),
-            new Q("Q003", QuestionType.SingleChoice, 2, "Test Q3 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 2, "Test Q1 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 2, "Test Q2 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 2, "Test Q3 Content", null, groupId, answers),
             // 不匹配的题目（2条）
             new Q(
-                "Q004",
+                TestId.New(),
                 QuestionType.MultipleChoice,
                 2,
                 "Test Q4 Content",
@@ -295,7 +547,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 groupId,
                 answers
             ),
-            new Q("Q005", QuestionType.SingleChoice, 3, "Test Q5 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 3, "Test Q5 Content", null, groupId, answers),
         };
 
         await AddQuestionsAsync(questions);
@@ -311,7 +563,7 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetCountByGroupIdAsync_WhenNoMatchingQuestions_ShouldReturnZero()
     {
         // Arrange
-        var groupId = "TEST_GROUP_002";
+        var groupId = TestId.New();
         var questionType = QuestionType.SingleChoice;
         var level = 2;
 
@@ -321,7 +573,7 @@ public abstract class QuestionGroupRepositoryTestsBase
         // 添加一些不匹配的题目
         var answers = new List<QuestionAnswer>();
         var question = new Q(
-            "Q006",
+            TestId.New(),
             QuestionType.MultipleChoice,
             2,
             "Non-matching question content",
@@ -343,7 +595,7 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetCountByGroupIdAsync_WhenGroupDoesNotExist_ShouldReturnZero()
     {
         // Arrange
-        var nonExistentGroupId = "NON_EXISTENT_GROUP";
+        var nonExistentGroupId = TestId.New();
         var questionType = QuestionType.SingleChoice;
         var level = 2;
 
@@ -358,7 +610,7 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetCountByGroupIdAsync_WithDifferentLevels_ShouldCountCorrectly()
     {
         // Arrange
-        var groupId = "TEST_GROUP_003";
+        var groupId = TestId.New();
         var questionType = QuestionType.SingleChoice;
         var answers = new List<QuestionAnswer>();
 
@@ -369,7 +621,7 @@ public abstract class QuestionGroupRepositoryTestsBase
         var questions = new List<Q>
         {
             new Q(
-                "Q007",
+                TestId.New(),
                 QuestionType.SingleChoice,
                 1,
                 "Level 1 Q1 Content",
@@ -378,7 +630,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 answers
             ),
             new Q(
-                "Q008",
+                TestId.New(),
                 QuestionType.SingleChoice,
                 1,
                 "Level 1 Q2 Content",
@@ -387,7 +639,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 answers
             ),
             new Q(
-                "Q009",
+                TestId.New(),
                 QuestionType.SingleChoice,
                 2,
                 "Level 2 Q1 Content",
@@ -396,7 +648,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 answers
             ),
             new Q(
-                "Q010",
+                TestId.New(),
                 QuestionType.SingleChoice,
                 3,
                 "Level 3 Q1 Content",
@@ -423,7 +675,7 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetCountByGroupIdAsync_WithDifferentTypes_ShouldCountCorrectly()
     {
         // Arrange
-        var groupId = "TEST_GROUP_004";
+        var groupId = TestId.New();
         var level = 2;
         var answers = new List<QuestionAnswer>();
 
@@ -434,7 +686,7 @@ public abstract class QuestionGroupRepositoryTestsBase
         var questions = new List<Q>
         {
             new Q(
-                "Q011",
+                TestId.New(),
                 QuestionType.SingleChoice,
                 level,
                 "Single choice Q1 Content",
@@ -443,7 +695,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 answers
             ),
             new Q(
-                "Q012",
+                TestId.New(),
                 QuestionType.SingleChoice,
                 level,
                 "Single choice Q2 Content",
@@ -452,7 +704,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 answers
             ),
             new Q(
-                "Q013",
+                TestId.New(),
                 QuestionType.MultipleChoice,
                 level,
                 "Multiple choice Q1 Content",
@@ -461,7 +713,7 @@ public abstract class QuestionGroupRepositoryTestsBase
                 answers
             ),
             new Q(
-                "Q014",
+                TestId.New(),
                 QuestionType.FillIn,
                 level,
                 "True false Q1 Content",
@@ -496,8 +748,8 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task GetCountByGroupIdAsync_WithMixedData_ShouldReturnAccurateCount()
     {
         // Arrange
-        var groupId = "TEST_GROUP_005";
-        var otherGroupId = Guid.NewGuid().ToString();
+        var groupId = TestId.New();
+        var otherGroupId = TestId.New();
         var answers = new List<QuestionAnswer>();
 
         var group = QuestionGroupBuilder.New().WithId(groupId).Build();
@@ -510,15 +762,15 @@ public abstract class QuestionGroupRepositoryTestsBase
         var questions = new List<Q>
         {
             // Group A: SingleChoice, Level 1 (2条)
-            new Q("Q015", QuestionType.SingleChoice, 1, "SC L1 Q1 Content", null, groupId, answers),
-            new Q("Q016", QuestionType.SingleChoice, 1, "SC L1 Q2 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 1, "SC L1 Q1 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 1, "SC L1 Q2 Content", null, groupId, answers),
             // Group A: SingleChoice, Level 2 (3条)
-            new Q("Q017", QuestionType.SingleChoice, 2, "SC L2 Q1 Content", null, groupId, answers),
-            new Q("Q018", QuestionType.SingleChoice, 2, "SC L2 Q2 Content", null, groupId, answers),
-            new Q("Q019", QuestionType.SingleChoice, 2, "SC L2 Q3 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 2, "SC L2 Q1 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 2, "SC L2 Q2 Content", null, groupId, answers),
+            new Q(TestId.New(), QuestionType.SingleChoice, 2, "SC L2 Q3 Content", null, groupId, answers),
             // Group A: MultipleChoice, Level 1 (1条)
             new Q(
-                "Q020",
+                TestId.New(),
                 QuestionType.MultipleChoice,
                 1,
                 "MC L1 Q1 Content",
@@ -528,7 +780,7 @@ public abstract class QuestionGroupRepositoryTestsBase
             ),
             // 不同组ID的题目（不应被统计）
             new Q(
-                "Q021",
+                TestId.New(),
                 QuestionType.FillIn,
                 2,
                 "Other group Q Content",
@@ -552,6 +804,96 @@ public abstract class QuestionGroupRepositoryTestsBase
     }
 
     [Test]
+    public async Task GetStatistics_WithMixedQuestions_ShouldAggregateTotalTypeAndLevel()
+    {
+        // Arrange
+        var groupId = TestId.New();
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(groupId).Build());
+
+        var answers = new List<QuestionAnswer>();
+        await AddQuestionsAsync(
+            [
+                // SingleChoice: 3 题（Level 1 ×2, Level 2 ×1）
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId, answers),
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId, answers),
+                new Q(TestId.New(), QuestionType.SingleChoice, 2, "C", null, groupId, answers),
+                // MultipleChoice: 1 题（Level 2）
+                new Q(TestId.New(), QuestionType.MultipleChoice, 2, "C", null, groupId, answers),
+                // FillIn: 2 题（Level 3）
+                new Q(TestId.New(), QuestionType.FillIn, 3, "C", null, groupId, answers),
+                new Q(TestId.New(), QuestionType.FillIn, 3, "C", null, groupId, answers),
+            ]
+        );
+
+        // Act
+        var result = await Sut.GetStatisticsByGroupIdAsync(groupId);
+
+        // Assert — 总数
+        result.TotalCount.ShouldBe(6);
+
+        // 题型分项：按 Type 升序（SingleChoice0 / MultipleChoice1 / FillIn2）
+        result
+            .Types.Select(x => x.Type)
+            .ShouldBe(
+                [QuestionType.SingleChoice, QuestionType.MultipleChoice, QuestionType.FillIn]
+            );
+        result.Types.Single(x => x.Type == QuestionType.SingleChoice).Count.ShouldBe(3);
+        result.Types.Single(x => x.Type == QuestionType.MultipleChoice).Count.ShouldBe(1);
+        result.Types.Single(x => x.Type == QuestionType.FillIn).Count.ShouldBe(2);
+
+        // 难度分项：按 Level 升序，且基于题库全量题目（不受题型筛选影响）
+        result.Levels.Select(x => x.Level).ShouldBe([1, 2, 3]);
+        result.Levels.Single(x => x.Level == 1).Count.ShouldBe(2);
+        result.Levels.Single(x => x.Level == 2).Count.ShouldBe(2);
+        result.Levels.Single(x => x.Level == 3).Count.ShouldBe(2);
+    }
+
+    [Test]
+    public async Task GetStatistics_WhenGroupHasNoQuestions_ShouldReturnZeroTotals()
+    {
+        // Arrange
+        var groupId = TestId.New();
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(groupId).Build());
+
+        // Act
+        var result = await Sut.GetStatisticsByGroupIdAsync(groupId);
+
+        // Assert
+        result.TotalCount.ShouldBe(0);
+        result.Types.ShouldBeEmpty();
+        result.Levels.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetStatistics_ShouldOnlyCountOwnGroup()
+    {
+        // Arrange
+        var groupId = TestId.New();
+        var otherGroupId = TestId.New();
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(groupId).Build());
+        await Sut.CreateAsync(QuestionGroupBuilder.New().WithId(otherGroupId).Build());
+
+        var answers = new List<QuestionAnswer>();
+        await AddQuestionsAsync(
+            [
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, groupId, answers),
+                new Q(TestId.New(), QuestionType.SingleChoice, 1, "C", null, otherGroupId, answers),
+                new Q(TestId.New(), QuestionType.MultipleChoice, 2, "C", null, otherGroupId, answers),
+            ]
+        );
+
+        // Act
+        var result = await Sut.GetStatisticsByGroupIdAsync(groupId);
+
+        // Assert — 只统计本组，不串组
+        result.TotalCount.ShouldBe(1);
+        result.Types.Single().Type.ShouldBe(QuestionType.SingleChoice);
+        result.Types.Single().Count.ShouldBe(1);
+        result.Levels.Single().Level.ShouldBe(1);
+        result.Levels.Single().Count.ShouldBe(1);
+    }
+
+    [Test]
     public async Task Update_WhenGroupExists_ShouldUpdateFieldsCorrectly()
     {
         // Arrange
@@ -568,6 +910,49 @@ public abstract class QuestionGroupRepositoryTestsBase
         result.Name.ShouldBe(updated.Name);
         result.Remark.ShouldBe(updated.Remark);
         result.OwnerId.ShouldBe(original.OwnerId);
+    }
+
+    [Test]
+    public async Task Update_ShouldOnlyChangeNameAndRemark()
+    {
+        // Arrange
+        var id = TestId.New();
+        var keepOwnerId = TestId.New();
+        var original = QuestionGroupBuilder
+            .New()
+            .WithId(id)
+            .WithOwnerId(keepOwnerId)
+            .WithName("OldName")
+            .WithRemark("OldRemark")
+            .Build();
+        await Sut.CreateAsync(original);
+
+        // Act — 换一个 OwnerId，但仓储只更新 Name/Remark
+        var updated = QuestionGroupBuilder
+            .New()
+            .WithId(id)
+            .WithOwnerId(TestId.New())
+            .WithName("NewName")
+            .WithRemark("NewRemark")
+            .Build();
+        await Sut.UpdateAsync(updated);
+
+        // Assert
+        var result = await Sut.FindByIdAsync(id);
+        result.ShouldNotBeNull();
+        result.Name.ShouldBe("NewName");
+        result.Remark.ShouldBe("NewRemark");
+        result.OwnerId.ShouldBe(keepOwnerId);
+    }
+
+    [Test]
+    public async Task Update_WhenGroupDoesNotExist_ShouldNotThrow()
+    {
+        // Arrange
+        var ghost = QuestionGroupBuilder.New().WithId(TestId.New()).Build();
+
+        // Act & Assert — ExecuteUpdate 影响 0 行，不应抛异常
+        await Should.NotThrowAsync(async () => await Sut.UpdateAsync(ghost));
     }
 
     [Test]
@@ -589,7 +974,7 @@ public abstract class QuestionGroupRepositoryTestsBase
     public async Task Delete_WhenGroupDoesNotExist_ShouldNotThrow()
     {
         // Act & Assert
-        await Should.NotThrowAsync(async () => await Sut.DeleteAsync("NON_EXISTENT_ID"));
+        await Should.NotThrowAsync(async () => await Sut.DeleteAsync(TestId.New()));
     }
 
     [Test]
@@ -613,7 +998,33 @@ public abstract class QuestionGroupRepositoryTestsBase
         }
     }
 
+    [Test]
+    public async Task DeleteMany_WhenSomeIdsMissing_ShouldDeleteOnlyExisting()
+    {
+        // Arrange
+        var groups = QuestionGroupBuilder.New().BuildMany(2);
+        foreach (var group in groups)
+            await Sut.CreateAsync(group);
+
+        // Act
+        await Sut.DeleteAsync([.. groups.Select(x => x.Id), TestId.New()]);
+
+        // Assert
+        foreach (var group in groups)
+        {
+            (await Sut.FindByIdAsync(group.Id)).ShouldBeNull();
+        }
+    }
+
+    [Test]
+    public async Task DeleteMany_WhenIdsEmpty_ShouldNotThrow()
+    {
+        // Act & Assert
+        await Should.NotThrowAsync(async () => await Sut.DeleteAsync(new List<string>()));
+    }
+
     #endregion
+
 
     #region 辅助方法
 

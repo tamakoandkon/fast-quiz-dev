@@ -11,6 +11,17 @@ internal static class UrlPackage
     public static string Register() => "/auth/register";
 
     public static string MyProfile() => "/auth/profile";
+
+    public static string MyAccount() => "/auth/me";
+    #endregion
+
+    #region Tenant
+    public static string TenantList() => "/tenant";
+
+    public static string TenantUserMap(string tenantId, string userId) =>
+        $"/tenant/{tenantId}/user-map/{userId}";
+
+    public static string TenantUser(string tenantId) => $"/tenant/{tenantId}/user";
     #endregion
 
     #region Question
@@ -68,6 +79,9 @@ internal static class UrlPackage
 
     public static string QuestionCount(string groupId, QuestionType type, int level) =>
         $"/tenant/{Tenant.DefaultTenantId}/question-group/{groupId}/count?type={type}&level={level}";
+
+    public static string QuestionGroupStatistics(string groupId) =>
+        $"/tenant/{Tenant.DefaultTenantId}/question-group/{groupId}/statistics";
     #endregion
 
     #region QuizTemplate

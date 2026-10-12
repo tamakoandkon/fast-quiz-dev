@@ -33,6 +33,16 @@
         >
           批改试卷
         </UButton>
+
+        <!-- 次要操作 - 查看成绩列表 -->
+        <UButton
+          :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/records`"
+          color="neutral"
+          variant="outline"
+          size="md"
+        >
+          查看成绩
+        </UButton>
       </div>
 
       <!-- 右侧：创建抽题规则 -->

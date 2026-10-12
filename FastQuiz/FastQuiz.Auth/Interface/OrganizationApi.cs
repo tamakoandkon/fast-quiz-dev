@@ -12,7 +12,7 @@ namespace FastQuiz.Auth.Interface;
 
 public static class OrganizationApi
 {
-    public static void MapOrganizationApi(this IEndpointRouteBuilder app)
+    public static void MapOrganizationEndPoints(this IEndpointRouteBuilder app)
     {
         #region Organization
         var orgGroup = app.MapGroup("/tenant")

@@ -11,6 +11,14 @@
         :orgs="orgs"
       >
       </QuizTemplateCreateQuizTemplateModal>
+
+      <QuizTemplateQuickPublishQuizTemplateModal
+        v-model="showQuickPublishModal"
+        :tenant-id="tenantId"
+        :orgs="orgs"
+        @published="handleQuickPublished"
+      >
+      </QuizTemplateQuickPublishQuizTemplateModal>
     </CommonButtonsContainer>
 
     <QuizTemplateUpdateQuizTemplateModal
@@ -270,6 +278,13 @@ const createQuizTemplate = async (command: CreateQuizTemplateCommand) => {
 
   toast.add({ title: "试卷模板创建成功。" });
   showCreateModal.value = false;
+  await fectchList(false, pageSize.value, true, undefined);
+};
+
+const showQuickPublishModal = ref(false);
+
+// 快速发布模态框自己完成全部接口调用，页面只负责刷新列表
+const handleQuickPublished = async (_templateId: string) => {
   await fectchList(false, pageSize.value, true, undefined);
 };
 

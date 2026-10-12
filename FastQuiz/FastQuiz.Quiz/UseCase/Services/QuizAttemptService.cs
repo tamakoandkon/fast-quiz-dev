@@ -1,4 +1,5 @@
-﻿using FastQuiz.Auth.Domain.Entities;
+﻿using EasyCaching.Core;
+using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.UseCase.Services;
 using FastQuiz.Common.Exceptions;
 using FastQuiz.Common.Utils;
@@ -8,6 +9,7 @@ using FastQuiz.Quiz.Domain.Repositories;
 using FastQuiz.Quiz.Domain.Services;
 using FastQuiz.Quiz.UseCase.Commands;
 using FastQuiz.Quiz.UseCase.Dtos;
+using FastQuiz.Quiz.UseCase.Extensions;
 using FastQuiz.Quiz.UseCase.Queries;
 using Hangfire;
 
@@ -26,9 +28,13 @@ public class QuizAttemptService(
     IOrganizationService _organizationService,
     IBackgroundJobClient _backgroundJobClient,
     IAnswerBufferService _answerBuffer,
-    IQuizReviewService _quizReviewService
+    IQuizReviewService _quizReviewService,
+    IEasyCachingProviderFactory _easyCachingProviderFactory
 ) : IQuizAtteptService
 {
+    private readonly IEasyCachingProvider _cache =
+        _easyCachingProviderFactory.GetQuizTmpCacheProvider();
+
     #region QuizAttempt
     public async Task<QuizAttempDto> CreateQuizAttemptAsync(
         string userId,
@@ -259,6 +265,60 @@ public class QuizAttemptService(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<QuizAttempDto>> GetAllRecordsByTemplateIdAsync(
+        string userId,
+        string tenantId,
+        string quizTemplateId,
+        GetAllRecordsQuery query
+    )
+    {
+        // 该操作属于 quiz 模块的后台管理能力，仅允许拥有 quiz 模块权限(QuizAttempt)的用户使用。
+        if (!await _permissionService.HasPermissionAsync(tenantId, userId, Permissions.QuizAttempt))
+        {
+            throw new PermissionException();
+        }
+
+        var isInTenant = await _tenantService
+            .GetUserInTenantAsync(tenantId, userId)
+            .ConfigureAwait(false);
+
+        if (!isInTenant)
+        {
+            throw new PermissionException();
+        }
+
+        var attempts = await _quizAttemptRepository
+            .GetAllRecordsByTemplateIdAsync(
+                quizTemplateId,
+                query.OnlyBest,
+                query.Cursor,
+                query.Count,
+                query.IsPrevious
+            )
+            .ConfigureAwait(false);
+
+        var templates = await _quizTemplateRepository.FindByIdAsync(
+            [.. attempts.Select(x => x.QuizTemplateId)]
+        );
+
+        return
+        [
+            .. attempts
+                .Where(x => x.AssignId != null)
+                .Select(x => new QuizAttempDto(
+                    x.Id,
+                    x.AssignId!,
+                    x.QuizTemplateId,
+                    templates.Where(t => t.Id == x.QuizTemplateId).First().Name,
+                    x.QuizSnapshotId,
+                    x.StartTime,
+                    x.SubmitTime,
+                    x.Score,
+                    x.Status
+                )),
+        ];
+    }
+
     public async Task<IReadOnlyList<QuizAttempDto>> GetMyQuizAttemptAsync(
         string userId,
         string tenantId,
@@ -276,6 +336,114 @@ public class QuizAttemptService(
 
         var attempts = await _quizAttemptRepository
             .GetAllByUserIdAsync(userId, query.Cursor, query.Count)
+            .ConfigureAwait(false);
+
+        var templates = await _quizTemplateRepository.FindByIdAsync(
+            [.. attempts.Select(x => x.QuizTemplateId)]
+        );
+
+        return
+        [
+            .. attempts.Select(x => new QuizAttempDto(
+                x.Id,
+                x.AssignId!,
+                x.QuizTemplateId,
+                templates.Where(t => t.Id == x.QuizTemplateId).First().Name,
+                x.QuizSnapshotId,
+                x.StartTime,
+                x.SubmitTime,
+                x.Score,
+                x.Status
+            )),
+        ];
+    }
+
+    public async Task<IReadOnlyList<QuizAttempDto>> GetMyTemplateRecordsAsync(
+        string userId,
+        string tenantId,
+        string quizTemplateId,
+        GetMyTemplateRecordsQuery query
+    )
+    {
+        var isInTenant = await _tenantService
+            .GetUserInTenantAsync(tenantId, userId)
+            .ConfigureAwait(false);
+
+        if (!isInTenant)
+        {
+            throw new PermissionException();
+        }
+
+        // 只看自己的记录，故无需 quiz 模块权限校验(与 GetUserRecordsAsync 的「本人」分支同义)。
+        var attempts = await _quizAttemptRepository
+            .GetAllRecordsByTemplateIdAndUserIdAsync(
+                userId,
+                quizTemplateId,
+                query.Cursor,
+                query.Count,
+                query.IsPrevious
+            )
+            .ConfigureAwait(false);
+
+        var templates = await _quizTemplateRepository.FindByIdAsync(
+            [.. attempts.Select(x => x.QuizTemplateId)]
+        );
+
+        return
+        [
+            .. attempts.Select(x => new QuizAttempDto(
+                x.Id,
+                x.AssignId!,
+                x.QuizTemplateId,
+                templates.FirstOrDefault(t => t.Id == x.QuizTemplateId)?.Name
+                    ?? x.QuizTemplateId,
+                x.QuizSnapshotId,
+                x.StartTime,
+                x.SubmitTime,
+                x.Score,
+                x.Status
+            )),
+        ];
+    }
+
+    public async Task<IReadOnlyList<QuizAttempDto>> GetUserRecordsAsync(
+        string operatorId,
+        string tenantId,
+        string userId,
+        GetUserRecordsQuery query
+    )
+    {
+        var isInTenant = await _tenantService
+            .GetUserInTenantAsync(tenantId, operatorId)
+            .ConfigureAwait(false);
+
+        if (!isInTenant)
+        {
+            throw new PermissionException();
+        }
+
+        // 查看自己的考试信息始终允许；查看他人的则需要 quiz 模块权限(QuizAttempt)。
+        if (
+            operatorId != userId
+            && !await _permissionService.HasPermissionAsync(
+                tenantId,
+                operatorId,
+                Permissions.QuizAttempt
+            )
+        )
+        {
+            throw new PermissionException();
+        }
+
+        var attempts = await _quizAttemptRepository
+            .GetAllRecordsByUserIdAsync(
+                userId,
+                query.TemplateId,
+                query.OnlyBest,
+                query.Cursor,
+                query.Count,
+                query.IsPrevious
+            )
             .ConfigureAwait(false);
 
         var templates = await _quizTemplateRepository.FindByIdAsync(
@@ -358,15 +526,15 @@ public class QuizAttemptService(
     )
     {
         var questionRecord =
-            await _questionRecordRepository.FindQuestionRecordByIdAsync(questionRecordId)
+            await GetCachedQuestionRecordAsync(questionRecordId)
             ?? throw new ResourceNotFoundException();
 
         var quizAttempt =
-            await _quizAttemptRepository.FindByIdAsync(questionRecord.QuizAttemptId)
+            await GetCachedQuizAttemptAsync(questionRecord.QuizAttemptId)
             ?? throw new ResourceNotFoundException();
 
         var template =
-            await _quizTemplateRepository.FindByIdAsync(quizAttempt.QuizTemplateId)
+            await GetCachedQuizTemplateAsync(quizAttempt.QuizTemplateId)
             ?? throw new ResourceNotFoundException();
 
         if (quizAttempt.Status != QuizAttemptStatus.InProgress)
@@ -410,6 +578,85 @@ public class QuizAttemptService(
                 }
             );
         }
+    }
+
+    private async Task<QuestionRecord?> GetCachedQuestionRecordAsync(string id)
+    {
+        var key = $"question-record:{id}";
+        var cached = await _cache.GetAsync<QuestionRecord>(key).ConfigureAwait(false);
+        if (cached.HasValue)
+        {
+            return cached.Value;
+        }
+
+        var record = await _questionRecordRepository
+            .FindQuestionRecordByIdAsync(id)
+            .ConfigureAwait(false);
+
+        if (record != null)
+        {
+            await _cache
+                .SetAsync(
+                    key,
+                    record,
+                    TimeSpan.FromMinutes(30).Add(TimeSpan.FromSeconds(Random.Shared.Next(-60, 60)))
+                )
+                .ConfigureAwait(false);
+        }
+
+        return record;
+    }
+
+    private async Task<QuizAttempt?> GetCachedQuizAttemptAsync(string id)
+    {
+        var key = $"quiz-attempt:{id}";
+        var cached = await _cache.GetAsync<QuizAttempt>(key).ConfigureAwait(false);
+        if (cached.HasValue)
+        {
+            return cached.Value;
+        }
+
+        var attempt = await _quizAttemptRepository.FindByIdAsync(id).ConfigureAwait(false);
+
+        if (attempt != null)
+        {
+            // QuizAttempt 状态会变，缓存 5 分钟
+            await _cache
+                .SetAsync(
+                    key,
+                    attempt,
+                    TimeSpan.FromMinutes(5).Add(TimeSpan.FromSeconds(Random.Shared.Next(-30, 30)))
+                )
+                .ConfigureAwait(false);
+        }
+
+        return attempt;
+    }
+
+    private async Task<QuizTemplate?> GetCachedQuizTemplateAsync(string id)
+    {
+        var key = $"quiz-template:{id}";
+        var cached = await _cache.GetAsync<QuizTemplate>(key).ConfigureAwait(false);
+        if (cached.HasValue)
+        {
+            return cached.Value;
+        }
+
+        var template = await _quizTemplateRepository.FindByIdAsync(id).ConfigureAwait(false);
+
+        if (template != null)
+        {
+            // 试卷定义不变，缓存 1 小时
+            await _cache
+                .SetAsync(
+                    key,
+                    template,
+                    TimeSpan.FromHours(1).Add(TimeSpan.FromMinutes(Random.Shared.Next(-10, 10)))
+                )
+                .ConfigureAwait(false);
+        }
+
+        return template;
     }
 
     public async Task AssignQuizAttemptAsync(string userId, string tenantId, string quizAttemptId)

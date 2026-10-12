@@ -121,6 +121,9 @@ export interface CreateRoleCommand {
 export interface CreateTenantCommand {
   name?: string | null;
   description?: string | null;
+  adminUsername?: string | null;
+  adminPassword?: string | null;
+  adminEmail?: string | null;
 }
 
 export interface DeleteQuestionGroupCommand {
@@ -197,6 +200,20 @@ export interface QuestionGroupDto {
   count?: number;
 }
 
+export interface QuestionGroupStatisticsDto {
+  /** @format int32 */
+  totalCount?: number;
+  types?: QuestionTypeCountDto[] | null;
+  levels?: QuestionLevelCountDto[] | null;
+}
+
+export interface QuestionLevelCountDto {
+  /** @format int32 */
+  level?: number;
+  /** @format int32 */
+  count?: number;
+}
+
 export interface QuestionRecordWithAnswerDto {
   id?: string | null;
   quizAttemptId?: string | null;
@@ -250,6 +267,12 @@ export interface QuestionSnapshotDto {
   groupId?: string | null;
   parentId?: string | null;
   answers?: QuestionAnswerSnapshotDto[] | null;
+}
+
+export interface QuestionTypeCountDto {
+  type?: QuestionType;
+  /** @format int32 */
+  count?: number;
 }
 
 export interface QuizAttempDto {
@@ -396,6 +419,9 @@ export interface UpdateUserCommand {
 export interface UserDto {
   id?: string | null;
   username?: string | null;
+  email?: string | null;
+  /** @format date-time */
+  createdAt?: string | null;
 }
 
 export interface UserLoginCommand {
@@ -744,6 +770,23 @@ export namespace Tenant {
   /**
    * No description
    * @tags QuestionGroup
+   * @name QuestionGroupStatisticsList
+   * @request GET:/tenant/{tenantId}/question-group/{groupId}/statistics
+   */
+  export namespace QuestionGroupStatisticsList {
+    export type RequestParams = {
+      tenantId: string;
+      groupId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = QuestionGroupStatisticsDto;
+  }
+
+  /**
+   * No description
+   * @tags QuestionGroup
    * @name QuestionGroupQuestionCreate
    * @request POST:/tenant/{tenantId}/question-group/{groupId}/question
    */
@@ -904,6 +947,34 @@ export namespace Tenant {
   /**
    * No description
    * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptRecordsList
+   * @request GET:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/records
+   */
+  export namespace QuizTemplateQuizAttemptRecordsList {
+    export type RequestParams = {
+      tenantId: string;
+      quizTemplateId: string;
+    };
+    export type RequestQuery = {
+      /** @default false */
+      OnlyBest?: boolean;
+      Cursor?: string;
+      /**
+       * @format int32
+       * @default 30
+       */
+      Count?: number;
+      /** @default false */
+      IsPrevious?: boolean;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = QuizAttempDto[];
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
    * @name QuizTemplateQuizAttemptMeList
    * @request GET:/tenant/{tenantId}/quiz-template/quiz-attempt/me
    */
@@ -918,6 +989,61 @@ export namespace Tenant {
        * @default 30
        */
       Count?: number;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = QuizAttempDto[];
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptMeTemplateDetail
+   * @request GET:/tenant/{tenantId}/quiz-template/quiz-attempt/me/template/{quizTemplateId}
+   */
+  export namespace QuizTemplateQuizAttemptMeTemplateDetail {
+    export type RequestParams = {
+      tenantId: string;
+      quizTemplateId: string;
+    };
+    export type RequestQuery = {
+      Cursor?: string;
+      /**
+       * @format int32
+       * @default 30
+       */
+      Count?: number;
+      /** @default false */
+      IsPrevious?: boolean;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = QuizAttempDto[];
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptUserRecordsList
+   * @request GET:/tenant/{tenantId}/quiz-template/quiz-attempt/user/{userId}/records
+   */
+  export namespace QuizTemplateQuizAttemptUserRecordsList {
+    export type RequestParams = {
+      tenantId: string;
+      userId: string;
+    };
+    export type RequestQuery = {
+      TemplateId?: string;
+      /** @default false */
+      OnlyBest?: boolean;
+      Cursor?: string;
+      /**
+       * @format int32
+       * @default 30
+       */
+      Count?: number;
+      /** @default false */
+      IsPrevious?: boolean;
     };
     export type RequestBody = never;
     export type RequestHeaders = {};
@@ -1681,23 +1807,6 @@ export namespace Tenant {
   /**
    * No description
    * @tags Tenant
-   * @name UserMapCreate
-   * @request POST:/tenant/{tenantId}/user-map/{userId}
-   */
-  export namespace UserMapCreate {
-    export type RequestParams = {
-      tenantId: string;
-      userId: string;
-    };
-    export type RequestQuery = {};
-    export type RequestBody = never;
-    export type RequestHeaders = {};
-    export type ResponseBody = void;
-  }
-
-  /**
-   * No description
-   * @tags Tenant
    * @name UserMapDelete
    * @request DELETE:/tenant/{tenantId}/user-map/{userId}
    */
@@ -2411,6 +2520,25 @@ export class Api<
      * No description
      *
      * @tags QuestionGroup
+     * @name QuestionGroupStatisticsList
+     * @request GET:/tenant/{tenantId}/question-group/{groupId}/statistics
+     */
+    questionGroupStatisticsList: (
+      tenantId: string,
+      groupId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<QuestionGroupStatisticsDto, ProblemDetails | void>({
+        path: `/tenant/${tenantId}/question-group/${groupId}/statistics`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuestionGroup
      * @name QuestionGroupQuestionCreate
      * @request POST:/tenant/{tenantId}/question-group/{groupId}/question
      */
@@ -2597,6 +2725,38 @@ export class Api<
      * No description
      *
      * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptRecordsList
+     * @request GET:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/records
+     */
+    quizTemplateQuizAttemptRecordsList: (
+      tenantId: string,
+      quizTemplateId: string,
+      query?: {
+        /** @default false */
+        OnlyBest?: boolean;
+        Cursor?: string;
+        /**
+         * @format int32
+         * @default 30
+         */
+        Count?: number;
+        /** @default false */
+        IsPrevious?: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<QuizAttempDto[], ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/${quizTemplateId}/quiz-attempt/records`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
      * @name QuizTemplateQuizAttemptMeList
      * @request GET:/tenant/{tenantId}/quiz-template/quiz-attempt/me
      */
@@ -2614,6 +2774,69 @@ export class Api<
     ) =>
       this.request<QuizAttempDto[], ProblemDetails>({
         path: `/tenant/${tenantId}/quiz-template/quiz-attempt/me`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptMeTemplateDetail
+     * @request GET:/tenant/{tenantId}/quiz-template/quiz-attempt/me/template/{quizTemplateId}
+     */
+    quizTemplateQuizAttemptMeTemplateDetail: (
+      tenantId: string,
+      quizTemplateId: string,
+      query?: {
+        Cursor?: string;
+        /**
+         * @format int32
+         * @default 30
+         */
+        Count?: number;
+        /** @default false */
+        IsPrevious?: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<QuizAttempDto[], ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/quiz-attempt/me/template/${quizTemplateId}`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptUserRecordsList
+     * @request GET:/tenant/{tenantId}/quiz-template/quiz-attempt/user/{userId}/records
+     */
+    quizTemplateQuizAttemptUserRecordsList: (
+      tenantId: string,
+      userId: string,
+      query?: {
+        TemplateId?: string;
+        /** @default false */
+        OnlyBest?: boolean;
+        Cursor?: string;
+        /**
+         * @format int32
+         * @default 30
+         */
+        Count?: number;
+        /** @default false */
+        IsPrevious?: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<QuizAttempDto[], ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/quiz-attempt/user/${userId}/records`,
         method: "GET",
         query: query,
         format: "json",
@@ -3478,24 +3701,6 @@ export class Api<
       this.request<void, ProblemDetails | void>({
         path: `/tenant/${tenantId}`,
         method: "DELETE",
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Tenant
-     * @name UserMapCreate
-     * @request POST:/tenant/{tenantId}/user-map/{userId}
-     */
-    userMapCreate: (
-      tenantId: string,
-      userId: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<void, ProblemDetails>({
-        path: `/tenant/${tenantId}/user-map/${userId}`,
-        method: "POST",
         ...params,
       }),
 

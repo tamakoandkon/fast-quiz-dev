@@ -5,8 +5,11 @@ using FastQuiz.Auth.Interface.Extensions;
 using FastQuiz.Common.Setup;
 using FastQuiz.Question.Interface;
 using FastQuiz.Quiz.Interface.Setup;
+using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Json;
+using NLog.Extensions.Logging;
+using NLog.Web;
 
 namespace FastQuiz.API;
 
@@ -14,7 +17,17 @@ public class Program
 {
     public static void Main(string[] args)
     {
+        using var loggerFactory = LoggerFactory.Create(loggingBuilder =>
+        {
+            loggingBuilder.ClearProviders();
+            loggingBuilder.AddNLog();
+        });
+
         var builder = WebApplication.CreateBuilder(args);
+
+        // é…ç½® NLog
+        builder.Logging.ClearProviders();
+        builder.Host.UseNLog();
 
         builder.Services.Configure<JsonOptions>(options =>
         {
@@ -28,13 +41,15 @@ public class Program
 
         builder.Services.AddResponseCompression();
 
-        // ĞÄÌø¼ì²é
-        builder.Services.AddHealthChecks();
+        // å¥åº·æ£€æŸ¥
+        builder.Services.AddHealthCheckServices(builder.Configuration);
 
         // Add services to the container.
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddAuthorization();
-        builder.Services.AddAuth(builder.Configuration, builder.Environment);
+        builder.Services.AddHangfireServcie(builder.Configuration);
+
+        builder.Services.AddAuth(builder.Configuration);
         builder.Services.AddQuestion(builder.Configuration);
         builder.Services.AddCommon().AddGlobalExceptionHandler();
         builder.Services.AddQuiz(builder.Configuration);
@@ -55,7 +70,7 @@ public class Program
             {
                 var allowedOrigins =
                     builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                    ?? throw new InvalidOperationException("¿çÓòÏŞÖÆÔÚÉú²ú»·¾³ÏÂ²»ÄÜÎª¿Õ");
+                    ?? throw new InvalidOperationException("ç”Ÿäº§ç¯å¢ƒå¿…é¡»é…ç½®å…è®¸çš„è·¨åŸŸæ¥æº");
 
                 options.AddDefaultPolicy(policy =>
                     policy
@@ -67,7 +82,7 @@ public class Program
             }
         });
 
-        // 2. Éú²ú»·¾³ÑéÖ¤ AllowedHosts
+        // 2. ç”Ÿäº§ç¯å¢ƒæ ¡éªŒ AllowedHosts
         if (!builder.Environment.IsDevelopment())
         {
             var allowedHosts = builder.Configuration["AllowedHosts"];
@@ -90,7 +105,7 @@ public class Program
             app.UseSwaggerUI();
         }
 
-        // ÇëÇóÑ¹Ëõ
+        // å“åº”å‹ç¼©
         app.UseResponseCompression();
         app.UseRouting();
 
@@ -101,11 +116,13 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
 
-        app.MapAuthApi();
-        app.MapQuestionGroupApi();
+        app.UseHangfireDashboard();
+
+        app.MapAuthEndPoints();
+        app.MapQuestionGroupEndPoints();
         app.MapQuizEndPoints();
 
-        // ĞÄÌø¼ì²é
+        // å¥åº·æ£€æŸ¥
         app.MapHealthChecks(
             "/health",
             new HealthCheckOptions
@@ -129,12 +146,26 @@ public class Program
             }
         );
 
-        // Ö»ÔÚ¿ª·¢»·¾³×Ô¶¯Ç¨ÒÆ
-        if (app.Environment.IsDevelopment())
+        if (app.ApplyAllMigrations(app.Configuration))
         {
-            app.ApplyAllMigrations();
+            return;
         }
 
-        app.Run();
+        try
+        {
+            app.Run();
+        }
+        catch (Exception ex)
+        {
+            // å¯åŠ¨é˜¶æ®µå¼‚å¸¸ä¹Ÿè¦è½ç›˜ï¼Œé¿å…åªç•™åœ¨æ§åˆ¶å°
+            NLog.LogManager.GetCurrentClassLogger()
+                .Fatal(ex, "åº”ç”¨ç¨‹åºå¼‚å¸¸ç»ˆæ­¢: {Message}", ex.Message);
+            throw;
+        }
+        finally
+        {
+            // åˆ·æ–°å¼‚æ­¥æ—¥å¿—ï¼Œé˜²æ­¢ç¼“å†²åŒºå†…å®¹ä¸¢å¤±
+            NLog.LogManager.Shutdown();
+        }
     }
 }

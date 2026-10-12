@@ -7,6 +7,7 @@ namespace FastQuiz.Quiz.UseCase.Extensions;
 internal static class QuizCacheExtentions
 {
     private const string CacheName = "Quiz:QuestionSnapshotList:Memory";
+    private const string QuizCacheName = "Quiz:tmp:Memory";
 
     public static IServiceCollection AddQuizCache(this IServiceCollection services)
     {
@@ -21,6 +22,17 @@ internal static class QuizCacheExtentions
             );
         });
 
+        services.AddEasyCaching(options =>
+        {
+            options.UseInMemory(
+                config =>
+                {
+                    config.DBConfig.SizeLimit = 100000;
+                },
+                QuizCacheName
+            );
+        });
+
         services.AddScoped<IPermissionService, PermissionService>();
         return services;
     }
@@ -30,5 +42,12 @@ internal static class QuizCacheExtentions
     )
     {
         return factory.GetCachingProvider(CacheName);
+    }
+
+    internal static IEasyCachingProvider GetQuizTmpCacheProvider(
+        this IEasyCachingProviderFactory factory
+    )
+    {
+        return factory.GetCachingProvider(QuizCacheName);
     }
 }

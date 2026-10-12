@@ -12,7 +12,7 @@ namespace FastQuiz.Auth.Interface;
 
 public static class RoleApi
 {
-    public static void MapRoleApi(this IEndpointRouteBuilder app)
+    public static void MapRoleEndPoints(this IEndpointRouteBuilder app)
     {
         #region Role
         var roleGroup = app.MapGroup("/tenant")

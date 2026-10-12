@@ -1,0 +1,24 @@
+services:
+  fqz-core:
+    image: localhost/hollow264/fqz-core:0
+    container_name: fqz-core
+    ports:
+      - "5026:8080" # 宿主机 5026 → 容器 8080 (HTTP)
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - fqz_data:/app/data
+    restart: unless-stopped
+
+  fqz:
+    image: localhost/hollow264/fqz:0
+    container_name: fqz
+    ports:
+      - "3000:80" # 前端访问端口，按你实际改
+    depends_on:
+      - fqz-core
+    restart: unless-stopped
+
+volumes:
+  fqz_data:

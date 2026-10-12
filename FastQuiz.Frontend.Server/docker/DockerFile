@@ -1,0 +1,23 @@
+# ---------- 构建阶段 ----------
+FROM docker.xuanyuan.run/library/node:24.21.0-slim AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ---------- 运行阶段：Caddy ----------
+FROM docker.xuanyuan.run/library/caddy:2.9.1-alpine AS runner
+
+# 把构建产物拷进 Caddy 默认站点目录
+COPY --from=builder /app/.output/public /usr/share/caddy
+
+# 用你 docker/ 目录下的 Caddyfile 覆盖默认配置
+COPY docker/Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443
+
+# Caddy 官方镜像已有默认 CMD，一般不用重复写

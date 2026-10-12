@@ -1,4 +1,5 @@
-﻿using FastQuiz.Quiz.Domain.Repositories;
+﻿using FastQuiz.Common.Models;
+using FastQuiz.Quiz.Domain.Repositories;
 using FastQuiz.Quiz.Domain.Services;
 using FastQuiz.Quiz.Infrastructure.Repositories;
 using FastQuiz.Quiz.Infrastructure.Repositories.MariaDb;
@@ -8,7 +9,6 @@ using FastQuiz.Quiz.UseCase.Extensions;
 using FastQuiz.Quiz.UseCase.Services;
 using FastQuiz.Quiz.UseCase.Validators;
 using FluentValidation;
-using Hangfire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -33,70 +33,19 @@ public static class QuizSetupExstensions
 
         switch (settings.Type)
         {
-            case "sqlite":
+            case DatabaseType.Sqlite:
                 {
-                    services.AddDbContext<SqliteQuizDbContext>(
-                        (s, options) =>
-                        {
-                            var dbSettings = s.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
-
-                            if (string.IsNullOrEmpty(dbSettings.ConnectionString))
-                            {
-                                throw new InvalidOperationException(
-                                    "SQLite connection string is not configured."
-                                );
-                            }
-
-                            options.UseSqlite(
-                                dbSettings.ConnectionString,
-                                x =>
-                                {
-                                    x.CommandTimeout(30);
-                                }
-                            );
-                        }
-                    );
+                    services.AddSqliteRepo();
                 }
                 break;
-            case "mariadb":
+            case DatabaseType.MariaDb:
                 {
-                    services.AddDbContext<MariaDbQuizDbContext>(
-                        (s, options) =>
-                        {
-                            var dbSettings = s.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
-
-                            if (string.IsNullOrEmpty(dbSettings.ConnectionString))
-                            {
-                                throw new InvalidOperationException(
-                                    "MariaDb connection string is not configured."
-                                );
-                            }
-
-                            options.UseMySql(
-                                dbSettings.ConnectionString,
-                                ServerVersion.AutoDetect(dbSettings.ConnectionString)
-                            );
-                        }
-                    );
+                    services.AddMariaRepo();
                 }
                 break;
-            case "postgresql":
+            case DatabaseType.PostgreSql:
                 {
-                    services.AddDbContext<PostgreSQLQuizDbContext>(
-                        (s, options) =>
-                        {
-                            var dbSettings = s.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
-
-                            if (string.IsNullOrEmpty(dbSettings.ConnectionString))
-                            {
-                                throw new InvalidOperationException(
-                                    "PostgreSQL connection string is not configured."
-                                );
-                            }
-
-                            options.UseNpgsql(dbSettings.ConnectionString);
-                        }
-                    );
+                    services.AddPostgreSqlRepo();
                 }
                 break;
             default:
@@ -106,36 +55,14 @@ public static class QuizSetupExstensions
         }
 
         services
-            .AddScoped<IQuizTemplateRepository, SqliteQuizTemplateRepository>()
-            .AddScoped<IQuestionSelectionRuleRepository, SqliteQuestionSelectionRuleRepository>()
             .AddScoped<IQuizTemplateService, QuizTemplateService>()
-            .AddScoped<IQuizSnapshotRepository, SqliteQuizSnapshotRepository>()
-            .AddScoped<IQuestionSnapshotRepository, SqliteQuestionSnapshotRepository>()
-            .AddScoped<
-                IQuizSnapshotQuestionSnapshotMapRepository,
-                SqliteQuizSnapshotQuestionSnapshotMapRepository
-            >()
             .AddScoped<IQuizSnapshotService, QuizSnapshotService>()
-            .AddScoped<IQuizAttemptRepository, SqliteQuizAttemptRepository>()
-            .AddScoped<IQuestionRecordRepository, SqliteQuestionRecordRepository>()
             .AddScoped<IQuizAtteptService, QuizAttemptService>()
             .AddScoped<IQuestionGradingDecider, QuestionGradingDecider>()
             .AddScoped<IQuizReviewService, QuizReviewService>();
 
         services.AddSingleton<IAnswerBufferService, AnswerBufferService>();
         services.AddHostedService<AnswerBufferBackgroundService>();
-
-        // Add Hangfire services.
-        services.AddHangfire(configuration =>
-            configuration
-                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-                .UseSimpleAssemblyNameTypeSerializer()
-                .UseRecommendedSerializerSettings()
-                .UseInMemoryStorage()
-        );
-
-        // Add the processing server as IHostedService
-        services.AddHangfireServer();
 
         services.AddQuizCache();
 
@@ -148,22 +75,136 @@ public static class QuizSetupExstensions
     public static void ApplyQuizMigrations(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SqliteQuizDbContext>();
+        var sp = scope.ServiceProvider;
+
+        var settings = sp.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
+
+        DbContext db = settings.Type switch
+        {
+            DatabaseType.Sqlite => sp.GetRequiredService<SqliteQuizDbContext>(),
+            DatabaseType.MariaDb => sp.GetRequiredService<MariaDbQuizDbContext>(),
+            DatabaseType.PostgreSql => sp.GetRequiredService<PostgreSQLQuizDbContext>(),
+            _ => throw new InvalidOperationException(
+                $"不支持的数据库类型：{settings.Type},请在sqlite,mariadb,postgresql中选一个"
+            ),
+        };
 
         if (db.Database.GetPendingMigrations().Any())
         {
             db.Database.Migrate();
         }
-
-        app.UseHangfireDashboard();
-        var backgroundJobs = scope.ServiceProvider.GetRequiredService<IBackgroundJobClient>();
-        backgroundJobs.Enqueue(() => Console.WriteLine("Hello world from Hangfire!"));
     }
 
     public static void MapQuizEndPoints(this IEndpointRouteBuilder app)
     {
-        app.MapQuizTemplateApi();
-        app.MapQuizSnapshotApi();
-        app.MapQuizAttemptApi();
+        app.MapQuizTemplateEndPoints();
+        app.MapQuizSnapshotEndPoints();
+        app.MapQuizAttemptEndPoints();
+    }
+
+    private static IServiceCollection AddPostgreSqlRepo(this IServiceCollection services)
+    {
+        services.AddDbContext<PostgreSQLQuizDbContext>(
+            (s, options) =>
+            {
+                var dbSettings = s.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
+
+                if (string.IsNullOrEmpty(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        "PostgreSQL connection string is not configured."
+                    );
+                }
+
+                options.UseNpgsql(dbSettings.ConnectionString, x => x.CommandTimeout(30));
+            }
+        );
+
+        return services
+            .AddScoped<IQuizTemplateRepository, PostgreSQLQuizTemplateRepository>()
+            .AddScoped<
+                IQuestionSelectionRuleRepository,
+                PostgreSQLQuestionSelectionRuleRepository
+            >()
+            .AddScoped<IQuizSnapshotRepository, PostgreSQLQuizSnapshotRepository>()
+            .AddScoped<IQuestionSnapshotRepository, PostgreSQLQuestionSnapshotRepository>()
+            .AddScoped<
+                IQuizSnapshotQuestionSnapshotMapRepository,
+                PostgreSQLQuizSnapshotQuestionSnapshotMapRepository
+            >()
+            .AddScoped<IQuizAttemptRepository, PostgreSQLQuizAttemptRepository>()
+            .AddScoped<IQuestionRecordRepository, PostgreSQLQuestionRecordRepository>();
+    }
+
+    private static IServiceCollection AddMariaRepo(this IServiceCollection services)
+    {
+        services.AddDbContext<MariaDbQuizDbContext>(
+            (s, options) =>
+            {
+                var dbSettings = s.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
+
+                if (string.IsNullOrEmpty(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        "MariaDb connection string is not configured."
+                    );
+                }
+
+                options.UseMySql(
+                    dbSettings.ConnectionString,
+                    ServerVersion.AutoDetect(dbSettings.ConnectionString),
+                    x => x.CommandTimeout(30)
+                );
+            }
+        );
+
+        return services
+            .AddScoped<IQuizTemplateRepository, MariaDbQuizTemplateRepository>()
+            .AddScoped<IQuestionSelectionRuleRepository, MariaDbQuestionSelectionRuleRepository>()
+            .AddScoped<IQuizSnapshotRepository, MariaDbQuizSnapshotRepository>()
+            .AddScoped<IQuestionSnapshotRepository, MariaDbQuestionSnapshotRepository>()
+            .AddScoped<
+                IQuizSnapshotQuestionSnapshotMapRepository,
+                MariaDbQuizSnapshotQuestionSnapshotMapRepository
+            >()
+            .AddScoped<IQuizAttemptRepository, MariaDbQuizAttemptRepository>()
+            .AddScoped<IQuestionRecordRepository, MariaDbQuestionRecordRepository>();
+    }
+
+    private static IServiceCollection AddSqliteRepo(this IServiceCollection services)
+    {
+        services.AddDbContext<SqliteQuizDbContext>(
+            (s, options) =>
+            {
+                var dbSettings = s.GetRequiredService<IOptions<QuizDbContextSettings>>().Value;
+
+                if (string.IsNullOrEmpty(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        "SQLite connection string is not configured."
+                    );
+                }
+
+                options.UseSqlite(
+                    dbSettings.ConnectionString,
+                    x =>
+                    {
+                        x.CommandTimeout(30);
+                    }
+                );
+            }
+        );
+
+        return services
+            .AddScoped<IQuizTemplateRepository, SqliteQuizTemplateRepository>()
+            .AddScoped<IQuestionSelectionRuleRepository, SqliteQuestionSelectionRuleRepository>()
+            .AddScoped<IQuizSnapshotRepository, SqliteQuizSnapshotRepository>()
+            .AddScoped<IQuestionSnapshotRepository, SqliteQuestionSnapshotRepository>()
+            .AddScoped<
+                IQuizSnapshotQuestionSnapshotMapRepository,
+                SqliteQuizSnapshotQuestionSnapshotMapRepository
+            >()
+            .AddScoped<IQuizAttemptRepository, SqliteQuizAttemptRepository>()
+            .AddScoped<IQuestionRecordRepository, SqliteQuestionRecordRepository>();
     }
 }

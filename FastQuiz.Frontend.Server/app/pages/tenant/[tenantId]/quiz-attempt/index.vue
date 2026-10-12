@@ -3,97 +3,98 @@
     <template #breadcrumb>
       <UBreadcrumb :items="links" />
     </template>
+
     <main class="flex-1 overflow-y-auto bg-gray-50">
+      <!-- 试卷详情模态 -->
       <QuizTemplateViewQuizTemplateDetailsModal
         :id="viewId"
         v-model="showDetail"
         :tenant-id="tenantId"
-      >
-      </QuizTemplateViewQuizTemplateDetailsModal>
-      <div class="p-4">
-        <div class="flex flex-wrap gap-4">
-          <UCard
-            v-for="template in templates"
-            :key="template.id || ''"
-            class="w-80 flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow"
-          >
-            <template #header>
-              <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold truncate">
-                  {{ template.name }}
-                </h3>
-              </div>
-            </template>
+      />
 
-            <div class="space-y-2">
-              <!-- 详情字段 -->
-              <div
-                v-if="template.description"
-                class="text-sm text-gray-600 dark:text-gray-400"
-              >
-                {{ template.description }}
-              </div>
+      <div class="p-4 space-y-3">
+        <!-- 考试行：每个考试占一整行 -->
+        <UCard
+          v-for="template in templates"
+          :key="template.id || ''"
+          class="w-full"
+          :ui="{ body: 'p-0 sm:p-0' }"
+        >
+          <template #header>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <h3 class="text-lg font-semibold truncate">
+                {{ template.name }}
+              </h3>
 
-              <!-- 考试相关字段 -->
-              <div class="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span class="text-xs text-gray-500">考试时长</span>
-                  <div class="font-medium">
-                    {{ template.durationMinutes }} 分钟
-                  </div>
-                </div>
-              </div>
+              <span class="text-sm text-gray-500">
+                考试时长 {{ template.durationMinutes }} 分钟
+              </span>
 
-              <!-- 时间字段 -->
-              <div
-                class="border-t pt-2 mt-2 text-xs space-y-1"
-                v-if="!template.isUnlimitedTime"
-              >
-                <div v-if="template.beginTime">
-                  <span class="text-gray-500">开始：</span>
-                  {{ formatDate(template.beginTime) }}
-                </div>
-                <div v-if="template.endTime">
-                  <span class="text-gray-500">结束：</span>
-                  {{ formatDate(template.endTime) }}
-                </div>
-              </div>
-              <div v-else class="border-t pt-2 mt-2 text-xs space-y-1">
-                <span class="text-xs text-gray-500">无限时间</span>
-                <div class="font-medium">
-                  {{ template.isUnlimitedTime ? "是" : "否" }}
-                </div>
-              </div>
-            </div>
+              <UBadge v-if="template.isUnlimitedTime" color="neutral" size="sm">
+                无限时间
+              </UBadge>
+              <span v-else class="text-xs text-gray-500">
+                <template v-if="template.beginTime">
+                  开始：{{ formatDate(template.beginTime) }}
+                </template>
+                <template v-if="template.endTime">
+                  ｜结束：{{ formatDate(template.endTime) }}
+                </template>
+              </span>
 
-            <template #footer>
-              <div class="flex justify-end gap-2">
+              <div class="ml-auto flex items-center gap-2">
                 <UButton
-                  color="primary"
-                  variant="solid"
+                  color="neutral"
+                  variant="outline"
                   size="sm"
-                  @click.stop="handleView(template)"
+                  @click="handleView(template)"
                 >
                   查看详情
                 </UButton>
                 <UButton
+                  color="primary"
+                  variant="solid"
+                  size="sm"
                   :disabled="!isExamAvailable(template)"
-                  @click="() => startAnswer(template.id || '')"
+                  @click="startAnswer(template.id || '')"
                 >
                   {{ getExamStatusText(template) }}
                 </UButton>
               </div>
-            </template>
-          </UCard>
+            </div>
+          </template>
+
+          <!-- 描述（有才显示） -->
+          <div
+            v-if="template.description"
+            class="px-6 py-3 text-sm text-gray-600 dark:text-gray-400"
+          >
+            {{ template.description }}
+          </div>
+        </UCard>
+
+        <!-- 无已发布考试 -->
+        <div
+          v-if="loaded && templates.length === 0"
+          class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
+        >
+          当前没有可参加的考试。
         </div>
       </div>
     </main>
+
+    <!-- 加载更多：追加，而非替换 -->
+    <CommonLoadMoreButton
+      v-if="haveMore"
+      @click="loadMore"
+    ></CommonLoadMoreButton>
   </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 import type { BreadcrumbItem } from "@nuxt/ui";
+
 const toast = useToast();
 
 const links = ref<BreadcrumbItem[]>([]);
@@ -102,7 +103,13 @@ const router = useRouter();
 const route = useRoute();
 const tenantId = ref("");
 
+const pageSize = ref(10);
+
 const templates = ref<QuizTemplateDto[]>([]);
+const haveMore = ref(true);
+const loaded = ref(false);
+/** 下一页游标；追加模式下用「最后一条的 id」，不依赖数组增长。 */
+const nextCursor = ref<string | undefined>(undefined);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
@@ -113,36 +120,52 @@ onMounted(async () => {
     to: `/tenant/${tenantId.value}/quiz-attempt`,
   });
 
-  await fectchList(false, 10, true, undefined);
+  await fetchTemplates(true);
+  loaded.value = true;
 });
 
-const fectchList = async (
-  isPre: boolean,
-  pageSize: number,
-  refresh: boolean = false,
-  namePrefix: string | undefined = undefined,
-) => {
-  let cusor = getCursor(isPre);
-  if (refresh) {
-    cusor = undefined;
+/**
+ * 拉取考试列表。refresh=true 时清空重建（第一页），否则按游标追加。
+ */
+const fetchTemplates = async (refresh: boolean = false) => {
+  const cursor = refresh ? undefined : nextCursor.value;
+
+  let result;
+  try {
+    result = await $api.tenant.quizTemplatePublishedList(tenantId.value, {
+      Cursor: cursor,
+      Count: pageSize.value,
+    });
+  } catch (e: any) {
+    const title = e?.response?.data?.title ?? "获取试卷失败";
+    toast.add({ title: `获取试卷出错了：${title}`, color: "error" });
+    return;
   }
 
-  let result = await $api.tenant.quizTemplatePublishedList(tenantId.value, {
-    Cursor: cusor,
-    Count: pageSize,
-  });
-  templates.value = result.data;
+  const batch = result.data ?? [];
+
+  if (refresh) {
+    templates.value = batch;
+  } else {
+    // 追加：过滤掉已存在的 id，避免重复键
+    const known = new Set(templates.value.map((t) => t.id));
+    templates.value = [
+      ...templates.value,
+      ...batch.filter((t) => !known.has(t.id)),
+    ];
+  }
+
+  // 还有下一页的判据：本批拿满了 pageSize
+  haveMore.value = batch.length === pageSize.value;
+  nextCursor.value = batch.length
+    ? (batch[batch.length - 1]?.id as string)
+    : undefined;
 };
 
-const getCursor = (isPre: boolean) => {
-  if (templates.value.length == 0) {
-    return undefined;
-  }
-  if (isPre) {
-    return templates.value[0]?.id as string;
-  } else {
-    return templates.value[templates.value.length - 1]?.id as string;
-  }
+/** 「加载更多」：追加下一页 */
+const loadMore = async () => {
+  if (!haveMore.value) return;
+  await fetchTemplates(false);
 };
 
 // 新增：检查考试是否可开始
@@ -204,14 +227,21 @@ const startAnswer = async (templateId: string) => {
       { status: QuizAttemptStatus.InProgress },
     );
   } catch (e: any) {
-    let title = e.response.data.title;
+    const title = e?.response?.data?.title ?? "参加考试失败";
     toast.add({ title: `参加考试失败：${title}`, color: "error" });
     return;
   }
 
-  router.push(
-    `/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`,
-  );
+  router.push(`/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`);
+};
+
+/** 时间展示，与「我的考试」页保持一致。 */
+const formatDate = (iso?: string | null): string => {
+  if (!iso) return "--";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? "--"
+    : d.toLocaleString("zh-CN", { hour12: false });
 };
 </script>
 

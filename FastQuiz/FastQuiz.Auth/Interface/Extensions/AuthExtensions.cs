@@ -9,6 +9,7 @@ using FastQuiz.Auth.Infrastructure.Services;
 using FastQuiz.Auth.UseCase.Extensions;
 using FastQuiz.Auth.UseCase.Services;
 using FastQuiz.Auth.UseCase.Validators;
+using FastQuiz.Common.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -38,76 +39,19 @@ public static class AuthExtensions
 
         switch (settings.Type)
         {
-            case "sqlite":
+            case DatabaseType.Sqlite:
                 {
-                    services.AddDbContext<SqliteAuthDbContext>(
-                        (s, options) =>
-                        {
-                            var dbSettings = s.GetRequiredService<
-                                IOptions<AuthDbContextSettings>
-                            >().Value;
-
-                            if (string.IsNullOrEmpty(dbSettings.ConnectionString))
-                            {
-                                throw new InvalidOperationException(
-                                    "SQLite connection string is not configured."
-                                );
-                            }
-
-                            options.UseSqlite(
-                                dbSettings.ConnectionString,
-                                x =>
-                                {
-                                    x.CommandTimeout(30);
-                                }
-                            );
-                        }
-                    );
+                    services.AddSqliteRepo();
                 }
                 break;
-            case "mariadb":
+            case DatabaseType.MariaDb:
                 {
-                    services.AddDbContext<MariaDbAuthDbContext>(
-                        (s, options) =>
-                        {
-                            var dbSettings = s.GetRequiredService<
-                                IOptions<AuthDbContextSettings>
-                            >().Value;
-
-                            if (string.IsNullOrEmpty(dbSettings.ConnectionString))
-                            {
-                                throw new InvalidOperationException(
-                                    "SQLite connection string is not configured."
-                                );
-                            }
-
-                            options.UseMySql(
-                                dbSettings.ConnectionString,
-                                ServerVersion.AutoDetect(dbSettings.ConnectionString)
-                            );
-                        }
-                    );
+                    services.AddMariaDbRepo();
                 }
                 break;
-            case "postgresql":
+            case DatabaseType.PostgreSql:
                 {
-                    services.AddDbContext<PostgreSqlAuthDbContext>(
-                        (s, options) =>
-                        {
-                            var dbSettings = s.GetRequiredService<
-                                IOptions<AuthDbContextSettings>
-                            >().Value;
-
-                            if (string.IsNullOrEmpty(dbSettings.ConnectionString))
-                            {
-                                throw new InvalidOperationException(
-                                    "SQLite connection string is not configured."
-                                );
-                            }
-
-                            options.UseNpgsql(dbSettings.ConnectionString);
-                        }
-                    );
+                    services.AddPostgreSqlRepo();
                 }
                 break;
             default:
@@ -121,13 +65,9 @@ public static class AuthExtensions
         services
             .AddScoped<IPasswordHasher, BCryptPasswordHasher>()
             .AddScoped<ITokenGenerator, TokenGenerator>()
-            .AddScoped<IUserRepository, SqliteUserRepository>()
             .AddScoped<IUserApplicationService, UserApplicationService>();
 
         services
-            .AddScoped<ITenantRepository, SqliteTenantRepository>()
-            .AddScoped<IOrganizationRepository, SqliteOrganizationRepository>()
-            .AddScoped<IRoleRepository, SqliteRoleRepository>()
             .AddScoped<ITenantService, TenantService>()
             .AddScoped<IOrganizationService, OrganizationService>()
             .AddScoped<IRoleService, RoleService>();
@@ -172,7 +112,19 @@ public static class AuthExtensions
     public static void ApplyAuthMigrations(this IApplicationBuilder app)
     {
         using var scope = app.ApplicationServices.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SqliteAuthDbContext>();
+        var sp = scope.ServiceProvider;
+
+        var settings = sp.GetRequiredService<IOptions<AuthDbContextSettings>>().Value;
+
+        DbContext db = settings.Type switch
+        {
+            DatabaseType.Sqlite => sp.GetRequiredService<SqliteAuthDbContext>(),
+            DatabaseType.MariaDb => sp.GetRequiredService<MariaDbAuthDbContext>(),
+            DatabaseType.PostgreSql => sp.GetRequiredService<PostgreSqlAuthDbContext>(),
+            _ => throw new InvalidOperationException(
+                $"不支持的数据库类型：{settings.Type},请在sqlite,mariadb,postgresql中选一个"
+            ),
+        };
 
         if (db.Database.GetPendingMigrations().Any())
         {
@@ -180,11 +132,80 @@ public static class AuthExtensions
         }
     }
 
-    public static void MapAuthApi(this IEndpointRouteBuilder app)
+    public static void MapAuthEndPoints(this IEndpointRouteBuilder app)
     {
-        app.MapTenantApi();
-        app.MapOrganizationApi();
-        app.MapRoleApi();
+        app.MapTenantEndPoints();
+        app.MapOrganizationEndPoints();
+        app.MapRoleEndPoints();
         app.MapAuthEndpoints();
+    }
+
+    private static IServiceCollection AddMariaDbRepo(this IServiceCollection services)
+    {
+        services.AddDbContext<MariaDbAuthDbContext>(
+            (s, options) =>
+            {
+                var dbSettings = s.GetRequiredService<IOptions<AuthDbContextSettings>>().Value;
+                if (string.IsNullOrEmpty(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        "MariaDB connection string is not configured."
+                    );
+                }
+                options.UseMySql(
+                    dbSettings.ConnectionString,
+                    ServerVersion.AutoDetect(dbSettings.ConnectionString)
+                );
+            }
+        );
+        return services
+            .AddScoped<ITenantRepository, MariaDbTenantRepository>()
+            .AddScoped<IOrganizationRepository, MariaDbOrganizationRepository>()
+            .AddScoped<IRoleRepository, MariaDbRoleRepository>()
+            .AddScoped<IUserRepository, MariaDbUserRepository>();
+    }
+
+    private static IServiceCollection AddPostgreSqlRepo(this IServiceCollection services)
+    {
+        services.AddDbContext<PostgreSqlAuthDbContext>(
+            (s, options) =>
+            {
+                var dbSettings = s.GetRequiredService<IOptions<AuthDbContextSettings>>().Value;
+                if (string.IsNullOrEmpty(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        "PostgreSQL connection string is not configured."
+                    );
+                }
+                options.UseNpgsql(dbSettings.ConnectionString);
+            }
+        );
+        return services
+            .AddScoped<ITenantRepository, PostgreSqlTenantRepository>()
+            .AddScoped<IOrganizationRepository, PostgreSqlOrganizationRepository>()
+            .AddScoped<IRoleRepository, PostgreSqlRoleRepository>()
+            .AddScoped<IUserRepository, PostgreSqlUserRepository>();
+    }
+
+    private static IServiceCollection AddSqliteRepo(this IServiceCollection services)
+    {
+        services.AddDbContext<SqliteAuthDbContext>(
+            (s, options) =>
+            {
+                var dbSettings = s.GetRequiredService<IOptions<AuthDbContextSettings>>().Value;
+                if (string.IsNullOrEmpty(dbSettings.ConnectionString))
+                {
+                    throw new InvalidOperationException(
+                        "SQLite connection string is not configured."
+                    );
+                }
+                options.UseSqlite(dbSettings.ConnectionString, x => x.CommandTimeout(30));
+            }
+        );
+        return services
+            .AddScoped<ITenantRepository, SqliteTenantRepository>()
+            .AddScoped<IOrganizationRepository, SqliteOrganizationRepository>()
+            .AddScoped<IRoleRepository, SqliteRoleRepository>()
+            .AddScoped<IUserRepository, SqliteUserRepository>();
     }
 }

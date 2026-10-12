@@ -1,5 +1,5 @@
-﻿using FastQuiz.Auth.Infrastructure.Initializer;
-using FastQuiz.Auth.Infrastructure.Repositories;
+﻿using FastQuiz.API.Extensions;
+using FastQuiz.Auth.Infrastructure.Initializer;
 using FastQuiz.Auth.Infrastructure.Services;
 using FastQuiz.Auth.Interface.Extensions;
 
@@ -9,13 +9,11 @@ public static class AuthSetupExtensions
 {
     public static IServiceCollection AddAuth(
         this IServiceCollection services,
-        IConfiguration configuration,
-        IWebHostEnvironment env
+        IConfiguration configuration
     )
     {
-        var dbSetting =
-            configuration.GetSection("Auth").Get<AuthDbContextSettings>()
-            ?? throw new InvalidOperationException("Auth配置不可为空");
+        var authDbInfo = configuration.GetAuthDatabaseConnection();
+
         var jwtSetting =
             configuration.GetSection("Jwt").Get<JwtTokenSettings>()
             ?? throw new InvalidOperationException("Jwt配置不可为空");
@@ -23,9 +21,8 @@ public static class AuthSetupExtensions
         services.AddAuthServices(
             db =>
             {
-                db.ConnectionString = dbSetting.ConnectionString;
-                db.UserTableName = dbSetting.UserTableName;
-                db.Type = dbSetting.Type;
+                db.ConnectionString = authDbInfo.ConnectionString;
+                db.Type = authDbInfo.Type;
             },
             jwt =>
             {

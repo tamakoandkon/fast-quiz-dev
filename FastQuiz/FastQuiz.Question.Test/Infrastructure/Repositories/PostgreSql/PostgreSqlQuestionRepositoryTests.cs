@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 
 namespace FastQuiz.Question.Test.Infrastructure.Repositories.PostgreSql;
 
+[TestFixture]
+[Category("PostgreSql")]
 internal class PostgreSqlQuestionRepositoryTests : QuestionRepositoryTestsBase
 {
     private PostgreSqlQuestionDbContext _dbContext;

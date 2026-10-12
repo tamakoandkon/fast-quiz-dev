@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using FastQuiz.API.Test.Utils;
 using FastQuiz.API.Test.Utils.Helpers;
+using static FastQuiz.API.Test.Utils.Helpers.QuestionHelperExtensions;
 using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Question.Domain.Entities;
 using FastQuiz.Question.UseCase.Command;
@@ -410,7 +411,7 @@ internal class QuestionGroupTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(userId);
-        var group = await CreateRamdomQuestionGroupAsync(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
         var questions = new List<QuestionDto>();
 
         var type = QuestionType.SingleChoice;
@@ -505,7 +506,10 @@ internal class QuestionGroupTests : ApiTestBase
         // Arrange
         var userId = User.DefaultAdminId;
         var client = Sut.CreateClient(Guid.NewGuid().ToString());
-        var createCommand = new CreateQuestionGroupCommand(userId, Guid.NewGuid().ToString());
+        var createCommand = new CreateQuestionGroupCommand(
+            Guid.NewGuid().ToString(),
+            Guid.NewGuid().ToString()
+        );
         var createdGroup = await Sut.CreateQuestionGroupAsync(userId, createCommand);
         var updateCommand = new UpdateQuestionGroupCommand(
             Guid.NewGuid().ToString(),
@@ -640,38 +644,168 @@ internal class QuestionGroupTests : ApiTestBase
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    private async Task<QuestionGroupDto> CreateRamdomQuestionGroupAsync(string userId)
+    [Test]
+    public async Task GetQuestionGroupStatistics_WhenAuthorized_ShouldReturnStatistics()
     {
-        var command = new CreateQuestionGroupCommand(
-            Guid.NewGuid().ToString(),
-            Guid.NewGuid().ToString()
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+
+        // SingleChoice: 3 (Level1 ×2, Level2 ×1)；MultipleChoice: 1 (Level2)
+        await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.SingleChoice, 1)
         );
-        return await Sut.CreateQuestionGroupAsync(userId, command);
+        await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.SingleChoice, 1)
+        );
+        await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.SingleChoice, 2)
+        );
+        await Sut.CreateQuestionAsync(
+            userId,
+            group.Id,
+            SeedDefaultCreateQuestionCommand(QuestionType.MultipleChoice, 2)
+        );
+
+        // Act
+        var response = await client.GetAsync(UrlPackage.QuestionGroupStatistics(group.Id));
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var statistics = await response.ReadFromJsonWithEnumAsync<QuestionGroupStatisticsDto>();
+        statistics.ShouldNotBeNull();
+        statistics.TotalCount.ShouldBe(4);
+        statistics.Types.Single(x => x.Type == QuestionType.SingleChoice).Count.ShouldBe(3);
+        statistics.Types.Single(x => x.Type == QuestionType.MultipleChoice).Count.ShouldBe(1);
+        statistics.Levels.Single(x => x.Level == 1).Count.ShouldBe(2);
+        statistics.Levels.Single(x => x.Level == 2).Count.ShouldBe(2);
     }
 
-    private static CreateQuestionCommand SeedDefaultCreateQuestionCommand(
-        QuestionType type = QuestionType.SingleChoice,
-        int level = 0
-    )
+    [Test]
+    public async Task GetQuestionGroupStatistics_WhenGroupHasNoQuestions_ShouldReturnZeroTotals()
     {
-        return new CreateQuestionCommand(
-            Guid.NewGuid().ToString(),
-            level,
-            type,
-            [
-                new CreateQuestionAnswerCommand(
-                    Guid.NewGuid().ToString(),
-                    false,
-                    0,
-                    MatchStrategy.Manual
-                ),
-                new CreateQuestionAnswerCommand(
-                    Guid.NewGuid().ToString(),
-                    true,
-                    1,
-                    MatchStrategy.Manual
-                ),
-            ]
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(userId);
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+
+        // Act
+        var response = await client.GetAsync(UrlPackage.QuestionGroupStatistics(group.Id));
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var statistics = await response.ReadFromJsonWithEnumAsync<QuestionGroupStatisticsDto>();
+        statistics.ShouldNotBeNull();
+        statistics.TotalCount.ShouldBe(0);
+        statistics.Types.ShouldBeEmpty();
+        statistics.Levels.ShouldBeEmpty();
+    }
+
+    [Test]
+    public async Task GetQuestionGroupStatistics_WhenGroupDoesNotExist_ShouldReturnNotFound()
+    {
+        // Arrange
+        var client = Sut.CreateClient(User.DefaultAdminId);
+
+        // Act
+        var response = await client.GetAsync(
+            UrlPackage.QuestionGroupStatistics(Guid.NewGuid().ToString())
         );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Test]
+    public async Task GetQuestionGroupStatistics_WhenGroupDoesNotOwnedUser_ShouldReturnForbidden()
+    {
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(Guid.NewGuid().ToString());
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+
+        // Act
+        var response = await client.GetAsync(UrlPackage.QuestionGroupStatistics(group.Id));
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Test]
+    public async Task GetQuestionGroupStatistics_WhenUnauthorized_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var client = Sut.CreateClient();
+
+        // Act
+        var response = await client.GetAsync(
+            UrlPackage.QuestionGroupStatistics(Guid.NewGuid().ToString())
+        );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Test]
+    public async Task GetQuestionCount_WhenGroupDoesNotExist_ShouldReturnNotFound()
+    {
+        // Arrange
+        var client = Sut.CreateClient(User.DefaultAdminId);
+
+        // Act
+        var response = await client.GetAsync(
+            UrlPackage.QuestionCount(Guid.NewGuid().ToString(), QuestionType.SingleChoice, 0)
+        );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Test]
+    public async Task GetQuestionCount_WhenGroupDoesNotOwnedUser_ShouldReturnForbidden()
+    {
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(Guid.NewGuid().ToString());
+        var group = await Sut.CreateRandomQuestionGroupAsync(userId);
+
+        // Act
+        var response = await client.GetAsync(
+            UrlPackage.QuestionCount(group.Id, QuestionType.SingleChoice, 0)
+        );
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Test]
+    public async Task GetAllQuestionGroup_ShouldNotReturnOtherOwnerGroups()
+    {
+        // Arrange
+        var userId = User.DefaultAdminId;
+        var client = Sut.CreateClient(userId);
+
+        var mineGroup = await Sut.CreateRandomQuestionGroupAsync(userId);
+
+        // 直接落库一个归属其它 owner（其它租户）的题库，绕过权限校验
+        var otherOwnerGroup = await Sut.SeedQuestionGroupWithOwnerAsync(Guid.NewGuid().ToString());
+
+        // Act
+        var response = await client.GetAsync(UrlPackage.QuestionGroup());
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var groups = await response.Content.ReadFromJsonAsync<List<QuestionGroupDto>>();
+        groups.ShouldNotBeNull();
+        groups.Select(g => g.Id).ShouldContain(mineGroup.Id);
+        groups.Select(g => g.Id).ShouldNotContain(otherOwnerGroup.Id);
+        groups.ShouldAllBe(g => g.OwnerId == Tenant.DefaultTenantId);
     }
 }

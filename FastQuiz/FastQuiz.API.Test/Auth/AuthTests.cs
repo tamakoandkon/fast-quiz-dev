@@ -177,4 +177,114 @@ internal class AuthTests : ApiTestBase
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+
+    [Test]
+    public async Task GetMyProfile_WhenUserHasEmail_ShouldReturnEmail()
+    {
+        // Arrange
+        var username = Guid.NewGuid().ToString("N")[..12];
+        var password = Guid.NewGuid().ToString("N")[..12];
+        var email = $"{username}@example.com";
+        var authDto = await Sut.RegisterAsync(new(username, password, email));
+        var client = Sut.CreateClient(authDto.User.Id);
+
+        // Act
+        var response = await client.GetAsync(UrlPackage.MyProfile());
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<UserDto>();
+        result.ShouldNotBeNull();
+        result.Email.ShouldBe(email);
+        result.CreatedAt.ShouldNotBeNull();
+    }
+
+    [Test]
+    public async Task PutMyAccount_WhenPasswordIsEmpty_ShouldKeepExistingPassword()
+    {
+        // Arrange
+        var username = Guid.NewGuid().ToString("N")[..12];
+        var password = Guid.NewGuid().ToString("N")[..12];
+        var authDto = await Sut.RegisterAsync(new(username, password, null));
+        var client = Sut.CreateClient(authDto.User.Id);
+        var command = new UpdateUserCommand(username, "", $"{username}@example.com");
+
+        // Act
+        var response = await client.PutAsJsonAsync(UrlPackage.MyAccount(), command);
+
+        // Assert
+        // 密码留空表示不修改密码，原密码必须仍然可用
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var loginClient = Sut.CreateClient();
+        var loginResponse = await loginClient.PostAsJsonAsync(
+            UrlPackage.Login(),
+            new UserLoginCommand(username, password)
+        );
+        loginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Test]
+    public async Task PutMyAccount_WhenPasswordIsProvided_ShouldUpdatePassword()
+    {
+        // Arrange
+        var username = Guid.NewGuid().ToString("N")[..12];
+        var password = Guid.NewGuid().ToString("N")[..12];
+        var newPassword = Guid.NewGuid().ToString("N")[..12];
+        var authDto = await Sut.RegisterAsync(new(username, password, null));
+        var client = Sut.CreateClient(authDto.User.Id);
+        var command = new UpdateUserCommand(username, newPassword, null);
+
+        // Act
+        var response = await client.PutAsJsonAsync(UrlPackage.MyAccount(), command);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var loginClient = Sut.CreateClient();
+        var loginResponse = await loginClient.PostAsJsonAsync(
+            UrlPackage.Login(),
+            new UserLoginCommand(username, newPassword)
+        );
+        loginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Test]
+    [TestCase("ab")]
+    [TestCase("123451234512345123451234512345123451234512345123451234512345")]
+    [TestCase("invalid-name!")]
+    public async Task PutMyAccount_WhenUsernameIsInvalid_ShouldReturnUnprocessableEntity(
+        string username
+    )
+    {
+        // Arrange
+        var originUsername = Guid.NewGuid().ToString("N")[..12];
+        var password = Guid.NewGuid().ToString("N")[..12];
+        var authDto = await Sut.RegisterAsync(new(originUsername, password, null));
+        var client = Sut.CreateClient(authDto.User.Id);
+        var command = new UpdateUserCommand(username, "", null);
+
+        // Act
+        var response = await client.PutAsJsonAsync(UrlPackage.MyAccount(), command);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+    }
+
+    [Test]
+    public async Task PutMyAccount_WhenEmailIsInvalid_ShouldReturnUnprocessableEntity()
+    {
+        // Arrange
+        var username = Guid.NewGuid().ToString("N")[..12];
+        var password = Guid.NewGuid().ToString("N")[..12];
+        var authDto = await Sut.RegisterAsync(new(username, password, null));
+        var client = Sut.CreateClient(authDto.User.Id);
+        var command = new UpdateUserCommand(username, "", "not-an-email");
+
+        // Act
+        var response = await client.PutAsJsonAsync(UrlPackage.MyAccount(), command);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+    }
 }

@@ -2,16 +2,36 @@
   <UModal title="修改用户" v-model:open="show">
     <template #body>
       <CommonFormContainer>
-        <CommonFormInput label="名称" v-model="username"></CommonFormInput>
-        <CommonFormInput label="邮箱" v-model="email"></CommonFormInput>
-        <UFormField label="密码" class="w-full">
-          <UInput v-model="password" type="password"></UInput>
-        </UFormField>
+        <CommonFormInput
+          label="用户名"
+          v-model="username"
+          placeholder="3-20 位，仅限字母、数字和下划线"
+          :error="errors.username"
+          required
+        ></CommonFormInput>
+        <CommonFormInput
+          label="邮箱"
+          v-model="email"
+          type="email"
+          placeholder="选填，用于接收通知"
+          :error="errors.email"
+        ></CommonFormInput>
+        <CommonFormInput
+          label="新密码"
+          v-model="password"
+          type="password"
+          placeholder="留空则不修改密码"
+          :error="errors.password"
+          description="如需修改密码，请输入 6-20 位新密码"
+          autocomplete="new-password"
+        ></CommonFormInput>
 
         <UButton
           label="确认"
           color="primary"
           variant="subtle"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
           @click="updateUser"
           class="w-full justify-center"
         />
@@ -26,10 +46,9 @@ const show = defineModel({ required: true, default: true });
 const username = ref<string>("");
 const password = ref<string>("");
 const email = ref<string>("");
+const isSubmitting = ref(false);
 
-onMounted(async () => {
-  await init(props.id);
-});
+const errors = ref<{ username?: string; email?: string; password?: string }>({});
 
 const emit = defineEmits<{
   (e: "update", payLoad: UpdateUserCommand): void;
@@ -56,19 +75,45 @@ watch(
   { immediate: true },
 );
 
+const validate = () => {
+  const next: typeof errors.value = {};
+
+  const name = username.value.trim();
+  if (!name) {
+    next.username = "用户名不能为空";
+  } else if (name.length < 3 || name.length > 20) {
+    next.username = "用户名长度必须在3-20个字符之间";
+  } else if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+    next.username = "用户名只能包含字母、数字和下划线";
+  }
+
+  if (email.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+    next.email = "邮箱格式不正确";
+  }
+
+  // 留空表示不修改密码
+  if (password.value && (password.value.length < 6 || password.value.length > 20)) {
+    next.password = "密码长度必须在6-20个字符之间";
+  }
+
+  errors.value = next;
+  return Object.keys(next).length === 0;
+};
+
 const updateUser = function () {
+  if (!validate()) {
+    return;
+  }
+
   emit("update", {
-    username: username.value,
+    username: username.value.trim(),
     password: password.value,
-    email: email.value,
+    email: email.value.trim(),
   });
-  username.value = "";
-  password.value = "";
-  email.value = "";
 };
 
 const init = async (id: string) => {
-  if (!id || id == "") {
+  if (!id || id == "" || !props.tenantId) {
     return;
   }
 
@@ -76,13 +121,14 @@ const init = async (id: string) => {
   try {
     result = await $api.tenant.userDetail(props.tenantId, id);
   } catch (e: any) {
-    const title = e.response.data.title;
-    toast.add({ title: "获取用户失败：" + title });
+    const title = e.response?.data?.title ?? "未知错误";
+    toast.add({ title: "获取用户失败：" + title, color: "error" });
     return;
   }
   username.value = result.data.username ?? "";
+  email.value = result.data.email ?? "";
   password.value = "";
-  email.value = ""; // TODO
+  errors.value = {};
 };
 </script>
 

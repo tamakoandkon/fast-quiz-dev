@@ -1,0 +1,14 @@
+:80 {
+    root * /usr/share/caddy
+
+    # 静态资源长缓存（可选，优化用）
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    # SPA 路由回退：找不到文件就回 index.html
+    try_files {path} /index.html
+
+    file_server
+}

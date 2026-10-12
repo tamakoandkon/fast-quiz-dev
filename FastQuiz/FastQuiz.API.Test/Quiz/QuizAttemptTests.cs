@@ -411,7 +411,11 @@ internal class QuizAttemptTests : ApiTestBase
     }
 
     [Test]
-    [Ignore("底层方法有改动")]
+    [Ignore(
+        "作答走异步入库：PUT 只写入内存缓冲(AnswerBufferService)，由后台服务异步落库；"
+            + "因此紧随其后的 Get 无法稳定读到刚提交的 AnswerRecords(竞态,时快时慢)。"
+            + "TODO: 待提供可等待的 flush/commit 机制(或测试专用同步落库入口)后,去掉此 Ignore 并启用末尾 AnswerRecords 断言。"
+    )]
     public async Task PutAnswerQuestionAsync_WhenValidRequest_ShouldReturnNoContent()
     {
         // Arrange

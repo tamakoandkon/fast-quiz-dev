@@ -1,51 +1,31 @@
 ﻿using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.Domain.Exceptions;
 using FastQuiz.Auth.Domain.Repositories;
+using FastQuiz.Auth.Domain.Services;
 using FastQuiz.Auth.UseCase.Commands;
 using FastQuiz.Auth.UseCase.Dtos;
 using FastQuiz.Auth.UseCase.Queries;
 using FastQuiz.Common.Exceptions;
 using FastQuiz.Common.Utils;
+using FastQuiz.Common.Validation;
+using FluentValidation;
 
 namespace FastQuiz.Auth.UseCase.Services;
 
 public class TenantService(
     IIdGenerator _idGenerator,
+    IPasswordHasher _passwordHasher,
     IPermissionService _permissionService,
-    ITenantRepository _tenantRepository
+    ITenantRepository _tenantRepository,
+    IUserRepository _userRepository,
+    IRoleRepository _roleRepository,
+    IValidator<CreateTenantCommand> _createTenantCommandValidator
 ) : ITenantService
 {
-    public async Task AddUserToTenantAsync(string myId, string userId, string tenantId)
-    {
-        if (
-            !await _permissionService
-                .HasPermissionAsync(tenantId, myId, Permissions.SystemAdmin)
-                .ConfigureAwait(false)
-        )
-        {
-            throw new PermissionException();
-        }
-
-        if (
-            !await _permissionService
-                .HasPermissionAsync(tenantId, userId, Permissions.SystemAdmin)
-                .ConfigureAwait(false)
-        )
-        {
-            throw new PermissionException();
-        }
-
-        var mapExisted = await _tenantRepository.GetUserInTenantAsync(tenantId, userId);
-        if (mapExisted)
-        {
-            throw new TenantUserMapExistsException();
-        }
-
-        await _tenantRepository.AddUserToTenantAsync(tenantId, userId).ConfigureAwait(false);
-    }
-
     public async Task<TenantDto> CreateTenantAsync(string userId, CreateTenantCommand command)
     {
+        _createTenantCommandValidator.ValidateAndThrowArgumentException(command);
+
         if (
             !await _permissionService
                 .HasPermissionAsync(Tenant.DefaultTenantId, userId, Permissions.SystemAdmin)
@@ -55,10 +35,31 @@ public class TenantService(
             throw new PermissionException();
         }
 
+        if (
+            await _userRepository.FindByUsernameAsync(command.AdminUsername).ConfigureAwait(false)
+            != null
+        )
+        {
+            throw new UserAlreadyExistsException("管理员用户名已经存在");
+        }
+
         var tenant = new Tenant(_idGenerator.GenerateUlId(), command.Name, command.Description);
         await _tenantRepository.CreateAsync(tenant).ConfigureAwait(false);
 
-        await _tenantRepository.AddUserToTenantAsync(tenant.Id, userId).ConfigureAwait(false);
+        // 创建租户级管理员：用户 + 租户映射 + 专属管理员角色（权限为全量）
+        var adminUser = new User(
+            _idGenerator.GenerateUlId(),
+            command.AdminUsername,
+            string.IsNullOrWhiteSpace(command.AdminEmail) ? null : command.AdminEmail,
+            _passwordHasher.Hash(command.AdminPassword)
+        );
+        await _userRepository.CreateAsync(adminUser).ConfigureAwait(false);
+
+        await _tenantRepository
+            .AddUserToTenantAsync(tenant.Id, adminUser.Id)
+            .ConfigureAwait(false);
+
+        await CreateTenantAdminRoleAsync(tenant.Id, adminUser.Id).ConfigureAwait(false);
 
         return new TenantDto(
             tenant.Id,
@@ -67,6 +68,30 @@ public class TenantService(
             tenant.CreatedAt,
             tenant.UpdatedAt
         );
+    }
+
+    /// <summary>
+    /// 为租户创建专属的管理员角色（权限为全量），并授予该租户的初始管理员。
+    /// </summary>
+    private async Task CreateTenantAdminRoleAsync(string tenantId, string adminUserId)
+    {
+        var role = new Role(
+            _idGenerator.GenerateUlId(),
+            tenantId,
+            Role.TenantAdminRoleName,
+            $"租户 {tenantId} 的租户级管理员",
+            true,
+            true
+        );
+        await _roleRepository.CreateAsync(role).ConfigureAwait(false);
+
+        await _roleRepository
+            .AddPermissionsAsync(role.Id, Permissions.AllPermissions())
+            .ConfigureAwait(false);
+
+        await _roleRepository
+            .AddRoleToUserAsync(adminUserId, role.Id, tenantId)
+            .ConfigureAwait(false);
     }
 
     public async Task DeleteTenantAsync(string userId, string tenantId)
