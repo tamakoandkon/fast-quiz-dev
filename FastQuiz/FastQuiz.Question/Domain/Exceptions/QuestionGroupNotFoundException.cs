@@ -2,6 +2,9 @@
 
 namespace FastQuiz.Question.Domain.Exceptions;
 
+/// <summary>
+/// 访问的题库不存在时抛出该异常
+/// </summary>
 public class QuestionGroupNotFoundException : ResourceNotFoundException
 {
     public QuestionGroupNotFoundException() { }

@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FastQuiz.Question\FastQuiz.Question.csproj" />
+    <ProjectReference Include="..\FastQuiz.Test.Common\FastQuiz.Test.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

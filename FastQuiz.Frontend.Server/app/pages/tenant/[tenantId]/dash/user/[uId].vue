@@ -12,7 +12,7 @@
               <h2 class="text-lg font-semibold">
                 {{ user?.username ?? "未知用户" }}
               </h2>
-              <!-- <p class="text-sm text-gray-500">{{ user?.email ?? '暂无邮箱' }}</p> -->
+              <p class="text-sm text-gray-500">{{ user?.email ?? "未填写邮箱" }}</p>
             </div>
           </div>
           <UBadge color="primary">正常</UBadge>
@@ -29,14 +29,16 @@
           <span class="text-xs text-gray-500">用户名</span>
           <span class="text-sm">{{ user?.username ?? "-" }}</span>
         </div>
-        <!-- <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-500">邮箱</span>
-          <span class="text-sm">{{ user?.email ?? '-' }}</span>
+          <span class="text-sm">{{ user?.email || "未填写邮箱" }}</span>
         </div>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-500">创建时间</span>
-          <span class="text-sm">{{ user?.createdAt ?? '-' }}</span>
-        </div> -->
+          <span class="text-sm">{{
+            user?.createdAt ? formatDate(user.createdAt) : "-"
+          }}</span>
+        </div>
       </div>
     </UCard>
   </div>
@@ -71,18 +73,18 @@ onMounted(async () => {
   links.value.push({
     label: user.value?.username ?? "未知用户",
     icon: "iconoir:user",
-    to: `/tenant/${tenantId.value}/dash/user/${user.value?.id}`,
+    to: `/tenant/${tenantId.value}/dash/user/${uId.value}`,
   });
 });
 
 const fetchUserAsync = async (id: string) => {
   let result;
   try {
-    result = await $api.tenant.userDetail(tenantId.value, uId.value);
+    result = await $api.tenant.userDetail(tenantId.value, id);
   } catch (e) {
     const error = e as any;
-    const title = error.response.data.title;
-    toast.add({ title: "获用户列表失败：" + title });
+    const title = error.response?.data?.title ?? "未知错误";
+    toast.add({ title: "获取用户信息失败：" + title, color: "error" });
     return;
   }
 

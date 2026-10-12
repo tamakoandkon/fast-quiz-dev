@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 
 namespace FastQuiz.Question.Test.Infrastructure.Repositories.Sqlite;
 
+[TestFixture]
+[Category("Sqlite")]
 internal class SqliteQuestionRepositoryTests : QuestionRepositoryTestsBase
 {
     private SqliteQuestionDbContext _questionDbContext;

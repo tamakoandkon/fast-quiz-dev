@@ -12,7 +12,7 @@ namespace FastQuiz.Quiz.Interface;
 
 public static class QuizSnapshotApi
 {
-    public static void MapQuizSnapshotApi(this IEndpointRouteBuilder app)
+    public static void MapQuizSnapshotEndPoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/tenant/{tenantId}/quiz-template")
             .RequireAuthorization()

@@ -29,5 +29,15 @@ public class QuestionMapper : IRegister
             .Map(d => d.MatchStrategy, s => s.MatchStrategy)
             .Map(d => d.SortOrder, s => s.SortOrder)
             .Map(d => d.QuestionId, s => s.QuestionId);
+
+        config
+            .NewConfig<IGrouping<QuestionType, Q>, QuestionTypeCountDto>()
+            .Map(d => d.Type, s => s.Key)
+            .Map(d => d.Count, s => s.Count());
+
+        config
+            .NewConfig<IGrouping<int, Q>, QuestionLevelCountDto>()
+            .Map(d => d.Level, s => s.Key)
+            .Map(d => d.Count, s => s.Count());
     }
 }

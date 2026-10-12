@@ -131,6 +131,8 @@ public class PostgreSqlQuestionRepository(PostgreSqlQuestionDbContext _dbContext
         var allAnswers = await _answers
             .AsNoTracking()
             .Where(a => questionIds.Contains(a.QuestionId))
+            .OrderBy(a => a.SortOrder)
+            .ThenByDescending(a => a.Id)
             .ToListAsync()
             .ConfigureAwait(false);
 

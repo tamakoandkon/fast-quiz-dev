@@ -1,6 +1,5 @@
 ﻿using FastQuiz.Common.Exceptions.Extensions;
 using FastQuiz.Common.Utils;
-using FastQuiz.Question.Domain.Entities;
 using FastQuiz.Question.Infrastructure.Repositories.Sqlite;
 using FastQuiz.Question.UseCase.Command;
 using FastQuiz.Question.UseCase.Dto;
@@ -14,7 +13,7 @@ namespace FastQuiz.Question.Interface;
 
 public static class QuestionApi
 {
-    public static void MapQuestionGroupApi(this IEndpointRouteBuilder app)
+    public static void MapQuestionGroupEndPoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/tenant/{tenantId}/question-group")
             .RequireAuthorization()
@@ -43,6 +42,13 @@ public static class QuestionApi
         group
             .MapGet("{groupId}/count", GetQuestionCountByIdAsync)
             .Produces<int>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group
+            .MapGet("{groupId}/statistics", GetQuestionGroupStatisticsAsync)
+            .Produces<QuestionGroupStatisticsDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -125,8 +131,7 @@ public static class QuestionApi
     private static async Task<IResult> GetQuestionCountByIdAsync(
         string tenantId,
         string groupId,
-        QuestionType type,
-        int level,
+        [AsParameters] GetQuestionCountQuery query,
         IQuestionGroupService service,
         IClaimsManager claimsManager
     )
@@ -134,8 +139,20 @@ public static class QuestionApi
         var userId = claimsManager.EnsureAndGetUserId();
 
         return Results.Ok(
-            await service.GetQuestionCountByIdAsync(userId, tenantId, groupId, type, level)
+            await service.GetQuestionCountByIdAsync(userId, tenantId, groupId, query)
         );
+    }
+
+    private static async Task<IResult> GetQuestionGroupStatisticsAsync(
+        string tenantId,
+        string groupId,
+        IQuestionGroupService service,
+        IClaimsManager claimsManager
+    )
+    {
+        var userId = claimsManager.EnsureAndGetUserId();
+
+        return Results.Ok(await service.GetQuestionGroupStatisticsAsync(userId, tenantId, groupId));
     }
 
     private static async Task<IResult> GetAllQuestionGroupAsync(

@@ -43,6 +43,14 @@
         @change="handleFileImport"
       />
     </CommonButtonsContainer>
+
+    <QuestionGroupStatistics
+      ref="statisticsRef"
+      class="mb-6"
+      :tenant-id="tenantId"
+      :group-id="id"
+    />
+
     <UContextMenu :items="items">
       <CommonDataTable
         :columns="cols"
@@ -124,6 +132,28 @@ const group = ref<QuestionGroupDto>({});
 const questions = ref<QuestionDto[]>([]);
 
 const currentId = ref("");
+
+const statisticsRef = ref<{ refresh: () => Promise<void> } | null>(null);
+
+/**
+ * 题目发生增删改后：刷新列表、刷新统计面板，
+ * 并重新拉一次题库详情，让顶部的题目数量与统计保持一致。
+ */
+const refreshAfterQuestionChange = async () => {
+  await fectchList(false, pageSize.value, true);
+  await statisticsRef.value?.refresh();
+  await refreshGroup();
+};
+
+const refreshGroup = async () => {
+  try {
+    const result = await $api.tenant.questionGroupDetail(tenantId.value, id.value);
+    group.value = result.data;
+  } catch (e) {
+    // 仅刷新头部摘要，失败不打断主流程
+    console.error("刷新题库信息失败:", e);
+  }
+};
 
 onMounted(async () => {
   id.value = route.params.qgId as string;
@@ -219,7 +249,7 @@ const handleDelete = async () => {
 
   showConfirmModel.value = false;
   toast.add({ title: "题目删除成功。" });
-  await fectchList(false, pageSize.value, true);
+  await refreshAfterQuestionChange();
 };
 
 const createQuestion = async (command: CreateQuestionCommand) => {
@@ -238,7 +268,7 @@ const createQuestion = async (command: CreateQuestionCommand) => {
 
   toast.add({ title: "题目创建成功。" });
   showNewModel.value = false;
-  await fectchList(false, pageSize.value, true);
+  await refreshAfterQuestionChange();
 };
 
 const handleUpdateQuestion = async (
@@ -262,7 +292,7 @@ const handleUpdateQuestion = async (
 
   toast.add({ title: "题目修改成功。" });
   isOpen.value = false;
-  await fectchList(false, pageSize.value, true);
+  await refreshAfterQuestionChange();
 };
 
 const isOpen = ref(false);
@@ -388,7 +418,7 @@ const handleFileImport = async (event: Event) => {
 
     if (successCount > 0) {
       toast.add({ title: `成功导入 ${successCount} 道题目`, color: "success" });
-      await fectchList(false, pageSize.value, true); // 刷新列表
+      await refreshAfterQuestionChange(); // 刷新列表与统计
     }
     if (failCount > 0) {
       toast.add({

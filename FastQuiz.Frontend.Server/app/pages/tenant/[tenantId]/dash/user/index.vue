@@ -96,6 +96,15 @@ const items = ref<ContextMenuItem[][]>([
       },
     },
     {
+      label: "查看考试成绩",
+      icon: "i-lucide-clipboard-list",
+      onSelect: () => {
+        router.push(
+          `/tenant/${tenantId.value}/dash/user-records/${currentId.value}`,
+        );
+      },
+    },
+    {
       label: "编辑",
       icon: "i-lucide-edit",
       onSelect: () => handleEdit(),

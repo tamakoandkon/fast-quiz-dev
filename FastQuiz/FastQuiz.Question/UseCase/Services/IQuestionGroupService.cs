@@ -1,5 +1,4 @@
-﻿using FastQuiz.Question.Domain.Entities;
-using FastQuiz.Question.UseCase.Command;
+﻿using FastQuiz.Question.UseCase.Command;
 using FastQuiz.Question.UseCase.Dto;
 using FastQuiz.Question.UseCase.Query;
 
@@ -21,8 +20,12 @@ public interface IQuestionGroupService
         string userId,
         string tenantId,
         string groupId,
-        QuestionType type,
-        int level
+        GetQuestionCountQuery query
+    );
+    Task<QuestionGroupStatisticsDto> GetQuestionGroupStatisticsAsync(
+        string userId,
+        string tenantId,
+        string groupId
     );
     Task<IReadOnlyList<QuestionGroupDto>> GetAllQuestionGroupAsync(
         string userId,

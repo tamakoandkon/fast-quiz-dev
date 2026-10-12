@@ -21,13 +21,14 @@ public class UserApplicationService(
     IOrganizationRepository _organizationRepository,
     ITenantRepository _tenantRepository,
     IValidator<UserLoginCommand> _userLoginCommandValidator,
-    IValidator<UserRegisterCommand> _userRegisterCommandValidator
+    IValidator<UserRegisterCommand> _userRegisterCommandValidator,
+    IValidator<UpdateUserCommand> _updateUserCommandValidator
 ) : IUserApplicationService
 {
     public async Task<UserDto> GetProfileAsync(string userId)
     {
         var user = await _userRepository.FindByIdAsync(userId) ?? throw new UserNotFoundException();
-        return new UserDto(user.Id, user.Username);
+        return new UserDto(user.Id, user.Username, user.Email, user.CreatedAt);
     }
 
     public async Task<IReadOnlyList<UserDto>> GetUsersByOrganizationIdAsync(
@@ -48,7 +49,7 @@ public class UserApplicationService(
 
         var result = await _userRepository.GetUsersByIdsAsync(maps).ConfigureAwait(false);
 
-        return [.. result.Select(x => new UserDto(x.Id, x.Username))];
+        return [.. result.Select(x => new UserDto(x.Id, x.Username, x.Email, x.CreatedAt))];
     }
 
     public async Task<IReadOnlyList<UserDto>> GetNotInItUsersByOrganizationIdAsync(
@@ -88,7 +89,7 @@ public class UserApplicationService(
 
         var result = await _userRepository.GetUsersByIdsAsync(maps);
 
-        return [.. result.Select(x => new UserDto(x.Id, x.Username))];
+        return [.. result.Select(x => new UserDto(x.Id, x.Username, x.Email, x.CreatedAt))];
     }
 
     public async Task<AuthResult> LoginAsync(UserLoginCommand command)
@@ -109,7 +110,7 @@ public class UserApplicationService(
         return new AuthResult()
         {
             IsAuthentication = true,
-            Dto = new AuthDto(token, -1, new UserDto(user.Id, user.Username)),
+            Dto = new AuthDto(token, -1, new UserDto(user.Id, user.Username, user.Email, user.CreatedAt)),
         };
     }
 
@@ -136,7 +137,7 @@ public class UserApplicationService(
 
         var token = _tokenGenerator.GenerateToken(newUser);
 
-        return new AuthDto(token, -1, new UserDto(newUser.Id, newUser.Username));
+        return new AuthDto(token, -1, new UserDto(newUser.Id, newUser.Username, newUser.Email, newUser.CreatedAt));
     }
 
     public async Task<UserDto> CreateUserAsync(
@@ -183,9 +184,7 @@ public class UserApplicationService(
 
         var user = await EnsureAndGetUserAsync(userId).ConfigureAwait(false);
 
-        user.SetEmail(command.Email);
-        user.SetPassword(command.Password, _passwordHasher);
-        user.SetUsername(command.Username);
+        ApplyUpdate(user, command);
 
         await _userRepository.UpdateAsync(user);
     }
@@ -194,11 +193,25 @@ public class UserApplicationService(
     {
         var user = await EnsureAndGetUserAsync(myId).ConfigureAwait(false);
 
-        user.SetEmail(command.Email);
-        user.SetPassword(command.Password, _passwordHasher);
-        user.SetUsername(command.Username);
+        ApplyUpdate(user, command);
 
         await _userRepository.UpdateAsync(user);
+    }
+
+    /// <summary>
+    /// 应用用户资料修改。密码留空表示不修改密码，避免把密码误置为空。
+    /// </summary>
+    private void ApplyUpdate(User user, UpdateUserCommand command)
+    {
+        _updateUserCommandValidator.ValidateAndThrowArgumentException(command);
+
+        user.SetEmail(string.IsNullOrWhiteSpace(command.Email) ? null : command.Email);
+        user.SetUsername(command.Username);
+
+        if (!string.IsNullOrEmpty(command.Password))
+        {
+            user.SetPassword(command.Password, _passwordHasher);
+        }
     }
 
     public async Task DeleteUserByIdAsync(string myId, string tenantId, string userId)

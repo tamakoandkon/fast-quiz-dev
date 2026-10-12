@@ -12,7 +12,7 @@ namespace FastQuiz.Auth.Interface;
 
 public static class TenantApi
 {
-    public static void MapTenantApi(this IEndpointRouteBuilder app)
+    public static void MapTenantEndPoints(this IEndpointRouteBuilder app)
     {
         #region Tenant
         var tenantGroup = app.MapGroup("/tenant")
@@ -52,11 +52,6 @@ public static class TenantApi
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
-
-        tenantGroup
-            .MapPost("{tenantId}/user-map/{userId}", AddUserToTenantAsync)
-            .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         tenantGroup
             .MapDelete("{tenantId}/user-map/{userId}", RemoveUserFromTenantAsync)
@@ -132,19 +127,6 @@ public static class TenantApi
     {
         var userId = claimsManager.EnsureAndGetUserId();
         await tenantService.DeleteTenantAsync(userId, tenantId);
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> AddUserToTenantAsync(
-        string tenantId,
-        string userId,
-        IClaimsManager claimsManager,
-        ITenantService tenantService
-    )
-    {
-        var myId = claimsManager.EnsureAndGetUserId();
-
-        await tenantService.AddUserToTenantAsync(myId, userId, tenantId);
         return Results.NoContent();
     }
 

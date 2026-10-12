@@ -13,7 +13,7 @@ namespace FastQuiz.Quiz.Interface;
 
 public static class QuizAttemptApi
 {
-    public static void MapQuizAttemptApi(this IEndpointRouteBuilder app)
+    public static void MapQuizAttemptEndPoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/tenant/{tenantId}/quiz-template")
             .RequireAuthorization()
@@ -33,8 +33,23 @@ public static class QuizAttemptApi
             .MapGet("{quizTemplateId}/quiz-attempt", GetAllQuizAttemptAsync)
             .Produces<List<QuizAttempDto>>(StatusCodes.Status200OK);
 
+        // 查看指定考试的全部考试记录成绩(可选只取每个考生最好的一次)；仅 quiz 模块权限可用。
+        group
+            .MapGet("{quizTemplateId}/quiz-attempt/records", GetAllRecordsAsync)
+            .Produces<List<QuizAttempDto>>(StatusCodes.Status200OK);
+
         group
             .MapGet("quiz-attempt/me", GetMyQuizAttemptsAsync)
+            .Produces<List<QuizAttempDto>>(StatusCodes.Status200OK);
+
+        // 查看当前登录用户在指定考试模板下的全部考试记录(含进行中/待批阅)；「我的考试」展开区使用。
+        group
+            .MapGet("quiz-attempt/me/template/{quizTemplateId}", GetMyTemplateRecordsAsync)
+            .Produces<List<QuizAttempDto>>(StatusCodes.Status200OK);
+
+        // 查看某个考生的考试信息(可选按考试模板筛选、可选只取最好成绩)；本人或有 quiz 模块权限可用。
+        group
+            .MapGet("quiz-attempt/user/{userId}/records", GetUserRecordsAsync)
             .Produces<List<QuizAttempDto>>(StatusCodes.Status200OK);
 
         group
@@ -127,6 +142,30 @@ public static class QuizAttemptApi
         return Results.Ok(result);
     }
 
+    public static async Task<IResult> GetAllRecordsAsync(
+        string tenantId,
+        string quizTemplateId,
+        [AsParameters] GetAllRecordsQuery query,
+        IQuizAtteptService service,
+        IClaimsManager claimsManager
+    )
+    {
+        var userId = claimsManager.UserId;
+        if (userId == null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = await service.GetAllRecordsByTemplateIdAsync(
+            userId,
+            tenantId,
+            quizTemplateId,
+            query
+        );
+
+        return Results.Ok(result);
+    }
+
     public static async Task<IResult> GetMyQuizAttemptsAsync(
         string tenantId,
         [AsParameters] GetMyQuizAttemptQuery query,
@@ -137,6 +176,45 @@ public static class QuizAttemptApi
         var userId = claimsManager.EnsureAndGetUserId();
 
         var result = await service.GetMyQuizAttemptAsync(userId, tenantId, query);
+
+        return Results.Ok(result);
+    }
+
+    public static async Task<IResult> GetMyTemplateRecordsAsync(
+        string tenantId,
+        string quizTemplateId,
+        [AsParameters] GetMyTemplateRecordsQuery query,
+        IQuizAtteptService service,
+        IClaimsManager claimsManager
+    )
+    {
+        var userId = claimsManager.EnsureAndGetUserId();
+
+        var result = await service.GetMyTemplateRecordsAsync(
+            userId,
+            tenantId,
+            quizTemplateId,
+            query
+        );
+
+        return Results.Ok(result);
+    }
+
+    public static async Task<IResult> GetUserRecordsAsync(
+        string tenantId,
+        string userId,
+        [AsParameters] GetUserRecordsQuery query,
+        IQuizAtteptService service,
+        IClaimsManager claimsManager
+    )
+    {
+        var operatorId = claimsManager.UserId;
+        if (operatorId == null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = await service.GetUserRecordsAsync(operatorId, tenantId, userId, query);
 
         return Results.Ok(result);
     }

@@ -1,9 +1,11 @@
-﻿namespace FastQuiz.Auth.Infrastructure.Repositories;
+﻿using FastQuiz.Common.Models;
+
+namespace FastQuiz.Auth.Infrastructure.Repositories;
 
 public class AuthDbContextSettings
 {
     public string ConnectionString { get; set; } = null!;
-    public string Type { get; set; } = "sqlite";
+    public DatabaseType Type { get; set; } = DatabaseType.Sqlite;
     public string UserTableName { get; set; } = "Users";
     public string TenantTableName { get; set; } = "Tenants";
     public string OrganizationTableName { get; set; } = "Organizations";

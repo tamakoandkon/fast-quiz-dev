@@ -134,6 +134,8 @@ public class MariaDbQuestionRepository(MariaDbQuestionDbContext _dbContext) : IQ
         var allAnswers = await _answers
             .AsNoTracking()
             .Where(a => questionIds.Contains(a.QuestionId))
+            .OrderBy(a => a.SortOrder)
+            .ThenByDescending(a => a.Id)
             .ToListAsync()
             .ConfigureAwait(false);
 

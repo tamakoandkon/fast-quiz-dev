@@ -5,6 +5,11 @@ public class Role
     public const string DefaultAdminRoleId = "default_admin";
     public const string DefaultAdminRoleName = "system admin";
 
+    /// <summary>
+    /// 创建租户时自动为该租户创建的管理员角色名（每个租户各一个，权限为全量）。
+    /// </summary>
+    public const string TenantAdminRoleName = "tenant admin";
+
     private Role() { }
 
     public Role(

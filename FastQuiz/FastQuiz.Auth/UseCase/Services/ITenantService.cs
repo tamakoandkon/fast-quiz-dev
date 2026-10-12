@@ -13,6 +13,5 @@ public interface ITenantService
     Task<bool> GetUserInTenantAsync(string tenantId, string userId);
     Task UpdateTenantAsync(string userId, string tenantId, UpdateTenantCommand command);
     Task DeleteTenantAsync(string userId, string tenantId);
-    Task AddUserToTenantAsync(string myId, string userId, string tenantId);
     Task RemoveUserFromTenantAsync(string myId, string userId, string tenantId);
 }

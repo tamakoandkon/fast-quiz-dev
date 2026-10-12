@@ -4,7 +4,15 @@ namespace FastQuiz.Quiz.UseCase.Services;
 
 public interface IAnswerBufferService
 {
+    /// <summary>
+    /// 请求侧唯一入口：把答案写入内存缓冲区。
+    /// 不触发刷出，不碰数据库。
+    /// </summary>
     void AddAnswer(PendingAnswer answer);
-    Task FlushAsync();
-    Task CheckAndFlushAsync();
+
+    /// <summary>
+    /// 把缓冲区里的数据批量落库。
+    /// 由后台服务按固定节奏调用，内部用 SemaphoreSlim 保证单线程刷出。
+    /// </summary>
+    Task FlushAsync(CancellationToken cancellationToken = default);
 }

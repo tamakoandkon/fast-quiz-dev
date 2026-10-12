@@ -1,7 +1,7 @@
 # 请参阅 https://aka.ms/customizecontainer 以了解如何自定义调试容器，以及 Visual Studio 如何使用此 Dockerfile 生成映像以更快地进行调试。
 
 # 此阶段用于在快速模式(默认为调试配置)下从 VS 运行时
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine-extra AS base
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
@@ -9,7 +9,7 @@ EXPOSE 8081
 
 
 # 此阶段用于生成服务项目
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["FastQuiz.API/FastQuiz.API.csproj", "FastQuiz.API/"]
@@ -27,4 +27,8 @@ RUN dotnet publish "./FastQuiz.API.csproj" -c $BUILD_CONFIGURATION -o /app/publi
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# 授予sqlite数据库目录的读写权限
+RUN mkdir -p /app/data && chown $APP_UID:$APP_UID /app/data
+
 ENTRYPOINT ["dotnet", "FastQuiz.API.dll"]

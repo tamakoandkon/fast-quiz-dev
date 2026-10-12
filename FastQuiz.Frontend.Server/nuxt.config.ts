@@ -4,6 +4,10 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "static",
+    compressPublicAssets: {
+      gzip: true,
+      brotli: true,
+    },
   },
 
   compatibilityDate: "2025-07-15",

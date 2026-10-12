@@ -17,12 +17,14 @@
     "axios": "^1.15.1",
     "cross-env": "^10.1.0",
     "dayjs": "^1.11.21",
+    "echarts": "^6.1.0",
     "nuxt": "4.3.1",
     "papaparse": "^5.5.4",
     "pinia": "^3.0.4",
     "swagger-typescript-api": "^13.6.10",
     "tailwindcss": "^4.2.2",
     "vue": "^3.5.32",
+    "vue-echarts": "^8.3.1",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {

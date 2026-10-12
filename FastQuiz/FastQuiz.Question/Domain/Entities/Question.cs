@@ -8,7 +8,7 @@ public class Question
     public string MarkupContent { get; private set; } = null!;
     public string? Remark { get; private set; } = null;
     public string GroupId { get; private set; } = null!;
-    public List<QuestionAnswer> Answers { get; set; } = null!;
+    public List<QuestionAnswer> Answers { get; private set; } = null!;
 
     private Question() { }
 
@@ -54,5 +54,10 @@ public class Question
     public void SetRemark(string? remark)
     {
         Remark = remark;
+    }
+
+    public void SetAnswers(List<QuestionAnswer> answers)
+    {
+        Answers = answers;
     }
 }

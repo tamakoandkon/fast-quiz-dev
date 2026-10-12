@@ -117,6 +117,33 @@ public class PostgreSqlQuestionGroupRepository(PostgreSqlQuestionDbContext _dbCo
             .CountAsync();
     }
 
+    public async Task<QuestionGroupStatisticsDto> GetStatisticsByGroupIdAsync(string groupId)
+    {
+        var typeCounts = await _questions
+            .AsNoTracking()
+            .Where(x => x.GroupId == groupId)
+            .GroupBy(x => x.Type)
+            .Select(g => new QuestionTypeCountDto(g.Key, g.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var levelCounts = await _questions
+            .AsNoTracking()
+            .Where(x => x.GroupId == groupId)
+            .GroupBy(x => x.Level)
+            .Select(g => new QuestionLevelCountDto(g.Key, g.Count()))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var totalCount = typeCounts.Sum(x => x.Count);
+
+        return new QuestionGroupStatisticsDto(
+            totalCount,
+            [.. typeCounts.OrderBy(x => x.Type)],
+            [.. levelCounts.OrderBy(x => x.Level)]
+        );
+    }
+
     public async Task UpdateAsync(QuestionGroup group)
     {
         await _groups
