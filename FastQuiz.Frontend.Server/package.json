@@ -35,7 +35,7 @@
     "@types/papaparse": "^5.5.2",
     "@types/node": "^24.19.2",
     "swagger-typescript-api": "^13.13.0",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "vue-tsc": "^3.3.13"
   },
   "packageManager": "npm@12.2.0",
