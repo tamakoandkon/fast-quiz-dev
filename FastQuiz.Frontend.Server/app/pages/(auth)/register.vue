@@ -1,100 +1,49 @@
 <script setup lang="ts">
-definePageMeta({ layout: "auth" });
+definePageMeta({ layout: 'auth' });
+useHead({ title: '创建账号 · FastQuiz' });
 const { $api } = useNuxtApp();
 const router = useRouter();
-
-const state = reactive({
-  username: "",
-  password: "",
-  confirmPassword: "",
-});
-
+const state = reactive({ username: '', password: '', confirmPassword: '' });
 const loading = ref(false);
-
+const error = ref('');
 async function onRegister() {
+  if (loading.value) return;
+  error.value = '';
   if (state.password !== state.confirmPassword) {
-    useToast().add({ title: "两次密码不一致" });
+    error.value = '两次输入的密码不一致。';
     return;
   }
-
   loading.value = true;
   try {
-    // 假设后端有一个 registerCreate 接口
-    await $api.auth.registerCreate({
-      username: state.username,
-      password: state.password,
-      email: "",
-      // 传递后端需要的其他 DTO 字段
-    });
-
-    useToast().add({
-      title: "注册成功！",
-      description: "现在可以登录了",
-      color: "success",
-    });
-    router.push("/");
+    await $api.auth.registerCreate({ username: state.username.trim(), password: state.password, email: '' });
+    useToast().add({ title: '账号创建成功', description: '使用新账号登录，开始你的学习。', color: 'success' });
+    await router.push('/');
   } catch (err: any) {
-    console.log(err);
-    console.log($api);
-
-    useToast().add({ title: "注册失败", color: "error" });
-  } finally {
-    loading.value = false;
-  }
+    error.value = err.response?.data?.title || '创建账号失败，请稍后重试。';
+  } finally { loading.value = false; }
 }
 </script>
-
 <template>
-  <div
-    class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4"
-  >
-    <UCard class="w-full max-w-md">
-      <template #header>
-        <div class="text-center">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-            创建账号
-          </h1>
-        </div>
-      </template>
-
-      <UForm :state="state" @submit="onRegister" class="space-y-4">
-        <UFormField label="用户名" name="username">
-          <UInput
-            class="w-full"
-            v-model="state.username"
-            icon="i-heroicons-user"
-          />
-        </UFormField>
-
-        <UFormField label="设置密码" name="password">
-          <UInput
-            class="w-full"
-            v-model="state.password"
-            type="password"
-            icon="i-heroicons-key"
-          />
-        </UFormField>
-
-        <UFormField label="确认密码" name="confirmPassword">
-          <UInput
-            class="w-full"
-            v-model="state.confirmPassword"
-            type="password"
-            icon="i-heroicons-check-badge"
-          />
-        </UFormField>
-
-        <UButton type="submit" block :loading="loading"> 注册 </UButton>
-      </UForm>
-
-      <template #footer>
-        <p class="text-sm text-center text-gray-600 dark:text-gray-400">
-          已有账号？
-          <ULink to="/" class="text-primary font-medium hover:underline"
-            >返回登录</ULink
-          >
-        </p>
-      </template>
-    </UCard>
-  </div>
+  <section class="auth-panel" aria-labelledby="register-title">
+    <div class="auth-heading">
+      <CommonBrandMark />
+      <h1 id="register-title">新的开始。</h1>
+      <p>创建账号，开启更有条理的学习。</p>
+    </div>
+    <UForm :state="state" @submit="onRegister" class="auth-form">
+      <UFormField label="用户名" name="username" required>
+        <UInput class="w-full" v-model="state.username" placeholder="3–20 位字母、数字或下划线" name="username" autocomplete="username" required minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" :disabled="loading" />
+      </UFormField>
+      <UFormField label="密码" name="password" required>
+        <UInput class="w-full" v-model="state.password" type="password" placeholder="设置密码，至少 6 位" name="password" autocomplete="new-password" required minlength="6" :disabled="loading" />
+      </UFormField>
+      <UFormField label="确认密码" name="confirmPassword" required>
+        <UInput class="w-full" v-model="state.confirmPassword" type="password" placeholder="再次输入密码" name="confirmPassword" autocomplete="new-password" required :disabled="loading" />
+      </UFormField>
+      <p v-if="error" role="alert" class="text-sm text-error leading-relaxed">{{ error }}</p>
+      <UButton type="submit" block :loading="loading" :disabled="loading">创建账号</UButton>
+    </UForm>
+    <div class="auth-divider" />
+    <p class="auth-switch">已有账号？<NuxtLink to="/">返回登录</NuxtLink></p>
+  </section>
 </template>

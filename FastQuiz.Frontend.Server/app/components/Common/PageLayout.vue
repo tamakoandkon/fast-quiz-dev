@@ -1,5 +1,6 @@
 <template>
-  <div class="flex flex-col h-full">
+  <div class="flex flex-col gap-5 h-full">
+    <CommonPageHeading />
     <div v-if="$slots.breadcrumb">
       <slot name="breadcrumb"></slot>
       <USeparator class="my-2" />

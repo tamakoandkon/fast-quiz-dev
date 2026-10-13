@@ -7,9 +7,15 @@
         v-model="showCreateModal"
         @create="handleCreateUser"
       />
+      <RoleManageUserRoleModal
+        v-model="showManageUserRoleModal"
+        :id="currentId"
+        :tenant-id="tenantId"
+      />
       <!-- 新增：批量导入用户按钮 -->
       <UButton
-        color="secondary"
+        color="neutral"
+        variant="outline"
         icon="i-lucide-upload"
         :loading="isImportingUsers"
         @click="triggerUserImport"
@@ -59,12 +65,6 @@
       :tenant-id="tenantId"
     />
 
-    <RoleManageUserRoleModal
-      v-model="showManageUserRoleModal"
-      :id="currentId"
-      :tenant-id="tenantId"
-    >
-    </RoleManageUserRoleModal>
   </CommonManagePageContainer>
 </template>
 

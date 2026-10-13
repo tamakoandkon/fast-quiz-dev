@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-full border border-gray-200 rounded-lg overflow-x-auto bg-white shadow-sm"
+    class="data-table w-full"
   >
     <table class="min-w-full divide-y divide-gray-200 table-fixed">
       <colgroup>
@@ -76,6 +76,10 @@
         </tr>
       </tbody>
     </table>
+    <div v-if="!data.length" class="data-table-empty">
+      <UIcon name="i-lucide-inbox" class="text-3xl text-dimmed" />
+      <p>暂无数据，添加内容后将在这里显示。</p>
+    </div>
   </div>
 </template>
 
@@ -105,9 +109,6 @@ const isSelected = (row: T) => {
 
 // 全选状态：选中的数量等于当前页数据量
 const isAllSelected = computed(() => {
-  console.log(selected.value?.length === props.data.length);
-  console.log(selected.value);
-
   return props.data.length > 0 && selected.value?.length === props.data.length;
 });
 

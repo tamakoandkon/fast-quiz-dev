@@ -12,6 +12,15 @@ export default defineNuxtConfig({
 
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
+  colorMode: { preference: "light", fallback: "light" },
+  icon: { clientBundle: { scan: true } },
+  app: {
+    head: {
+      title: "FastQuiz · 考试与学习",
+      htmlAttrs: { lang: "zh-CN" },
+      meta: [{ name: "theme-color", content: "#f5f5f7" }],
+    },
+  },
   modules: [
     [
       "@pinia/nuxt",

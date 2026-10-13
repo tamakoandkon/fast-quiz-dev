@@ -1,6 +1,6 @@
 <template>
   <UModal v-model:open="show" title="管理用户角色">
-    <UButton label="管理用户角色" color="primary" variant="solid" />
+    <UButton label="管理用户角色" color="neutral" variant="outline" :disabled="!id" />
 
     <template #body>
       <div class="space-y-4 p-2">

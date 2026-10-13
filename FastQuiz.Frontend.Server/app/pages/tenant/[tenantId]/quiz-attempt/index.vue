@@ -4,7 +4,7 @@
       <UBreadcrumb :items="links" />
     </template>
 
-    <main class="flex-1 overflow-y-auto bg-gray-50">
+    <main class="flex-1 min-w-0">
       <!-- 试卷详情模态 -->
       <QuizTemplateViewQuizTemplateDetailsModal
         :id="viewId"
@@ -12,7 +12,7 @@
         :tenant-id="tenantId"
       />
 
-      <div class="p-4 space-y-3">
+      <div class="space-y-4">
         <!-- 考试行：每个考试占一整行 -->
         <UCard
           v-for="template in templates"
@@ -76,7 +76,7 @@
         <!-- 无已发布考试 -->
         <div
           v-if="loaded && templates.length === 0"
-          class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
+          class="workspace-card py-16 text-center text-muted"
         >
           当前没有可参加的考试。
         </div>
