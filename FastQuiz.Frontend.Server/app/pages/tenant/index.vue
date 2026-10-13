@@ -1,5 +1,10 @@
 <template>
   <CommonManagePageContainer>
+    <header class="workspace-hero">
+      <p class="workspace-eyebrow">FASTQUIZ / WORKSPACES</p>
+      <h1 class="workspace-title">你的工作空间。</h1>
+      <p class="workspace-description">选择一个租户，进入你的考试与学习空间。</p>
+    </header>
     <UBreadcrumb :items="links" class="py-2" />
     <USeparator class="my-2" />
     <!-- 卡片网格 -->
@@ -8,7 +13,11 @@
         <UCard
           v-for="tenant in tenants"
           :key="tenant.id || ''"
-          class="cursor-pointer hover:shadow-md transition-shadow duration-200"
+          class="cursor-pointer rounded-2xl hover:shadow-md transition-shadow duration-200"
+          role="link"
+          tabindex="0"
+          @keydown.enter="router.push('/tenant/' + tenant.id)"
+          @keydown.space.prevent="router.push('/tenant/' + tenant.id)"
           @click="() => router.push(`/tenant/${tenant.id}`)"
         >
           <template #header>

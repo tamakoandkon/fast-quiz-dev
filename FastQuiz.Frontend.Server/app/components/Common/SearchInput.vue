@@ -1,5 +1,5 @@
 <template>
-  <UInput v-model="input" class="w-full" placeholder="搜索题库名称" size="xl">
+  <UInput v-model="input" class="w-full" placeholder="搜索题库名称" aria-label="搜索题库名称" size="xl" @keydown.enter="handleClick">
     <template #trailing>
       <UButton
         variant="link"

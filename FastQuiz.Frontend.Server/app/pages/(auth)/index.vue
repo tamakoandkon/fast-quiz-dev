@@ -1,96 +1,54 @@
 <script setup lang="ts">
-definePageMeta({ layout: "auth" });
-
+definePageMeta({ layout: 'auth' });
+useHead({ title: '登录 · FastQuiz' });
 const { $api } = useNuxtApp();
 const router = useRouter();
-import { useUserStore } from "~/stores/user";
-
-const state = reactive({
-  username: "",
-  password: "",
-});
-
 const userStore = useUserStore();
-
+const state = reactive({ username: '', password: '' });
 const loading = ref(false);
-
+const error = ref('');
+const showPassword = ref(false);
 async function onSubmit() {
+  if (loading.value) return;
+  error.value = '';
+  if (!state.username.trim() || !state.password) {
+    error.value = '请输入用户名和密码。';
+    return;
+  }
   loading.value = true;
   try {
-    // 调用 swagger-typescript-api 生成的接口
-    const res = await $api.auth.loginCreate(state);
-
+    const res = await $api.auth.loginCreate({ username: state.username.trim(), password: state.password });
     if (res.data.accessToken) {
       userStore.setToken(res.data.accessToken);
-      router.push("/tenant");
-      useToast().add({
-        title: `欢迎回来, ${res.data.user?.username}!`,
-        color: "primary",
-      });
+      await router.push('/tenant');
     }
   } catch (err: any) {
-    useToast().add({
-      title: "登录失败",
-      description: err.response?.data?.message || "请检查账号密码",
-    });
-  } finally {
-    loading.value = false;
-  }
+    error.value = err.response?.status === 401 ? '用户名或密码不正确，请重试。' : (err.response?.data?.title || '暂时无法登录，请稍后重试。');
+  } finally { loading.value = false; }
 }
 </script>
-
 <template>
-  <div
-    class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4"
-  >
-    <UCard class="w-full max-w-md">
-      <template #header>
-        <div class="text-center">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-            账户登录
-          </h1>
-        </div>
-      </template>
-
-      <UForm :state="state" @submit="onSubmit" class="space-y-4">
-        <UFormField label="用户名" name="username" required>
-          <UInput
-            class="w-full"
-            v-model="state.username"
-            placeholder="输入用户名"
-            icon="i-heroicons-user"
-          />
-        </UFormField>
-
-        <UFormField label="密码" name="password" required>
-          <UInput
-            class="w-full"
-            v-model="state.password"
-            type="password"
-            placeholder="输入密码"
-            icon="i-heroicons-lock-closed"
-          />
-        </UFormField>
-
-        <UButton
-          type="submit"
-          block
-          :loading="loading"
-          color="primary"
-          variant="solid"
-        >
-          登录
-        </UButton>
-      </UForm>
-
-      <template #footer>
-        <p class="text-sm text-center text-gray-600 dark:text-gray-400">
-          还没有账号？
-          <ULink to="/register" class="text-primary font-medium hover:underline"
-            >立即注册</ULink
-          >
-        </p>
-      </template>
-    </UCard>
-  </div>
+  <section class="auth-panel" aria-labelledby="login-title">
+    <div class="auth-heading">
+      <CommonBrandMark />
+      <h1 id="login-title">欢迎回来。</h1>
+      <p>登录 FastQuiz，继续你的学习旅程。</p>
+    </div>
+    <UForm :state="state" @submit="onSubmit" class="auth-form">
+      <UFormField label="用户名" name="username" required>
+        <UInput v-model="state.username" class="w-full" placeholder="输入你的用户名" autocomplete="username" name="username" required :disabled="loading" />
+      </UFormField>
+      <UFormField label="密码" name="password" required>
+        <UInput v-model="state.password" class="w-full" :type="showPassword ? 'text' : 'password'" placeholder="输入密码" autocomplete="current-password" name="password" required :disabled="loading" :ui="{ trailing: 'pe-2' }">
+          <template #trailing>
+            <UButton color="neutral" variant="ghost" size="sm" :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'" :aria-label="showPassword ? '隐藏密码' : '显示密码'" :aria-pressed="showPassword" @click="showPassword = !showPassword" />
+          </template>
+        </UInput>
+      </UFormField>
+      <p v-if="error" role="alert" class="text-sm text-error leading-relaxed">{{ error }}</p>
+      <UButton type="submit" block :loading="loading" :disabled="loading">登录</UButton>
+    </UForm>
+    <div class="auth-divider" />
+    <p class="auth-switch">第一次使用？<NuxtLink to="/register">创建账号</NuxtLink></p>
+  </section>
 </template>

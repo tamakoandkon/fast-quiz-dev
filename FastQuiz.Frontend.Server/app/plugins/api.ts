@@ -2,14 +2,13 @@
 import { Api } from "~/utils/backEnd";
 
 export default defineNuxtPlugin(async () => {
-  console.log("--- API Plugin Loading ---");
-
-  let baseURL = "https://localhost:7040"; // 默认值
+  let baseURL = "/api";
 
   try {
     const response = await fetch("/config.json");
+    if (!response.ok) throw new Error("Failed to load API configuration");
     const config = await response.json();
-    baseURL = config.apiBaseUrl;
+    if (typeof config.apiBaseUrl === "string") baseURL = config.apiBaseUrl;
   } catch (error) {
     console.error("Failed to load config, using default:", error);
   }

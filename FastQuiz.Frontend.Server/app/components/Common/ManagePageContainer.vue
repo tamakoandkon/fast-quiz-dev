@@ -1,5 +1,6 @@
 <template>
-  <div class="mx-auto w-full" :class="customClass">
+  <div class="manage-page mx-auto w-full" :class="customClass">
+    <CommonPageHeading />
     <slot />
   </div>
 </template>

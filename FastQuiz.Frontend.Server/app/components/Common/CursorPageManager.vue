@@ -3,7 +3,9 @@
     <UButton
       @click="handlePrevPage"
       :disabled="!nextAble"
-      :color="nextAble ? 'primary' : 'warning'"
+      color="neutral"
+      variant="outline"
+      icon="i-lucide-chevron-left"
     >
       上一页
     </UButton>
@@ -11,7 +13,9 @@
     <UButton
       @click="handleNextPage"
       :disabled="!preAble"
-      :color="preAble ? 'primary' : 'warning'"
+      color="neutral"
+      variant="outline"
+      trailing-icon="i-lucide-chevron-right"
     >
       下一页
     </UButton>
@@ -20,6 +24,7 @@
       v-model="pageSize"
       :items="pageSizeOptions"
       @change="handlePageSizeChange"
+      aria-label="每页显示数量"
     />
   </div>
 </template>

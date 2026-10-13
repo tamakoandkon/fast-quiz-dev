@@ -1,7 +1,7 @@
 <template>
   <UFormField
     :label="label"
-    :description="fieldDescription"
+    :description="description"
     :error="error"
     :required="required"
     class="w-full"
