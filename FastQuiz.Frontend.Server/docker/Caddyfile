@@ -1,14 +1,20 @@
 :80 {
     root * /usr/share/caddy
+    encode zstd gzip
 
-    # 静态资源长缓存（可选，优化用）
-    @static {
-        path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2
+    # Strip /api before forwarding, keeping API errors out of the SPA fallback.
+    handle_path /api/* {
+        reverse_proxy fqz-core:8080
     }
-    header @static Cache-Control "public, max-age=31536000, immutable"
-
-    # SPA 路由回退：找不到文件就回 index.html
-    try_files {path} /index.html
-
-    file_server
+    handle /health {
+        reverse_proxy fqz-core:8080
+    }
+    handle {
+        @static path /_nuxt/*
+        header @static Cache-Control "public, max-age=31536000, immutable"
+        @config path /config.json
+        header @config Cache-Control "no-store"
+        try_files {path} /index.html
+        file_server
+    }
 }

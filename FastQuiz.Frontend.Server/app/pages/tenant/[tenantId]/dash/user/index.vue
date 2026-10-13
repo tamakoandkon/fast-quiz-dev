@@ -162,7 +162,7 @@ const handleCreateUser = async (command: UserRegisterCommand) => {
 
 const currentId = ref("");
 
-const switchCurrentId = (row: TenantDto) => {
+const switchCurrentId = (row: UserDto) => {
   currentId.value = row.id || "";
 };
 
@@ -266,7 +266,6 @@ const handleUserFileImport = async (event: Event) => {
     // 使用 Papa Parse 解析 CSV
     const result = Papa.parse<string[]>(text, {
       skipEmptyLines: true,
-      trimHeaders: false,
     });
 
     const rows = result.data;
@@ -279,7 +278,7 @@ const handleUserFileImport = async (event: Event) => {
     const userCommands: UserRegisterCommand[] = [];
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (row.length < 3) {
+      if (!row || row.length < 3) {
         console.warn(`第 ${i + 1} 行格式错误，跳过`, row);
         continue;
       }

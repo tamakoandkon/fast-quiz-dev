@@ -72,7 +72,7 @@
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 
-const show = defineModel({ required: true, default: true });
+const show = defineModel<boolean>({ required: true, default: true });
 
 const name = ref<string>("");
 const description = ref<string>("");

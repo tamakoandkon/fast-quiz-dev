@@ -201,15 +201,15 @@ const getStatusText = (status?: QuizAttemptStatus) => {
 const getStatusColor = (status?: QuizAttemptStatus) => {
   switch (status) {
     case QuizAttemptStatus.Graded:
-      return "green";
+      return "success";
     case QuizAttemptStatus.Submitted:
-      return "yellow";
+      return "warning";
     case QuizAttemptStatus.InProgress:
-      return "blue";
+      return "info";
     case QuizAttemptStatus.Pending:
-      return "gray";
+      return "neutral";
     default:
-      return "gray";
+      return "neutral";
   }
 };
 

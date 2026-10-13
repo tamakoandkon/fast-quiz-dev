@@ -130,7 +130,7 @@ const fetchQuestion = async (id: string) => {
   remark.value = result.data.remark as string;
   type.value = result.data.type as QuestionType;
   level.value = result.data.level as number;
-  answers.value = result.data.answers.map((item) => ({
+  answers.value = (result.data.answers ?? []).map((item) => ({
     sortOrder: item.sortOrder ?? 0,
     content: item.markupContent ?? "", // 如果源数据用content字段
     isCorrect: item.isCorrect ?? false,
@@ -189,13 +189,19 @@ const type = ref<QuestionType>(QuestionType.SingleChoice);
 const level = ref(0);
 const remark = ref("");
 
-const answers = ref<CreateQuestionAnswerCommand[]>([]);
+type EditableAnswer = Omit<CreateQuestionAnswerCommand, "content"> & { content: string };
+const answers = ref<EditableAnswer[]>([]);
 const emit = defineEmits<{
   (e: "update", id: string, payLoad: UpdateQuestionCommand): void;
 }>();
 
 const addAnswer = () => {
-  answers.value.push({} as CreateQuestionAnswerCommand);
+  answers.value.push({
+    content: "",
+    isCorrect: false,
+    sortOrder: answers.value.length,
+    matchStrategy: MatchStrategy.Exact,
+  });
 };
 
 const removeAnswer = (index: number) => {

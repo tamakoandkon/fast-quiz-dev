@@ -42,7 +42,7 @@
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 const toast = useToast();
-const show = defineModel({ required: true, default: true });
+const show = defineModel<boolean>({ required: true, default: true });
 const username = ref<string>("");
 const password = ref<string>("");
 const email = ref<string>("");

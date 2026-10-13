@@ -665,12 +665,8 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
       NamePrefix?: string;
     };
@@ -758,9 +754,9 @@ export namespace Tenant {
       groupId: string;
     };
     export type RequestQuery = {
-      type: string;
+      Type: QuestionType;
       /** @format int32 */
-      level: number;
+      Level: number;
     };
     export type RequestBody = never;
     export type RequestHeaders = {};
@@ -865,18 +861,11 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      Type?: string;
-      /**
-       * @format int32
-       * @default -1
-       */
+      Type?: QuestionType;
+      /** @format int32 */
       Level?: number;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -914,12 +903,8 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -956,15 +941,10 @@ export namespace Tenant {
       quizTemplateId: string;
     };
     export type RequestQuery = {
-      /** @default false */
       OnlyBest?: boolean;
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -984,10 +964,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1008,12 +985,8 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -1034,15 +1007,10 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       TemplateId?: string;
-      /** @default false */
       OnlyBest?: boolean;
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -1079,7 +1047,7 @@ export namespace Tenant {
       quizAttemptId: string;
     };
     export type RequestQuery = {
-      status: string;
+      status: QuizAttemptStatus;
     };
     export type RequestBody = never;
     export type RequestHeaders = {};
@@ -1099,10 +1067,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1123,10 +1088,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1199,10 +1161,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 10
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1257,10 +1216,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1296,12 +1252,8 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -1321,10 +1273,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1430,10 +1379,7 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 20
-       */
+      /** @format int32 */
       Count?: number;
     };
     export type RequestBody = never;
@@ -1520,12 +1466,8 @@ export namespace Tenant {
     };
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -1724,12 +1666,8 @@ export namespace Tenant {
     export type RequestParams = {};
     export type RequestQuery = {
       Cursor?: string;
-      /**
-       * @format int32
-       * @default 30
-       */
+      /** @format int32 */
       Count?: number;
-      /** @default false */
       IsPrevious?: boolean;
     };
     export type RequestBody = never;
@@ -2394,12 +2332,8 @@ export class Api<
       tenantId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
         NamePrefix?: string;
       },
@@ -2502,9 +2436,9 @@ export class Api<
       tenantId: string,
       groupId: string,
       query: {
-        type: string;
+        Type: QuestionType;
         /** @format int32 */
-        level: number;
+        Level: number;
       },
       params: RequestParams = {},
     ) =>
@@ -2627,18 +2561,11 @@ export class Api<
       questionGroupId: string,
       query?: {
         Cursor?: string;
-        Type?: string;
-        /**
-         * @format int32
-         * @default -1
-         */
+        Type?: QuestionType;
+        /** @format int32 */
         Level?: number;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -2682,12 +2609,8 @@ export class Api<
       quizTemplateId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -2732,15 +2655,10 @@ export class Api<
       tenantId: string,
       quizTemplateId: string,
       query?: {
-        /** @default false */
         OnlyBest?: boolean;
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -2764,10 +2682,7 @@ export class Api<
       tenantId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -2792,12 +2707,8 @@ export class Api<
       quizTemplateId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -2822,15 +2733,10 @@ export class Api<
       userId: string,
       query?: {
         TemplateId?: string;
-        /** @default false */
         OnlyBest?: boolean;
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -2873,7 +2779,7 @@ export class Api<
       tenantId: string,
       quizAttemptId: string,
       query: {
-        status: string;
+        status: QuizAttemptStatus;
       },
       params: RequestParams = {},
     ) =>
@@ -2896,10 +2802,7 @@ export class Api<
       quizAttemptId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -2924,10 +2827,7 @@ export class Api<
       quizAttemptId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -3013,10 +2913,7 @@ export class Api<
       quizTemplateId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 10
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -3078,10 +2975,7 @@ export class Api<
       quizSnapshotId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -3126,12 +3020,8 @@ export class Api<
       tenantId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -3155,10 +3045,7 @@ export class Api<
       tenantId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -3284,10 +3171,7 @@ export class Api<
       quizTemplateId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 20
-         */
+        /** @format int32 */
         Count?: number;
       },
       params: RequestParams = {},
@@ -3390,12 +3274,8 @@ export class Api<
       tenantId: string,
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},
@@ -3613,12 +3493,8 @@ export class Api<
     tenantList: (
       query?: {
         Cursor?: string;
-        /**
-         * @format int32
-         * @default 30
-         */
+        /** @format int32 */
         Count?: number;
-        /** @default false */
         IsPrevious?: boolean;
       },
       params: RequestParams = {},

@@ -10,8 +10,10 @@ export default defineNuxtConfig({
     },
   },
 
-  compatibilityDate: "2025-07-15",
-  devtools: { enabled: true },
+  compatibilityDate: "2026-10-14",
+  // Stable DevTools still imports simple-git's removed default export.
+  // Keep it disabled until it supports the patched simple-git 4 release.
+  devtools: { enabled: false },
   colorMode: { preference: "light", fallback: "light" },
   icon: { clientBundle: { scan: true } },
   app: {
@@ -21,20 +23,7 @@ export default defineNuxtConfig({
       meta: [{ name: "theme-color", content: "#f5f5f7" }],
     },
   },
-  modules: [
-    [
-      "@pinia/nuxt",
-      {
-        autoImports: [
-          // 自动引入 `defineStore()`
-          "defineStore",
-          // 自动引入 `defineStore()` 并重命名为 `definePiniaStore()`
-          ["defineStore", "definePiniaStore"],
-        ],
-      },
-    ],
-    "@nuxt/ui",
-  ],
+  modules: ["@pinia/nuxt", "@nuxt/ui"],
   css: ["~/assets/css/main.css"],
   ui: {
     fonts: false,

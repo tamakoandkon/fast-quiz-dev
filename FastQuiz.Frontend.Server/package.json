@@ -8,27 +8,39 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "generate-api": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 swagger-typescript-api generate -p https://localhost:7040/swagger/v1/swagger.json -o ./app/utils -n backEnd.ts --axios --route-types"
+    "generate-api": "node scripts/generate-api.mjs",
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
     "@iconify-vue/iconoir": "^1.0.4",
-    "@nuxt/ui": "^4.6.1",
-    "@pinia/nuxt": "^0.11.3",
-    "axios": "^1.15.1",
-    "cross-env": "^10.1.0",
-    "dayjs": "^1.11.21",
+    "@nuxt/ui": "^4.11.3",
+    "@pinia/nuxt": "^1.0.2",
+    "axios": "^1.20.0",
+    "dayjs": "^1.11.23",
     "echarts": "^6.1.0",
-    "nuxt": "4.3.1",
-    "papaparse": "^5.5.4",
-    "pinia": "^3.0.4",
-    "swagger-typescript-api": "^13.6.10",
-    "tailwindcss": "^4.2.2",
-    "vue": "^3.5.32",
-    "vue-echarts": "^8.3.1",
-    "vue-router": "^5.0.4"
+    "nuxt": "4.6.1",
+    "papaparse": "^5.7.0",
+    "pinia": "^4.0.3",
+    "tailwindcss": "^4.3.3",
+    "vue": "^3.5.44",
+    "vue-echarts": "^8.3.2",
+    "vue-router": "^5.4.0"
+  },
+  "overrides": {
+    "simple-git": "4.0.2",
+    "esbuild": "0.28.2"
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.143",
-    "@types/papaparse": "^5.5.2"
+    "@types/papaparse": "^5.5.2",
+    "@types/node": "^24.19.2",
+    "swagger-typescript-api": "^13.13.0",
+    "typescript": "~6.0.3",
+    "vue-tsc": "^3.3.13"
+  },
+  "packageManager": "npm@12.2.0",
+  "engines": {
+    "node": "^24.21.0 || >=26.0.0",
+    "npm": "^12.2.0"
   }
 }

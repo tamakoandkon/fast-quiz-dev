@@ -1,0 +1,59 @@
+name: Build and regression tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FastQuiz
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: FastQuiz/global.json
+      - run: dotnet restore FastQuiz.sln
+      - run: dotnet build FastQuiz.sln --no-restore --configuration Release
+      - run: dotnet tool restore
+      - run: dotnet ef migrations has-pending-model-changes --project FastQuiz.Auth --context SqliteAuthDbContext --no-build --configuration Release
+      - run: dotnet ef migrations has-pending-model-changes --project FastQuiz.Question --context SqliteQuestionDbContext --no-build --configuration Release
+      - run: dotnet ef migrations has-pending-model-changes --project FastQuiz.Quiz --context SqliteQuizDbContext --no-build --configuration Release
+      # Provider fixtures recreate databases; never target shared databases.
+      - run: dotnet test FastQuiz.sln --no-build --configuration Release --filter 'FullyQualifiedName!~MariaDb&FullyQualifiedName!~PostgreSql&FullyQualifiedName!~PostgreSQL'
+      - run: dotnet list FastQuiz.sln package --vulnerable --include-transitive
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FastQuiz.Frontend.Server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: FastQuiz.Frontend.Server/package-lock.json
+      - run: npm install --global npm@12.2.0
+      - run: npm ci --ignore-scripts
+      - run: npm run postinstall
+      - run: npm run typecheck
+      - run: npm run build
+      # Upstream braces/node-forge advisories have no stable fix yet (see upgrade notes).
+      - run: npm audit --audit-level=critical
+  loadtest-syntax:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LoadTest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: npm install --global npm@12.2.0
+      - run: npm ci --ignore-scripts
+      - run: npm run check

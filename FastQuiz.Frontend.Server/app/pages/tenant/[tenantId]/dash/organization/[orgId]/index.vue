@@ -141,7 +141,7 @@ const handleAddUser = async (command: { userId: string; orgId: string }) => {
 
 const currentId = ref("");
 
-const switchCurrentId = (row: TenantDto) => {
+const switchCurrentId = (row: UserDto) => {
   currentId.value = row.id || "";
 };
 

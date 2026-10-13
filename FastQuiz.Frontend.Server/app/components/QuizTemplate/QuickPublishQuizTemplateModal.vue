@@ -455,7 +455,7 @@ const fetchQuestionCountAsync = async () => {
     const result = await $api.tenant.questionGroupCountList(
       props.tenantId,
       groupId.value,
-      { type: questionType.value, level: level.value },
+      { Type: questionType.value, Level: level.value },
     );
     currentCount.value = result.data ?? 0;
   } catch (e: any) {
