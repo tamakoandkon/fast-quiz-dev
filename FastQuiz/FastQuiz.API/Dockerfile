@@ -1,34 +1,24 @@
-# 请参阅 https://aka.ms/customizecontainer 以了解如何自定义调试容器，以及 Visual Studio 如何使用此 Dockerfile 生成映像以更快地进行调试。
-
-# 此阶段用于在快速模式(默认为调试配置)下从 VS 运行时
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine-extra AS base
-USER $APP_UID
+# Build context: FastQuiz/
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 8080
-EXPOSE 8081
+RUN mkdir -p /app/data /app/logs && chown -R app:app /app/data /app/logs
+USER $APP_UID
 
-
-# 此阶段用于生成服务项目
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["FastQuiz.API/FastQuiz.API.csproj", "FastQuiz.API/"]
-RUN dotnet restore "./FastQuiz.API/FastQuiz.API.csproj"
+COPY global.json Directory.Packages.props ./
+COPY FastQuiz.API/FastQuiz.API.csproj FastQuiz.API/
+COPY FastQuiz.Auth/FastQuiz.Auth.csproj FastQuiz.Auth/
+COPY FastQuiz.Common/FastQuiz.Common.csproj FastQuiz.Common/
+COPY FastQuiz.Question/FastQuiz.Question.csproj FastQuiz.Question/
+COPY FastQuiz.Quiz/FastQuiz.Quiz.csproj FastQuiz.Quiz/
+RUN dotnet restore FastQuiz.API/FastQuiz.API.csproj
 COPY . .
-WORKDIR "/src/FastQuiz.API"
-RUN dotnet build "./FastQuiz.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet publish FastQuiz.API/FastQuiz.API.csproj -c $BUILD_CONFIGURATION \
+    --no-restore -o /app/publish /p:UseAppHost=false
 
-# 此阶段用于发布要复制到最终阶段的服务项目
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./FastQuiz.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
-
-# 此阶段在生产中使用，或在常规模式下从 VS 运行时使用(在不使用调试配置时为默认值)
 FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-
-# 授予sqlite数据库目录的读写权限
-RUN mkdir -p /app/data && chown $APP_UID:$APP_UID /app/data
-
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "FastQuiz.API.dll"]

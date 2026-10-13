@@ -1,23 +1,13 @@
-# ---------- 构建阶段 ----------
-FROM docker.xuanyuan.run/library/node:24.21.0-slim AS builder
-
+# Build context: FastQuiz.Frontend.Server/
+FROM node:24.21.0-bookworm-slim AS builder
 WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
+RUN npm install --global npm@12.2.0
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --ignore-scripts
 COPY . .
-RUN npm run build
+RUN npm run postinstall && npm run build
 
-# ---------- 运行阶段：Caddy ----------
-FROM docker.xuanyuan.run/library/caddy:2.9.1-alpine AS runner
-
-# 把构建产物拷进 Caddy 默认站点目录
+FROM caddy:2.11.7-alpine AS runner
 COPY --from=builder /app/.output/public /usr/share/caddy
-
-# 用你 docker/ 目录下的 Caddyfile 覆盖默认配置
 COPY docker/Caddyfile /etc/caddy/Caddyfile
-
-EXPOSE 80 443
-
-# Caddy 官方镜像已有默认 CMD，一般不用重复写
+EXPOSE 80

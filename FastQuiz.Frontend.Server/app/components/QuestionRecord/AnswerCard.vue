@@ -91,11 +91,14 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  question: QuestionRecordWithoutAnswerDto;
-  index: number;
-  modelValue: string[]; // 统一为 string[]，单选/填空只有一项，多选可有多项
-}>();
+const props = withDefaults(
+  defineProps<{
+    question: QuestionRecordWithoutAnswerDto;
+    index: number;
+    modelValue?: string[]; // 统一为 string[]，未选择时默认空数组
+  }>(),
+  { modelValue: () => [] },
+);
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: string[]): void;
@@ -152,7 +155,5 @@ const submitAnswer = (value: string[]) => {
   emit("answer", props.question.id || "", commands);
 };
 
-// 初始化：如果 modelValue 为 undefined 或 null，设置为空数组
-// 但由于 props 是只读的，我们需要在父组件处理
-// 或者使用 computed 来包装
+// 未提供作答数组时，由 prop 默认值提供空数组。
 </script>

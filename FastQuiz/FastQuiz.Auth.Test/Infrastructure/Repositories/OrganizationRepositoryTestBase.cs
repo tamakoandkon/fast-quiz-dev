@@ -382,7 +382,7 @@ internal abstract class OrganizationRepositoryTestBase
         await Sut.CreateAsync(organization);
 
         // Act & Assert
-        Assert.ThrowsAsync<DataAccessException>(
+        await Assert.ThrowsAsync<DataAccessException>(
             () => Sut.AddUserToOrganizationAsync(organization.Id, userId)
         );
     }
@@ -403,7 +403,7 @@ internal abstract class OrganizationRepositoryTestBase
         var organization = OrganizationBuilder.New().Build();
 
         // Act & Assert
-        Assert.ThrowsAsync<DataAccessException>(
+        await Assert.ThrowsAsync<DataAccessException>(
             () => Sut.AddUserToOrganizationAsync(organization.Id, userId)
         );
     }

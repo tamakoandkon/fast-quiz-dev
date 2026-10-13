@@ -173,15 +173,15 @@ const getAttemptStatusText = (status?: QuizAttemptStatus): string => {
 const getReviewBadgeColor = (status?: QuizAttemptStatus) => {
   switch (status) {
     case QuizAttemptStatus.Graded:
-      return "green";
+      return "success";
     case QuizAttemptStatus.Submitted:
-      return "yellow";
+      return "warning";
     case QuizAttemptStatus.InProgress:
-      return "blue";
+      return "info";
     case QuizAttemptStatus.Pending:
-      return "gray";
+      return "neutral";
     default:
-      return "gray";
+      return "neutral";
   }
 };
 
@@ -216,7 +216,7 @@ const fetchAllQuestionRecords = async () => {
     const page = res.data ?? [];
     records.push(...page);
     if (page.length < pageSize) break;
-    cursor = page[page.length - 1].id ?? undefined;
+    cursor = page[page.length - 1]?.id ?? undefined;
     if (!cursor) break;
   }
   return records;
@@ -238,7 +238,7 @@ const fetchAllAttempts = async (): Promise<QuizAttempDto[]> => {
     const page = res.data ?? [];
     attempts.push(...page);
     if (page.length < pageSize) break;
-    cursor = page[page.length - 1].id ?? undefined;
+    cursor = page[page.length - 1]?.id ?? undefined;
     if (!cursor) break;
   }
   return attempts;
@@ -250,7 +250,7 @@ const resolveNextAttemptId = (queue: QuizAttempDto[]): string | undefined => {
     .filter((a) => isAttemptNeedsReview(a, template.value))
     .filter((a) => a.id !== attemptId.value)
     .sort((a, b) => (a.submitTime ?? "").localeCompare(b.submitTime ?? ""));
-  return eligible[0]?.id;
+  return eligible[0]?.id ?? undefined;
 };
 
 /** 阅完一份 → 标记 Graded，并自动切到队列里下一份待阅卷（#6）。 */

@@ -73,10 +73,6 @@ const items = ref([
     label: "填空",
     id: QuestionType.FillIn,
   },
-  {
-    label: "材料题",
-    id: QuestionType.CaseStudy,
-  },
 ]);
 
 const show = defineModel({ required: true, default: true });

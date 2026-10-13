@@ -1,21 +1,27 @@
 services:
   fqz-core:
-    image: localhost/hollow264/fqz-core:0
-    container_name: fqz-core
-    ports:
-      - "5026:8080" # 宿主机 5026 → 容器 8080 (HTTP)
+    image: fast-quiz-api:net10
+    build:
+      context: ../FastQuiz
+      dockerfile: FastQuiz.API/Dockerfile
     environment:
-      - ASPNETCORE_URLS=http://+:8080
-      - ASPNETCORE_ENVIRONMENT=Development
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Production
+      Jwt__Key: ${FASTQUIZ_JWT_KEY:?Set a private JWT signing key of at least 32 bytes}
+      AllowedHosts: ${FASTQUIZ_ALLOWED_HOSTS:?Set the public hostname or IP}
+      Cors__AllowedOrigins__0: ${FASTQUIZ_PUBLIC_ORIGIN:?Set the public URL including port}
+      Migrations__RunMigrationsOnStartup: "true"
     volumes:
       - fqz_data:/app/data
     restart: unless-stopped
 
   fqz:
-    image: localhost/hollow264/fqz:0
-    container_name: fqz
+    image: fast-quiz-web:nuxt4
+    build:
+      context: ../FastQuiz.Frontend.Server
+      dockerfile: docker/DockerFile
     ports:
-      - "3000:80" # 前端访问端口，按你实际改
+      - "3003:80"
     depends_on:
       - fqz-core
     restart: unless-stopped

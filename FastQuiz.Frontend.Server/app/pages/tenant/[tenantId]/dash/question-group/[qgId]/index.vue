@@ -341,7 +341,7 @@ const parseCSVRow = (row: string): string[] => {
 const parseAnswer = (raw: string) => {
   let content = raw.trim();
   let isCorrect = false;
-  let matchType = "Exact"; // 默认精准匹配
+  let matchStrategy = MatchStrategy.Exact;
 
   // 检查是否以 * 开头（正确答案标记）
   if (content.startsWith("*")) {
@@ -352,11 +352,15 @@ const parseAnswer = (raw: string) => {
   // 检查是否包含 @@ 匹配类型
   const matchIdx = content.indexOf("@@");
   if (matchIdx !== -1) {
-    matchType = content.substring(matchIdx + 2);
+    const strategy = content.substring(matchIdx + 2).trim();
+    if (!Object.values(MatchStrategy).includes(strategy as MatchStrategy)) {
+      throw new Error(`无效的答案匹配方式：${strategy}`);
+    }
+    matchStrategy = strategy as MatchStrategy;
     content = content.substring(0, matchIdx);
   }
 
-  return { content, isCorrect, matchType };
+  return { content, isCorrect, matchStrategy };
 };
 
 // ---------- 处理文件导入 ----------
@@ -378,12 +382,15 @@ const handleFileImport = async (event: Event) => {
     // 跳过表头（第一行）
     const commands: CreateQuestionCommand[] = rows.slice(1).map((row) => {
       const [content, remark, type, levelStr, ...answerRaw] = row;
-      const answers = answerRaw.map(parseAnswer); // parseAnswer 保留不变
+      if (!Object.values(QuestionType).includes(type as QuestionType)) {
+        throw new Error(`无效的题型：${type ?? "空"}`);
+      }
+      const answers = answerRaw.map(parseAnswer);
       return {
         content,
         remark: remark || "",
-        type: type,
-        level: parseInt(levelStr, 10) || 0,
+        type: type as QuestionType,
+        level: parseInt(levelStr ?? "0", 10) || 0,
         answers,
       };
     });

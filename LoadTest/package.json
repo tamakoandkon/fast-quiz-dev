@@ -4,13 +4,18 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "check": "node --check Api/quiz-attempt-flow.js && node --check Api/quiz-attempt-flow-v2.js && node --check Demo/demo.js && node --check Demo/demo2.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "devDependencies": {
-    "@types/k6": "^2.2.1"
+    "@types/k6": "^2.3.0"
+  },
+  "packageManager": "npm@12.2.0",
+  "engines": {
+    "node": "^24.21.0 || >=26.0.0",
+    "npm": "^12.2.0"
   }
 }

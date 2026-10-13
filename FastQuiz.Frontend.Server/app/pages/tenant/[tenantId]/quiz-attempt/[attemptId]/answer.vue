@@ -326,7 +326,7 @@ const submitQuizAttempt = async () => {
       tenantId.value,
       attemptId.value,
       {
-        status: "Submitted",
+        status: QuizAttemptStatus.Submitted,
       },
     );
     toast.add({ title: "交卷成功", color: "success" });
@@ -343,7 +343,7 @@ const onCountdownEnd = async () => {
     tenantId.value,
     attemptId.value,
     {
-      status: "Submitted",
+      status: QuizAttemptStatus.Submitted,
     },
   );
   toast.add({ title: "交卷成功", color: "success" });

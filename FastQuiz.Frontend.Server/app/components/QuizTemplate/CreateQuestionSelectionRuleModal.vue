@@ -96,10 +96,6 @@ const items = ref([
     label: "填空",
     id: QuestionType.FillIn,
   },
-  {
-    label: "材料题",
-    id: QuestionType.CaseStudy,
-  },
 ]);
 
 const show = defineModel({ required: true, default: true });
@@ -190,7 +186,7 @@ const fetchQuestionCountAsync = async () => {
   var result = await $api.tenant.questionGroupCountList(
     props.tenantId,
     groupId.value,
-    { type: questionType.value, level: level.value },
+    { Type: questionType.value, Level: level.value },
   );
 
   count.value = 0;

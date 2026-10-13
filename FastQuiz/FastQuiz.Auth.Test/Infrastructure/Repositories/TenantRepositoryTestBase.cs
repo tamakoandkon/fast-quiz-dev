@@ -264,7 +264,7 @@ internal abstract class TenantRepositoryTestBase
         await Sut.CreateAsync(tenant);
 
         // Act & Assert
-        Assert.ThrowsAsync<DataAccessException>(() => Sut.AddUserToTenantAsync(tenant.Id, userId));
+        await Assert.ThrowsAsync<DataAccessException>(() => Sut.AddUserToTenantAsync(tenant.Id, userId));
     }
 
     [Test]
@@ -283,7 +283,7 @@ internal abstract class TenantRepositoryTestBase
         var tenant = TenantBuilder.New().Build();
 
         // Act & Assert
-        Assert.ThrowsAsync<DataAccessException>(() => Sut.AddUserToTenantAsync(tenant.Id, userId));
+        await Assert.ThrowsAsync<DataAccessException>(() => Sut.AddUserToTenantAsync(tenant.Id, userId));
     }
 
     [Test]

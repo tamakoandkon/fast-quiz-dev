@@ -26,6 +26,7 @@
           :key="question.id || questionIndex"
           :question="question"
           :index="questionIndex + 1"
+          :tenant-id="tenantId"
         />
 
         <!-- 空状态 -->

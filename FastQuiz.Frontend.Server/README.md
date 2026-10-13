@@ -1,78 +1,48 @@
-# Nuxt Minimal Starter
+# FastQuiz 前端
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+使用 Nuxt4、Vue3、Nuxt UI4 和 Pinia4，构建为静态 SPA。版本与升级限制参见 [升级说明](../docs/dependency-modernization.md)。
 
-## Setup
+## 环境与安装
 
-Make sure to install dependencies:
+从仓库根目录使用 `.nvmrc` 指定的 Node24 LTS；保留 npm 管理器和 `package-lock.json`，不要混用其他管理器生成锁文件。
 
 ```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+nvm use
+npm install --global npm@12.2.0
+cd FastQuiz.Frontend.Server
+npm ci --ignore-scripts
+npm run postinstall
 ```
 
-## Development Server
+依赖安装脚本默认不执行；项目自身的 `nuxt prepare` 单独运行。镜像和 CI 使用相同流程。
 
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
+## 开发与验证
 
 ```bash
-# npm
+npm run dev -- --host 127.0.0.1
+npm run typecheck
 npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+npm run preview
 ```
 
-Locally preview production build:
+开发服务默认端口3000；生产反向代理公开3003。不要把开发服务器直接暴露到公网。Nuxt DevTools暂时关闭，以兼容修补过的simple-git4；原因见升级说明。
+
+## API 客户端生成
+
+后端以 Development 环境启动后：
 
 ```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
+npm run generate-api
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+默认读取 `http://localhost:5026/swagger/v1/swagger.json`，生成 `app/utils/backEnd.ts`。其他地址通过环境变量传入：
+
+```bash
+FASTQUIZ_OPENAPI_URL=http://127.0.0.1:5026/swagger/v1/swagger.json npm run generate-api
+npm run typecheck
+```
+
+不要手改生成代码；使用HTTPS时须配置可信证书，不要关闭TLS校验。SDK生成器属于开发依赖，不进入业务运行依赖。
 
 ## Apple 风格界面与 API 配置
 
