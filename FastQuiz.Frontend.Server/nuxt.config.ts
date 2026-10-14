@@ -21,6 +21,11 @@ export default defineNuxtConfig({
       title: "FastQuiz · 考试与学习",
       htmlAttrs: { lang: "zh-CN" },
       meta: [{ name: "theme-color", content: "#f5f5f7" }],
+      link: [
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg?v=black-fq-20261014" },
+        { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=black-fq-20261014", sizes: "16x16 32x32 48x48 64x64 128x128 256x256" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=black-fq-20261014", sizes: "180x180" },
+      ],
     },
   },
   modules: ["@pinia/nuxt", "@nuxt/ui"],

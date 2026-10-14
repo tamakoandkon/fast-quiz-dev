@@ -1,1 +1,7 @@
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><rect width="512" height="512" fill="#6B46C1" rx="50" ry="50"/><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-family="Comic Sans MS" font-weight="normal" fill="#E9D8FD" font-size="222.55393016818655" dy="0">FQZ</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>FastQuiz</title>
+  <rect width="64" height="64" rx="18" fill="#1d1d1f"/>
+  <g transform="translate(4 4) scale(2.333333)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 17V7a2 2 0 0 1 2-2h10M6 11h9M13 15l3 3 5-6"/>
+  </g>
+</svg>

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FastQuiz.API.Setup;
 using FastQuiz.Auth.Interface.Extensions;
+using FastQuiz.Auth.Infrastructure.Initializer;
 using FastQuiz.Common.Setup;
 using FastQuiz.Question.Interface;
 using FastQuiz.Quiz.Interface.Setup;
@@ -15,7 +16,7 @@ namespace FastQuiz.API;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         using var loggerFactory = LoggerFactory.Create(loggingBuilder =>
         {
@@ -47,7 +48,7 @@ public class Program
         // Add services to the container.
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddAuthorization();
-        builder.Services.AddHangfireServcie(builder.Configuration);
+        builder.Services.AddHangfireServcie(builder.Configuration, builder.Environment);
 
         builder.Services.AddAuth(builder.Configuration);
         builder.Services.AddQuestion(builder.Configuration);
@@ -94,7 +95,12 @@ public class Program
             }
         }
 
-        var app = builder.Build();
+        await using var app = builder.Build();
+        if (app.ApplyAllMigrations(app.Configuration))
+        {
+            await AuthDbSeedData.InitializeAsync(app.Services);
+            return;
+        }
 
         app.UseGlobalExceptionHandler();
 
@@ -146,14 +152,9 @@ public class Program
             }
         );
 
-        if (app.ApplyAllMigrations(app.Configuration))
-        {
-            return;
-        }
-
         try
         {
-            app.Run();
+            await app.RunAsync();
         }
         catch (Exception ex)
         {

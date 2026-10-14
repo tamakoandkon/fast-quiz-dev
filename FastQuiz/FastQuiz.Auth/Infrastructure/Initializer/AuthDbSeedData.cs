@@ -2,6 +2,7 @@
 using FastQuiz.Auth.Domain.Repositories;
 using FastQuiz.Auth.Domain.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace FastQuiz.Auth.Infrastructure.Initializer;
 
@@ -12,13 +13,19 @@ public static class AuthDbSeedData
         CancellationToken cancellationToken = default
     )
     {
+        var settings = serviceProvider.GetRequiredService<IOptions<BootstrapAdminSettings>>().Value;
+        if (!settings.Enabled)
+            return;
+
         using var scope = serviceProvider.CreateScope();
         var tenantRepository = scope.ServiceProvider.GetRequiredService<ITenantRepository>();
-        var organizationRepository =
-            scope.ServiceProvider.GetRequiredService<IOrganizationRepository>();
         var roleRepository = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
         var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        // Validate before changing any data. Existing accounts must never be reset.
+        if (await userRepository.FindByIdAsync(User.DefaultAdminId).ConfigureAwait(false) is null)
+            settings.ValidateForCreation();
 
         await CreateDefaultTenantAsync(tenantRepository).ConfigureAwait(false);
 
@@ -28,7 +35,8 @@ public static class AuthDbSeedData
                 userRepository,
                 passwordHasher,
                 roleRepository,
-                tenantRepository
+                tenantRepository,
+                settings
             )
             .ConfigureAwait(false);
     }
@@ -76,7 +84,8 @@ public static class AuthDbSeedData
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         IRoleRepository roleRepository,
-        ITenantRepository tenantRepository
+        ITenantRepository tenantRepository,
+        BootstrapAdminSettings settings
     )
     {
         var defaultAdmin = await userRepository
@@ -84,11 +93,12 @@ public static class AuthDbSeedData
             .ConfigureAwait(false);
         if (defaultAdmin == null)
         {
+            settings.ValidateForCreation();
             defaultAdmin = new User(
                 User.DefaultAdminId,
                 User.DefaultAdminUsername,
                 null,
-                passwordHasher.Hash(User.DefaultAdminPassword)
+                passwordHasher.Hash(settings.Password!)
             );
 
             await userRepository.CreateAsync(defaultAdmin).ConfigureAwait(false);

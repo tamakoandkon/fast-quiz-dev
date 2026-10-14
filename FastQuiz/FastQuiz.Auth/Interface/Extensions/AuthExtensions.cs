@@ -77,6 +77,7 @@ public static class AuthExtensions
         // 2. 配置 JWT 认证
         var jwtSettings = new JwtTokenSettings();
         jwtConfig.Invoke(jwtSettings);
+        jwtSettings.Validate();
 
         services
             .AddAuthentication(options =>

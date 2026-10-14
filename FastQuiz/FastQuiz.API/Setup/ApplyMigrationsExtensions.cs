@@ -27,7 +27,7 @@ public static class ApplyMigrationsExtensions
 
         var runMigrationsOnStartup = configuration.GetValue(
             "Migrations:RunMigrationsOnStartup",
-            true
+            false
         );
         if (runMigrationsOnStartup)
         {
