@@ -12,7 +12,7 @@
       </UBadge>
       <UBadge v-else color="neutral" size="sm">不限时</UBadge>
 
-      <div class="ml-auto flex items-center gap-3">
+      <div class="ml-auto flex flex-wrap items-center gap-3">
         <!-- 列表筛选：是否只取最好的一次成绩 -->
         <div class="flex items-center gap-2">
           <USwitch v-model="onlyBest" color="primary" size="md" />
@@ -30,49 +30,7 @@
       </div>
     </div>
 
-    <CommonDataTable :columns="cols" :data="records" :selectable="false">
-      <template #assignId="{ row }">
-        {{ row.assignId || "--" }}
-      </template>
-
-      <template #status="{ row }">
-        <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
-          {{ getStatusText(row.status) }}
-        </UBadge>
-      </template>
-
-      <template #startTime="{ row }">
-        {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
-      </template>
-
-      <template #submitTime="{ row }">
-        {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
-      </template>
-
-      <template #score="{ row }">
-        <span
-          :class="
-            row.status === QuizAttemptStatus.Graded
-              ? 'text-green-600 font-medium'
-              : ''
-          "
-        >
-          {{ row.score ?? "--" }}
-        </span>
-      </template>
-
-      <template #actions="{ row }">
-        <UButton
-          :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
-          color="neutral"
-          variant="outline"
-          size="xs"
-          icon="i-lucide-eye"
-        >
-          查看
-        </UButton>
-      </template>
-    </CommonDataTable>
+    <QuizAttemptResultsTable :records="records" :tenant-id="tenantId" :can-review="can('quiz-attempt')" show-assignee />
 
     <CommonCursorPageManager
       @change="fetchList"
@@ -102,6 +60,7 @@ import type { BreadcrumbItem } from "@nuxt/ui";
 const { $api } = useNuxtApp();
 const route = useRoute();
 const toast = useToast();
+const { can } = useWorkspaceAccess();
 
 const tenantId = ref("");
 const templateId = ref("");
@@ -115,15 +74,6 @@ const loaded = ref(false);
 const onlyBest = ref(false);
 
 const pageSize = ref(10);
-
-const cols = [
-  { key: "assignId", label: "考生", width: "180px" },
-  { key: "status", label: "状态" },
-  { key: "startTime", label: "开始时间" },
-  { key: "submitTime", label: "交卷时间" },
-  { key: "score", label: "得分" },
-  { key: "actions", label: "操作", width: "120px" },
-];
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;

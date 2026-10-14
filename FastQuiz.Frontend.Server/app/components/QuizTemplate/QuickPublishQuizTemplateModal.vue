@@ -307,8 +307,8 @@ const durationMinutes = ref<number>(60);
 const orgId = ref<string | undefined>(undefined);
 
 // ---------- 步骤 2：抽题规则 ----------
-const groups = ref<QuestionGroupDto[]>([]);
-const loadingGroups = ref(false);
+
+
 const groupId = ref<string>("");
 const questionType = ref<QuestionType>(QuestionType.SingleChoice);
 const level = ref<number>(0);
@@ -375,7 +375,7 @@ watch(show, (open) => {
   if (open) {
     reset();
     groupId.value = "";
-    loadAllGroups();
+
   }
 });
 
@@ -403,73 +403,27 @@ const reset = () => {
   snapshotCount.value = 1;
 };
 
-// 默认选第一个题库
-const loadAllGroups = async () => {
-  loadingGroups.value = true;
-  try {
-    let allGroups: QuestionGroupDto[] = [];
-    let cursor: string | undefined = undefined;
-    let hasMore = true;
+const { groups, loadingGroups } = useQuestionGroups(() => props.tenantId, () => !!show.value);
+watch(groups, (value) => { groupId.value = value[0]?.id ?? ''; });
 
-    while (hasMore) {
-      const result = await $api.tenant.questionGroupList(props.tenantId, {
-        Cursor: cursor,
-        Count: 200,
-        IsPrevious: false,
-        NamePrefix: undefined,
-      });
-
-      if (result.data && result.data.length > 0) {
-        allGroups = [...allGroups, ...result.data];
-        if (result.data.length < 200) {
-          hasMore = false;
-        } else {
-          cursor = result.data[result.data.length - 1]?.id ?? undefined;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    groups.value = allGroups;
-
-    if (allGroups.length > 0) {
-      groupId.value = allGroups[0]?.id ?? "";
-    }
-  } catch (e: any) {
-    groups.value = [];
-    console.error("加载题库失败:", e);
-  } finally {
-    loadingGroups.value = false;
-  }
-};
-
-const fetchQuestionCountAsync = async () => {
-  if (!groupId.value) {
-    currentCount.value = 0;
-    return;
-  }
-
+watch([() => props.tenantId, show, groupId, questionType, level], async ([tenant, open, group, type, difficulty], _, onCleanup) => {
+  let current = true;
+  onCleanup(() => { current = false; });
+  currentCount.value = 0;
+  fetchingCount.value = false;
+  if (!open || !tenant?.trim() || !group) return;
   fetchingCount.value = true;
   try {
-    const result = await $api.tenant.questionGroupCountList(
-      props.tenantId,
-      groupId.value,
-      { Type: questionType.value, Level: level.value },
-    );
-    currentCount.value = result.data ?? 0;
-  } catch (e: any) {
-    currentCount.value = 0;
-  } finally {
-    fetchingCount.value = false;
-    if (ruleCount.value > currentCount.value && currentCount.value > 0) {
-      ruleCount.value = currentCount.value;
+    const result = await $api.tenant.questionGroupCountList(tenant, group, { Type: type, Level: difficulty });
+    if (current) {
+      currentCount.value = result.data ?? 0;
+      if (ruleCount.value > currentCount.value && currentCount.value > 0) ruleCount.value = currentCount.value;
     }
+  } catch (error) {
+    if (current) console.error('加载题目数量失败:', error);
+  } finally {
+    if (current) fetchingCount.value = false;
   }
-};
-
-watch([groupId, questionType, level], () => {
-  fetchQuestionCountAsync();
 });
 
 const next = () => {

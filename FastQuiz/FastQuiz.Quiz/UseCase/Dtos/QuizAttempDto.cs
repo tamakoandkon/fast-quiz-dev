@@ -11,5 +11,6 @@ public record QuizAttempDto(
     DateTimeOffset? StartTime,
     DateTimeOffset? SubmitTime,
     int Score,
-    QuizAttemptStatus Status
+    QuizAttemptStatus Status,
+    string? AssignUsername = null
 );

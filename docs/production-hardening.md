@@ -8,6 +8,7 @@
 - `Migrations:RunMigrationsOnStartup` 默认 false，包括配置缺失时；数据库更新须通过一次性 `Migrations__RunMigrationsOnly=true` 任务完成。该任务可同时执行显式管理员初始化，然后退出，不监听 API、不启动后台 worker。
 - Hangfire 默认 `sqlite`，文件 `data/hangfire.db`。SQLite 的 `Hangfire:ConnectionString` 实际接受**文件路径**；MariaDB/PostgreSQL 接受数据库连接字符串，必须外部提供。仅 Development 允许显式 memory；生产启动会拒绝内存存储。
 - Auth / Question / Quiz 数据库与 Hangfire 存储均需持久化及备份。答案直接事务落库，没有独立的内存缓冲表。持久化任务调度不等于调度与业务事务原子提交：提交后、入队前崩溃仍是待改进的 outbox 边界，不宣称 exactly-once。
+- 文件日志通过 `FASTQUIZ_LOG_DIR` 指定持久化可写目录；未设置时保留开发默认 `${basedir}/logs`。systemd `ProtectSystem=strict` 环境应设置为 `/var/log/fast-quiz`，预先创建并授权服务用户写入，并保留该路径的 `ReadWritePaths`，不要放宽整个发布目录的只读保护。控制台/journal 日志仍同时保留。分类文件按实际日志事件惰性创建，不代表已经提供完整业务审计。
 
 ## 开发启动
 
