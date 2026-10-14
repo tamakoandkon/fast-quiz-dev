@@ -1,6 +1,6 @@
 # FastQuiz 重构 / 稳健性 / 部署行动清单
 
-> 更新：2026-10-14；基线 `main` / `3ebee71`（PR #14 已合并）。本版取代 2026-09 历史审计中的过时“现状”；原文保留于 Git 历史。
+> 更新：2026-10-14；本次功能基线 `main` / `ba78b89`（PR #15 已合并）。本版取代 2026-09 历史审计中的过时“现状”；原文保留于 Git 历史。
 > 功能范围见 [页面需求](../content.md)，配置契约见 [生产加固说明](production-hardening.md)，实际运行结果见 [测试记录](verification-2026-10-14.md)。
 
 `[x]` 仅用于明确完成的子项。实现、自动测试、生产运行验收是不同层次；未完成或未执行的验收保留 `[ ]`。本文不记录生产地址、连接串、凭据、私密文件位置或部署主机路径。
@@ -28,7 +28,7 @@
 
 - [x] 普通启动迁移默认关闭；缺失配置也不迁移。
 - [x] migration-only 模式执行迁移后退出，不监听 API、不启动 worker；迁移按配置选择 provider。
-- [x] 三个 SQLite 模型与迁移一致；既有 PostgreSQL 专项 CI 验证五个事务/历史数据升级场景。
+- [x] 三个 SQLite 模型与迁移一致；PR #14 的 PostgreSQL 专项 CI 验证过五个事务/历史数据升级场景。本次新增模板锁场景也纳入该 job，以当前 PR 的 CI 结果验收。
 - [ ] **未完成：MariaDB 考试模块升级迁移及专用回归。** 已有 DbContext / repository 不等于升级路径完成，考试迁移目录缺少相应 MariaDB 系列。
 - [ ] 补齐三种 provider 的空库、旧库升级及多实例部署验收；迁移由受控单次任务执行，未声称并发迁移通过。
 
@@ -84,7 +84,7 @@
 
 - [x] Auth / Question / Quiz 按配置绑定同 provider 的上下文与仓储，不再绑死 SQLite。
 - [ ] 抽共享注册 helper、减少重复 switch，修正 `QuizSetupExstensions` 等拼写。
-- [ ] 补三种 provider 的 host/DI 解析矩阵测试；MariaDB 升级回归见 1.3。已有 PostgreSQL 五个专项测试不等于全部仓储测试通过。
+- [ ] 补三种 provider 的 host/DI 解析矩阵测试；MariaDB 升级回归见 1.3。PostgreSQL 事务专项不等于全部仓储测试通过。
 
 证据：[Auth 注册](../FastQuiz/FastQuiz.Auth/Interface/Extensions/AuthExtensions.cs)、[Question 注册](../FastQuiz/FastQuiz.Question/Interface/Setup/QuestionExtensions.cs)、[Quiz 注册](../FastQuiz/FastQuiz.Quiz/Interface/Setup/QuizSetupExstensions.cs)。
 
@@ -116,12 +116,13 @@
 
 - [x] 本轮执行 SQLite/API 回归、SQLite 模型检查、前端类型检查/构建、压测脚本语法检查，结果见独立记录。
 - [x] 恢复原批量单份正向测试，修正其错误查询未分配试卷的断言来源，并校验试卷状态与关联题目实际落库；最终 SQLite/API 回归 543 通过、0 失败、0 跳过。
-- [ ] 批量 `Count`、领取/分配流程、参数、跨模板/租户、并发与回滚测试待补。
-- [ ] 已有用户跨租户、我的组织、组织内建用户、自助销户及可选手动组卷，见 [功能清单](../content.md)。
+- [x] 批量 `Count`、资格校验、待领取库存、考生自助领取、跨模板/租户、并发与事务回滚已补齐，前后端均已接通；当前验证见 [功能说明](tenant-membership-and-prebuilt-quiz.md)。
+- [x] 系统管理员添加已有账号到其他租户，保留凭据与原成员关系、不自动授权；包含重复/并发与越权回归。
+- [ ] 我的组织、组织内建用户、自助销户及可选手动组卷仍未实现；管理员指定他人分配不属于本次自助领取交付范围，见 [功能清单](../content.md)。
 
 ## 推进与维护规则
 
-1. 优先可靠任务调度、MariaDB 升级与批量试卷闭环，再补成员管理新功能。
+1. 优先可靠任务调度、MariaDB 升级，再补剩余组织与账号功能。
 2. 测试只连接隔离数据库；过滤条件明确排除未配置的外部数据库，严禁使用共享/生产库。
 3. 功能 PR 同步两份清单和验证记录，勾选附实现与测试证据，没运行的验收注明限制。
 4. PR、文档、日志、截图均不公开环境标识、真实连接参数、秘密及私密路径；部署和凭据管理需独立授权。

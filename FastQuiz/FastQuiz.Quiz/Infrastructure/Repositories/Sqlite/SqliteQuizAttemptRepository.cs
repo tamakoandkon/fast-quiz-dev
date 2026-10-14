@@ -9,6 +9,16 @@ public class SqliteQuizAttemptRepository(SqliteQuizDbContext _dbContext) : IQuiz
 {
     private DbSet<QuizAttempt> QuizAttempts => _dbContext.QuizAttempts;
 
+    public async Task<IReadOnlyList<QuizAttempt>> GetUnassignedByTemplateIdAsync(
+        string templateId, string? cursor, int count)
+    {
+        var query = QuizAttempts.AsNoTracking().Where(x =>
+            x.QuizTemplateId == templateId && x.AssignId == null && x.Status == QuizAttemptStatus.Pending);
+        if (!string.IsNullOrWhiteSpace(cursor))
+            query = query.Where(x => x.Id.CompareTo(cursor) < 0);
+        return await query.OrderByDescending(x => x.Id).Take(count).ToListAsync();
+    }
+
     public async Task CreateAsync(QuizAttempt quizAttempt)
     {
         try

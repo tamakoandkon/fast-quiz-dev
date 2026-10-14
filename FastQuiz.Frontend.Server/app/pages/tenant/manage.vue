@@ -32,6 +32,10 @@
         <template #updatedAt="{ row }">
           {{ formatDate(row.updatedAt) }}
         </template>
+        <template #actions="{ row }">
+          <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-user-plus"
+            @click="addMember(row)">添加已有账号</UButton>
+        </template>
       </CommonDataTable>
     </UContextMenu>
     <CommonCursorPageManager
@@ -39,6 +43,8 @@
       :current-size="tenants.length"
     >
     </CommonCursorPageManager>
+    <TenantAddExistingMemberModal v-model="showAddMember" :tenant-id="memberTenant?.id || ''"
+      :tenant-name="memberTenant?.name || ''" />
     <TenantUpdateTenantModal
       v-model="showEditModal"
       @update="handleUpdate"
@@ -90,6 +96,12 @@ const tenants = ref<TenantDto[]>([]);
 const pageSize = ref(10);
 
 const selected = ref<TenantDto[]>([]);
+const showAddMember = ref(false);
+const memberTenant = ref<TenantDto>();
+const addMember = (tenant: TenantDto) => {
+  memberTenant.value = tenant;
+  showAddMember.value = true;
+};
 
 onMounted(async () => {
   await fectchList(false, pageSize.value, true);
@@ -102,6 +114,7 @@ const cols = [
   { key: "description", label: "详情" },
   { key: "createdAt", label: "创建时间" },
   { key: "updatedAt", label: "更新时间" },
+  { key: "actions", label: "成员管理" },
 ];
 
 const showCreateModal = ref(false);

@@ -56,9 +56,17 @@ public static class QuizAttemptApi
             .MapGet("quiz-attempt/{quizAttemptId}", GetQuizAttemptByIdAsync)
             .Produces<QuizAttempDto>(StatusCodes.Status200OK);
 
-        //group
-        //    .MapPost("quiz-attempt/{quizAttemptId}", PostAssignQuizAttemptAsync)
-        //    .Produces(StatusCodes.Status204NoContent);
+        group
+            .MapPost("quiz-attempt/{quizAttemptId}", PostAssignQuizAttemptAsync)
+            .Produces(StatusCodes.Status204NoContent);
+
+        group
+            .MapPost("{quizTemplateId}/quiz-attempt/claim", ClaimAvailableAsync)
+            .Produces<QuizAttempDto>(StatusCodes.Status200OK);
+
+        group
+            .MapGet("{quizTemplateId}/quiz-attempt/prebuilt", GetPrebuiltAsync)
+            .Produces<IReadOnlyList<PrebuiltQuizAttemptDto>>(StatusCodes.Status200OK);
 
         group
             .MapPut("quiz-attempt/{quizAttemptId}", PutQuizAttemptStatusAsync)
@@ -95,6 +103,24 @@ public static class QuizAttemptApi
     }
 
     #region QuizAttempt
+
+    public static async Task<IResult> PostAssignQuizAttemptAsync(
+        string tenantId, string quizAttemptId, IQuizAtteptService service, IClaimsManager claims)
+    {
+        await service.AssignQuizAttemptAsync(claims.EnsureAndGetUserId(), tenantId, quizAttemptId);
+        return Results.NoContent();
+    }
+
+    public static async Task<IResult> ClaimAvailableAsync(
+        string tenantId, string quizTemplateId, IQuizAttemptCreationService service, IClaimsManager claims)
+        => Results.Ok(await service.ClaimAvailableQuizAttemptAsync(
+            claims.EnsureAndGetUserId(), tenantId, quizTemplateId));
+
+    public static async Task<IResult> GetPrebuiltAsync(
+        string tenantId, string quizTemplateId, [AsParameters] GetAllQuizAttemptQuery query,
+        IQuizAttemptCreationService service, IClaimsManager claims)
+        => Results.Ok(await service.GetPrebuiltQuizAttemptsAsync(
+            claims.EnsureAndGetUserId(), tenantId, quizTemplateId, query.Cursor, query.Count));
 
     public static async Task<IResult> PostQuizAttemptAsync(
         string tenantId,

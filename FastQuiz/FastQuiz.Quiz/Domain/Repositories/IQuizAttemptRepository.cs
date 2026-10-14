@@ -4,6 +4,8 @@ namespace FastQuiz.Quiz.Domain.Repositories;
 
 public interface IQuizAttemptRepository
 {
+    Task<IReadOnlyList<QuizAttempt>> GetUnassignedByTemplateIdAsync(
+        string templateId, string? cursor, int count);
     Task CreateAsync(QuizAttempt quizAttempt);
     Task CreateAsync(IEnumerable<QuizAttempt> quizAttempts);
     Task<int> GetAttemptCountAsync(string userId, string templateId);

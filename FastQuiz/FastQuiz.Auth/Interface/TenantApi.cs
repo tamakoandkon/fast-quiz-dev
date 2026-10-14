@@ -58,10 +58,22 @@ public static class TenantApi
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        tenantGroup
+            .MapPost("{tenantId}/members", AddExistingUserAsync)
+            .Produces<UserDto>(StatusCodes.Status200OK);
+
         #endregion
     }
 
     #region Tenant Handlers
+    private static async Task<IResult> AddExistingUserAsync(
+        string tenantId,
+        AddTenantMemberCommand command,
+        IClaimsManager claimsManager,
+        ITenantService tenantService
+    ) => Results.Ok(await tenantService.AddExistingUserAsync(
+        claimsManager.EnsureAndGetUserId(), tenantId, command));
+
     private static async Task<IResult> PostCreateTenantAsync(
         CreateTenantCommand command,
         IClaimsManager claimsManager,

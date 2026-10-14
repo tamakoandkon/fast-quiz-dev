@@ -7,6 +7,21 @@ namespace FastQuiz.Quiz.Infrastructure.Repositories;
 
 public sealed class EfQuizUnitOfWork(DbContext dbContext) : IQuizUnitOfWork
 {
+    public Task ExecuteForTemplateAsync(
+        string quizTemplateId,
+        Func<CancellationToken, Task> action,
+        CancellationToken cancellationToken = default
+    ) => ExecuteInTransactionAsync(async token =>
+    {
+        var affected = await dbContext.Set<QuizTemplate>()
+            .Where(x => x.Id == quizTemplateId)
+            .ExecuteUpdateAsync(x => x.SetProperty(t => t.DurationMinutes, t => t.DurationMinutes), token);
+        if (affected == 0 && !await dbContext.Set<QuizTemplate>()
+            .AnyAsync(x => x.Id == quizTemplateId, token))
+            throw new ResourceNotFoundException("试卷模板不存在");
+        await action(token);
+    }, cancellationToken);
+
     public Task ExecuteForAttemptAsync(
         string quizAttemptId,
         Func<CancellationToken, Task> action,

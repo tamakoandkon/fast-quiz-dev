@@ -5,6 +5,9 @@ namespace FastQuiz.Quiz.UseCase.Services;
 
 public interface IQuizAttemptCreationService
 {
+    Task<QuizAttempDto> ClaimAvailableQuizAttemptAsync(string userId, string tenantId, string templateId);
+    Task<IReadOnlyList<PrebuiltQuizAttemptDto>> GetPrebuiltQuizAttemptsAsync(
+        string userId, string tenantId, string templateId, string? cursor, int count);
     Task<QuizAttempDto> CreateQuizAttemptAsync(
         string userId,
         string tenantId,

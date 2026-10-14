@@ -17,7 +17,7 @@
 
 `QuizAttemptService` 保留为兼容 facade，原接口、端点与已持久化 Hangfire 任务的公开方法不变。具体逻辑拆分为：
 
-- `QuizAttemptCreationService`：创建、批量创建、内部领取方法（领取 API 尚未开放，批量 `Count` 尚未生效，见功能清单）。
+- `QuizAttemptCreationService`：事务创建、按份数批量创建、管理库存及考生自助领取；普通创建与领取共享模板锁以保护次数限额。API 和前端入口已接通，见 [功能与验证说明](tenant-membership-and-prebuilt-quiz.md)。
 - `QuizAttemptQueryService`：考试/记录列表及详情。
 - `QuestionRecordQueryService`：题目与答案可见性查询。
 - `QuizAnswerService`：答题归属校验、请求内答案持久化。
