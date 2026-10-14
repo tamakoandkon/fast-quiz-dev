@@ -30,6 +30,10 @@ export enum MatchStrategy {
   Manual = "Manual",
 }
 
+export interface AddTenantMemberCommand {
+  username?: string | null;
+}
+
 export interface AnswerRecordDto {
   id?: string | null;
   quizAttemptId?: string | null;
@@ -139,6 +143,11 @@ export interface OrganizationDto {
   createdAt?: string;
   /** @format date-time */
   updatedAt?: string;
+}
+
+export interface PrebuiltQuizAttemptDto {
+  id?: string | null;
+  quizSnapshotId?: string | null;
 }
 
 export interface ProblemDetails {
@@ -1038,6 +1047,25 @@ export namespace Tenant {
   /**
    * No description
    * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptCreate2
+   * @request POST:/tenant/{tenantId}/quiz-template/quiz-attempt/{quizAttemptId}
+   * @originalName quizTemplateQuizAttemptCreate
+   * @duplicate
+   */
+  export namespace QuizTemplateQuizAttemptCreate2 {
+    export type RequestParams = {
+      tenantId: string;
+      quizAttemptId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = void;
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
    * @name QuizTemplateQuizAttemptUpdate
    * @request PUT:/tenant/{tenantId}/quiz-template/quiz-attempt/{quizAttemptId}
    */
@@ -1052,6 +1080,45 @@ export namespace Tenant {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = void;
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptClaimCreate
+   * @request POST:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/claim
+   */
+  export namespace QuizTemplateQuizAttemptClaimCreate {
+    export type RequestParams = {
+      tenantId: string;
+      quizTemplateId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = QuizAttempDto;
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptPrebuiltList
+   * @request GET:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/prebuilt
+   */
+  export namespace QuizTemplateQuizAttemptPrebuiltList {
+    export type RequestParams = {
+      tenantId: string;
+      quizTemplateId: string;
+    };
+    export type RequestQuery = {
+      Cursor?: string;
+      /** @format int32 */
+      Count?: number;
+      IsPrevious?: boolean;
+    };
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = PrebuiltQuizAttemptDto[];
   }
 
   /**
@@ -1757,6 +1824,22 @@ export namespace Tenant {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = void;
+  }
+
+  /**
+   * No description
+   * @tags Tenant
+   * @name MembersCreate
+   * @request POST:/tenant/{tenantId}/members
+   */
+  export namespace MembersCreate {
+    export type RequestParams = {
+      tenantId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = AddTenantMemberCommand;
+    export type RequestHeaders = {};
+    export type ResponseBody = UserDto;
   }
 
   /**
@@ -2772,6 +2855,26 @@ export class Api<
      * No description
      *
      * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptCreate2
+     * @request POST:/tenant/{tenantId}/quiz-template/quiz-attempt/{quizAttemptId}
+     * @originalName quizTemplateQuizAttemptCreate
+     * @duplicate
+     */
+    quizTemplateQuizAttemptCreate2: (
+      tenantId: string,
+      quizAttemptId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/quiz-attempt/${quizAttemptId}`,
+        method: "POST",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
      * @name QuizTemplateQuizAttemptUpdate
      * @request PUT:/tenant/{tenantId}/quiz-template/quiz-attempt/{quizAttemptId}
      */
@@ -2787,6 +2890,51 @@ export class Api<
         path: `/tenant/${tenantId}/quiz-template/quiz-attempt/${quizAttemptId}`,
         method: "PUT",
         query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptClaimCreate
+     * @request POST:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/claim
+     */
+    quizTemplateQuizAttemptClaimCreate: (
+      tenantId: string,
+      quizTemplateId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<QuizAttempDto, ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/${quizTemplateId}/quiz-attempt/claim`,
+        method: "POST",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptPrebuiltList
+     * @request GET:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/prebuilt
+     */
+    quizTemplateQuizAttemptPrebuiltList: (
+      tenantId: string,
+      quizTemplateId: string,
+      query?: {
+        Cursor?: string;
+        /** @format int32 */
+        Count?: number;
+        IsPrevious?: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<PrebuiltQuizAttemptDto[], ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/${quizTemplateId}/quiz-attempt/prebuilt`,
+        method: "GET",
+        query: query,
+        format: "json",
         ...params,
       }),
 
@@ -3595,6 +3743,27 @@ export class Api<
       this.request<void, ProblemDetails>({
         path: `/tenant/${tenantId}/user-map/${userId}`,
         method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Tenant
+     * @name MembersCreate
+     * @request POST:/tenant/{tenantId}/members
+     */
+    membersCreate: (
+      tenantId: string,
+      data: AddTenantMemberCommand,
+      params: RequestParams = {},
+    ) =>
+      this.request<UserDto, ProblemDetails>({
+        path: `/tenant/${tenantId}/members`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
         ...params,
       }),
 

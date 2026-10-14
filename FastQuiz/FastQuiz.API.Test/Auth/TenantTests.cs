@@ -9,7 +9,7 @@ using Shouldly;
 
 namespace FastQuiz.API.Test.Auth;
 
-internal class TenantTests : ApiTestBase
+internal partial class TenantTests : ApiTestBase
 {
     private static CreateTenantCommand NewCommand() =>
         new(

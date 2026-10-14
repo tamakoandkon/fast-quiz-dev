@@ -17,7 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace FastQuiz.API.Test.Quiz;
 
-internal class QuizAttemptTests : ApiTestBase
+internal partial class QuizAttemptTests : ApiTestBase
 {
     [SetUp]
     public async Task Setup()

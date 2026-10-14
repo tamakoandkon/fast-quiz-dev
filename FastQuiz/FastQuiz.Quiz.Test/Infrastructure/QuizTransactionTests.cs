@@ -205,6 +205,49 @@ internal class QuizTransactionTests(string provider)
         (await db.Set<QuestionRecord>().AsNoTracking().SingleAsync()).IsCorrect.ShouldBeNull();
     }
 
+    [Test]
+    public async Task TemplateLockSerializesCreationAndClaimingAcrossIndependentContexts()
+    {
+        await using (var seed = OpenDb())
+        {
+            await seed.Database.EnsureCreatedAsync();
+            await SeedAsync(seed);
+        }
+        var firstLocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = Task.Run(async () =>
+        {
+            await using var db = OpenDb();
+            await new EfQuizUnitOfWork(db).ExecuteForTemplateAsync("template", async _ =>
+            {
+                firstLocked.SetResult();
+                await release.Task;
+                await db.Set<QuizTemplate>().ExecuteUpdateAsync(x => x.SetProperty(t => t.AttemptLimit, 2));
+            });
+        });
+        await firstLocked.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var second = Task.Run(async () =>
+        {
+            await using var db = OpenDb();
+            secondStarted.SetResult();
+            await new EfQuizUnitOfWork(db).ExecuteForTemplateAsync("template", async _ =>
+            {
+                secondEntered.SetResult();
+                (await db.Set<QuizTemplate>().AsNoTracking().SingleAsync()).AttemptLimit.ShouldBe(2);
+            });
+        });
+        try
+        {
+            await secondStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.WhenAny(secondEntered.Task, Task.Delay(100));
+            secondEntered.Task.IsCompleted.ShouldBeFalse();
+        }
+        finally { release.TrySetResult(); }
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(15));
+    }
+
     private DbContext OpenDb()
     {
         var settings = Options.Create(new QuizDbContextSettings { ConnectionString = _connectionString });

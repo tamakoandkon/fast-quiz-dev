@@ -16,9 +16,9 @@
       class="mx-2"
       :quiz-template-id="templateId"
       :quiz-snapshot-id="selectedId"
+      :busy="generating"
       @create="handleCreateAttempt"
       v-model="showCreateCreateQuizAttempt"
-      v-if="selected.length != 0"
     ></QuizAttemptCreateQuizAttemptModal>
     <CommonDataTable
       :columns="cols"
@@ -56,7 +56,7 @@
           >
             删除
           </button> -->
-          <UButton @click="() => createAttempt(row.id ?? '')">生成试卷</UButton>
+          <UButton :disabled="generating" @click="() => createAttempt(row.id ?? '')">批量生成</UButton>
         </div>
       </template>
     </CommonDataTable>
@@ -68,6 +68,19 @@
         }
       "
     ></CommonLoadMoreButton>
+    <section class="workspace-card mt-6 space-y-4 p-5">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold">待领取试卷</h2>
+          <p class="text-sm text-muted">已加载 {{ pool.length }} 份。发布考试后，符合资格的考生可在考试中心领取。</p>
+        </div>
+        <UButton color="neutral" variant="soft" :loading="poolBusy" @click="fetchPool(true)">刷新</UButton>
+      </div>
+      <p v-if="poolError" role="alert" class="text-sm text-error">{{ poolError }}</p>
+      <CommonDataTable :columns="poolColumns" :data="pool" />
+      <p v-if="!poolBusy && !poolError && pool.length === 0" class="text-sm text-muted">暂无待领取试卷，请从上方样本批量生成。</p>
+      <UButton v-if="poolHasMore" color="neutral" variant="ghost" :loading="poolBusy" @click="fetchPool(false)">加载更多待领取试卷</UButton>
+    </section>
   </CommonPageLayout>
 </template>
 
@@ -93,6 +106,7 @@ onMounted(async () => {
   await fetchQuizTemplate();
 
   await fetchList(pageSize.value, true);
+  await fetchPool(true);
 
   links.value.push({
     label: "试卷模板",
@@ -180,24 +194,45 @@ const getCursor = () => {
 
 const showCreateCreateQuizAttempt = ref(false);
 const selectedId = ref("");
+const generating = ref(false);
+const pool = ref<PrebuiltQuizAttemptDto[]>([]);
+const poolBusy = ref(false);
+const poolError = ref("");
+const poolHasMore = ref(false);
+const poolColumns = [{ key: "id", label: "试卷 ID" }, { key: "quizSnapshotId", label: "来源样本" }];
+const fetchPool = async (refresh: boolean) => {
+  if (poolBusy.value) return;
+  poolBusy.value = true;
+  poolError.value = "";
+  try {
+    const result = await $api.tenant.quizTemplateQuizAttemptPrebuiltList(tenantId.value, templateId.value, {
+      Cursor: refresh ? undefined : (pool.value.at(-1)?.id ?? undefined),
+      Count: 50,
+    });
+    pool.value = refresh ? result.data : [...pool.value, ...result.data];
+    poolHasMore.value = result.data.length === 50;
+  } catch (e: any) {
+    poolError.value = e?.response?.data?.title ?? "待领取试卷加载失败";
+  } finally { poolBusy.value = false; }
+};
 
 const handleCreateAttempt = async (
   quizTemplateId: string,
   command: CreateQuizAttemptCommand,
 ) => {
-  await $api.tenant.quizTemplateQuizAttemptBatchCreate(
-    tenantId.value,
-    quizTemplateId,
-    [command],
-  );
-  showCreateCreateQuizAttempt.value = false;
-
-  toast.add({ title: "试卷创建成功。" });
+  if (generating.value) return;
+  generating.value = true;
+  try {
+    await $api.tenant.quizTemplateQuizAttemptBatchCreate(tenantId.value, quizTemplateId, [command]);
+    showCreateCreateQuizAttempt.value = false;
+    toast.add({ title: `已生成 ${command.count} 份待领取试卷`, color: "success" });
+    await fetchPool(true);
+  } catch (e: any) {
+    toast.add({ title: e?.response?.data?.title ?? "试卷生成失败", color: "error" });
+  } finally { generating.value = false; }
 };
 
 const createAttempt = (snapshotId: string) => {
-  console.log(snapshotId);
-
   selectedId.value = snapshotId;
   showCreateCreateQuizAttempt.value = true;
 };

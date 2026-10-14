@@ -6,6 +6,7 @@ namespace FastQuiz.Auth.UseCase.Services;
 
 public interface ITenantService
 {
+    Task<UserDto> AddExistingUserAsync(string operatorId, string tenantId, AddTenantMemberCommand command);
     Task<TenantDto> CreateTenantAsync(string userId, CreateTenantCommand command);
     Task<IReadOnlyList<TenantDto>> GetMyTenantsAsync(string userId, GetAllMyTenantQuery query);
     Task<IReadOnlyList<TenantDto>> GetAllTenantsAsync(string userId, GetAllTenantQuery query);

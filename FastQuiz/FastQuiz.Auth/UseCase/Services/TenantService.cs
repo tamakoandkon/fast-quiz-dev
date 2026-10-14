@@ -22,6 +22,40 @@ public class TenantService(
     IValidator<CreateTenantCommand> _createTenantCommandValidator
 ) : ITenantService
 {
+    public async Task<UserDto> AddExistingUserAsync(
+        string operatorId, string tenantId, AddTenantMemberCommand command)
+    {
+        // Global account lookup must not be exposed to ordinary tenant administrators.
+        if (!await _permissionService.HasPermissionAsync(
+            Tenant.DefaultTenantId, operatorId, Permissions.SystemAdmin))
+            throw new PermissionException();
+
+        var username = command.Username?.Trim();
+        if (string.IsNullOrWhiteSpace(username) || username.Length is < 3 or > 20)
+            throw new BusinessException("请输入已有账号的完整用户名（3–20 个字符）");
+        _ = await _tenantRepository.FindByIdAsync(tenantId)
+            ?? throw new TenantNotFoundException();
+        var user = await _userRepository.FindByUsernameAsync(username)
+            ?? throw new ResourceNotFoundException("账号不存在，请先注册");
+
+        if (!await _tenantRepository.GetUserInTenantAsync(tenantId, user.Id))
+        {
+            try
+            {
+                await _tenantRepository.AddUserToTenantAsync(tenantId, user.Id);
+            }
+            catch (DataAccessException)
+            {
+                // The composite membership key also makes concurrent retries safe.
+                if (!await _tenantRepository.GetUserInTenantAsync(tenantId, user.Id))
+                    throw;
+            }
+        }
+        await _permissionService.InvalidateUserPermissionsAsync(tenantId, user.Id);
+        // Membership alone grants no administrative role and never changes credentials.
+        return new UserDto(user.Id, user.Username, user.Email, user.CreatedAt);
+    }
+
     public async Task<TenantDto> CreateTenantAsync(string userId, CreateTenantCommand command)
     {
         _createTenantCommandValidator.ValidateAndThrowArgumentException(command);

@@ -42,7 +42,7 @@
                 </template>
               </span>
 
-              <div class="ml-auto flex items-center gap-2">
+              <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
                 <UButton
                   color="neutral"
                   variant="outline"
@@ -52,10 +52,19 @@
                   查看详情
                 </UButton>
                 <UButton
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  :disabled="!isExamAvailable(template) || starting"
+                  :loading="startingId === template.id && claiming"
+                  @click="startAnswer(template.id || '', true)"
+                >领取预生成试卷</UButton>
+                <UButton
                   color="primary"
                   variant="solid"
                   size="sm"
-                  :disabled="!isExamAvailable(template)"
+                  :disabled="!isExamAvailable(template) || starting"
+                  :loading="startingId === template.id && !claiming"
                   @click="startAnswer(template.id || '')"
                 >
                   {{ getExamStatusText(template) }}
@@ -213,13 +222,19 @@ const handleView = (template: QuizTemplateDto) => {
   showDetail.value = true;
 };
 
-const startAnswer = async (templateId: string) => {
+const starting = ref(false);
+const startingId = ref("");
+const claiming = ref(false);
+const startAnswer = async (templateId: string, claim = false) => {
+  if (starting.value) return;
+  starting.value = true;
+  startingId.value = templateId;
+  claiming.value = claim;
   let result;
   try {
-    result = await $api.tenant.quizTemplateQuizAttemptCreate(
-      tenantId.value,
-      templateId,
-    );
+    result = claim
+      ? await $api.tenant.quizTemplateQuizAttemptClaimCreate(tenantId.value, templateId)
+      : await $api.tenant.quizTemplateQuizAttemptCreate(tenantId.value, templateId);
 
     await $api.tenant.quizTemplateQuizAttemptUpdate(
       tenantId.value,
@@ -230,6 +245,9 @@ const startAnswer = async (templateId: string) => {
     const title = e?.response?.data?.title ?? "参加考试失败";
     toast.add({ title: `参加考试失败：${title}`, color: "error" });
     return;
+  } finally {
+    starting.value = false;
+    startingId.value = "";
   }
 
   router.push(`/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`);

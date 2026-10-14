@@ -2,6 +2,13 @@ namespace FastQuiz.Quiz.Domain.Repositories;
 
 public interface IQuizUnitOfWork
 {
+    /// <summary>Serialize creation/claiming per template, including per-user attempt limits.</summary>
+    Task ExecuteForTemplateAsync(
+        string quizTemplateId,
+        Func<CancellationToken, Task> action,
+        CancellationToken cancellationToken = default
+    );
+
     /// <summary>
     /// 在事务中锁定试卷行，串行化该卷的答题、交卷和阅卷操作。
     /// </summary>

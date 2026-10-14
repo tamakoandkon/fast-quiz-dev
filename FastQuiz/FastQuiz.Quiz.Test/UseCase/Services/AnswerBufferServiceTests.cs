@@ -125,6 +125,12 @@ internal class AnswerBufferServiceTests
 
     private sealed class ImmediateQuizUnitOfWork : IQuizUnitOfWork
     {
+        public Task ExecuteForTemplateAsync(
+            string quizTemplateId,
+            Func<CancellationToken, Task> action,
+            CancellationToken cancellationToken = default
+        ) => action(cancellationToken);
+
         public Task ExecuteForAttemptAsync(
             string quizAttemptId,
             Func<CancellationToken, Task> action,
