@@ -2,8 +2,6 @@ using FastQuiz.Common.Utils;
 using FastQuiz.Quiz.Domain.Entities;
 using FastQuiz.Quiz.Domain.Repositories;
 using FastQuiz.Quiz.UseCase.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 
 namespace FastQuiz.Quiz.Test.UseCase.Services;
@@ -11,41 +9,29 @@ namespace FastQuiz.Quiz.Test.UseCase.Services;
 internal class AnswerBufferServiceTests
 {
     private InMemoryQuestionRecordRepository _repository = null!;
-    private ServiceProvider _serviceProvider = null!;
     private AnswerBufferService _sut = null!;
 
     [SetUp]
     public void SetUp()
     {
         _repository = new InMemoryQuestionRecordRepository();
-        _serviceProvider = new ServiceCollection()
-            .AddSingleton<IQuestionRecordRepository>(_repository)
-            .BuildServiceProvider();
         _sut = new AnswerBufferService(
-            _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
-            new IdGenerator(),
-            NullLogger<AnswerBufferService>.Instance
+            _repository,
+            new ImmediateQuizUnitOfWork(),
+            new IdGenerator()
         );
     }
 
-    [TearDown]
-    public void TearDown()
-    {
-        _serviceProvider.Dispose();
-    }
-
     [Test]
-    public async Task FlushAsync_WhenMultipleAnswersAreSet_PersistsEveryAnswer()
+    public async Task SetAnswersAsync_WhenMultipleAnswersAreSet_PersistsEveryAnswer()
     {
-        _sut.SetAnswers(CreatePendingAnswer(["answer-a", "answer-b"]));
-
-        await _sut.FlushAsync();
+        await _sut.SetAnswersAsync(CreatePendingAnswer(["answer-a", "answer-b"]));
 
         _repository.Answers.Select(x => x.Value).ShouldBe(["answer-a", "answer-b"], true);
     }
 
     [Test]
-    public async Task FlushAsync_WhenAnswersAreEmpty_RemovesPreviouslyPersistedAnswers()
+    public async Task SetAnswersAsync_WhenAnswersAreEmpty_RemovesPreviouslyPersistedAnswers()
     {
         _repository.Answers.AddRange(
             [
@@ -53,21 +39,17 @@ internal class AnswerBufferServiceTests
                 CreateAnswerRecord("old-b"),
             ]
         );
-        _sut.SetAnswers(CreatePendingAnswer([]));
-
-        await _sut.FlushAsync();
+        await _sut.SetAnswersAsync(CreatePendingAnswer([]));
 
         _repository.Answers.ShouldBeEmpty();
         _repository.DeletedQuestionRecordIds.ShouldContain(QuestionRecordId);
     }
 
     [Test]
-    public async Task FlushAsync_WhenQuestionIsUpdatedTwice_PersistsLatestCompleteSet()
+    public async Task SetAnswersAsync_WhenQuestionIsUpdatedTwice_PersistsLatestCompleteSet()
     {
-        _sut.SetAnswers(CreatePendingAnswer(["old-a", "old-b"]));
-        _sut.SetAnswers(CreatePendingAnswer(["new-a", "new-b", "new-c"]));
-
-        await _sut.FlushAsync();
+        await _sut.SetAnswersAsync(CreatePendingAnswer(["old-a", "old-b"]));
+        await _sut.SetAnswersAsync(CreatePendingAnswer(["new-a", "new-b", "new-c"]));
 
         _repository.Answers.Select(x => x.Value).ShouldBe(
             ["new-a", "new-b", "new-c"],
@@ -139,5 +121,13 @@ internal class AnswerBufferServiceTests
 
         private static NotSupportedException Unused() =>
             new("This repository member is not used by AnswerBufferService tests.");
+    }
+
+    private sealed class ImmediateQuizUnitOfWork : IQuizUnitOfWork
+    {
+        public Task ExecuteInTransactionAsync(
+            Func<CancellationToken, Task> action,
+            CancellationToken cancellationToken = default
+        ) => action(cancellationToken);
     }
 }

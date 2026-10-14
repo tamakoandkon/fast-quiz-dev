@@ -3,6 +3,7 @@ using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.UseCase.Services;
 using FastQuiz.Common.Exceptions;
 using FastQuiz.Common.Utils;
+using FastQuiz.Question.Domain.Entities;
 using FastQuiz.Quiz.Domain.Entities;
 using FastQuiz.Quiz.Domain.Exceptions;
 using FastQuiz.Quiz.Domain.Repositories;
@@ -533,6 +534,11 @@ public class QuizAttemptService(
             await GetCachedQuizAttemptAsync(questionRecord.QuizAttemptId)
             ?? throw new ResourceNotFoundException();
 
+        if (quizAttempt.AssignId != userId)
+        {
+            throw new PermissionException();
+        }
+
         var template =
             await GetCachedQuizTemplateAsync(quizAttempt.QuizTemplateId)
             ?? throw new ResourceNotFoundException();
@@ -554,7 +560,7 @@ public class QuizAttemptService(
             throw new BusinessException("试卷不在可以答题的时间范围内");
         }
 
-        _answerBuffer.SetAnswers(
+        await _answerBuffer.SetAnswersAsync(
             new PendingAnswer
             {
                 UserId = userId,
@@ -564,7 +570,7 @@ public class QuizAttemptService(
                 Values = commands.Select(x => x.Value).Distinct().ToArray(),
                 AddedTime = DateTimeOffset.UtcNow,
             }
-        );
+        ).ConfigureAwait(false);
     }
 
     private async Task<QuestionRecord?> GetCachedQuestionRecordAsync(string id)
@@ -712,6 +718,22 @@ public class QuizAttemptService(
             throw new PermissionException();
         }
 
+        if (status == QuizAttemptStatus.Graded)
+        {
+            if (
+                !await _permissionService
+                    .HasPermissionAsync(tenantId, userId, Permissions.QuizAttempt)
+                    .ConfigureAwait(false)
+            )
+            {
+                throw new PermissionException();
+            }
+        }
+        else if (attempt.AssignId != userId)
+        {
+            throw new PermissionException();
+        }
+
         var template = await _quizTemplateService.GetQuizTemplateAsync(
             userId,
             tenantId,
@@ -772,9 +794,40 @@ public class QuizAttemptService(
         bool isCorrect
     )
     {
+        if (
+            !await _permissionService
+                .HasPermissionAsync(tenantId, myId, Permissions.QuizAttempt)
+                .ConfigureAwait(false)
+        )
+        {
+            throw new PermissionException();
+        }
+
         var record =
             await _questionRecordRepository.FindQuestionRecordByIdAsync(questionRecordId)
             ?? throw new ResourceNotFoundException();
+
+        var attempt =
+            await _quizAttemptRepository.FindByIdAsync(record.QuizAttemptId)
+            ?? throw new ResourceNotFoundException();
+
+        await _quizTemplateService
+            .GetQuizTemplateAsync(myId, tenantId, attempt.QuizTemplateId)
+            .ConfigureAwait(false);
+
+        if (attempt.Status != QuizAttemptStatus.Submitted)
+        {
+            throw new BusinessException("只有待阅卷的试卷可以人工判题");
+        }
+
+        var question =
+            await _questionSnapshotRepository.FindByIdAsync(record.QuestionSnapshotId)
+            ?? throw new ResourceNotFoundException("题目快照不存在");
+
+        if (!question.AnswerSnapshots.Any(x => x.Strategy == MatchStrategy.Manual))
+        {
+            throw new BusinessException("该题不需要人工判题");
+        }
 
         record.IsCorrect = isCorrect;
 

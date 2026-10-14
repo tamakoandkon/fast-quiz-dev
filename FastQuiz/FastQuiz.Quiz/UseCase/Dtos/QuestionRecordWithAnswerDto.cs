@@ -13,5 +13,5 @@ public record QuestionRecordWithAnswerDto(
     string? ParentId,
     IReadOnlyList<QuestionAnswerSnapshotDto> Answers,
     IReadOnlyList<AnswerRecordDto> AnswerRecords,
-    bool IsCorrect
+    bool? IsCorrect
 );

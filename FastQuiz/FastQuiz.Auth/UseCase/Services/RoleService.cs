@@ -40,7 +40,7 @@ public class RoleService(
             ?? throw new RoleNotFoundExcpetion();
         if (
             !await _permissionService
-                .HasPermissionAsync(role.TenantId, userId, Permissions.Role)
+                .HasPermissionAsync(role.TenantId, myId, Permissions.Role)
                 .ConfigureAwait(false)
         )
         {

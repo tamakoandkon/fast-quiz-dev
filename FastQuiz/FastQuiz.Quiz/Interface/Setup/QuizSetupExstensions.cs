@@ -61,8 +61,7 @@ public static class QuizSetupExstensions
             .AddScoped<IQuestionGradingDecider, QuestionGradingDecider>()
             .AddScoped<IQuizReviewService, QuizReviewService>();
 
-        services.AddSingleton<IAnswerBufferService, AnswerBufferService>();
-        services.AddHostedService<AnswerBufferBackgroundService>();
+        services.AddScoped<IAnswerBufferService, AnswerBufferService>();
 
         services.AddQuizCache();
 
@@ -121,6 +120,9 @@ public static class QuizSetupExstensions
         );
 
         return services
+            .AddScoped<IQuizUnitOfWork>(sp =>
+                new EfQuizUnitOfWork(sp.GetRequiredService<PostgreSQLQuizDbContext>())
+            )
             .AddScoped<IQuizTemplateRepository, PostgreSQLQuizTemplateRepository>()
             .AddScoped<
                 IQuestionSelectionRuleRepository,
@@ -159,6 +161,9 @@ public static class QuizSetupExstensions
         );
 
         return services
+            .AddScoped<IQuizUnitOfWork>(sp =>
+                new EfQuizUnitOfWork(sp.GetRequiredService<MariaDbQuizDbContext>())
+            )
             .AddScoped<IQuizTemplateRepository, MariaDbQuizTemplateRepository>()
             .AddScoped<IQuestionSelectionRuleRepository, MariaDbQuestionSelectionRuleRepository>()
             .AddScoped<IQuizSnapshotRepository, MariaDbQuizSnapshotRepository>()
@@ -196,6 +201,9 @@ public static class QuizSetupExstensions
         );
 
         return services
+            .AddScoped<IQuizUnitOfWork>(sp =>
+                new EfQuizUnitOfWork(sp.GetRequiredService<SqliteQuizDbContext>())
+            )
             .AddScoped<IQuizTemplateRepository, SqliteQuizTemplateRepository>()
             .AddScoped<IQuestionSelectionRuleRepository, SqliteQuestionSelectionRuleRepository>()
             .AddScoped<IQuizSnapshotRepository, SqliteQuizSnapshotRepository>()

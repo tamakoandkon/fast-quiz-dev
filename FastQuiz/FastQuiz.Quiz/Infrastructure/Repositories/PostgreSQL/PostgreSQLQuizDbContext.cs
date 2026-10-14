@@ -432,7 +432,6 @@ public class PostgreSQLQuizDbContext(
                 .HasColumnName(nameof(QuestionRecord.MarkUpContent).ToLowerInvariant());
             entity
                 .Property(e => e.IsCorrect)
-                .IsRequired()
                 .HasColumnName(nameof(QuestionRecord.IsCorrect).ToLowerInvariant());
             entity
                 .Property(e => e.QuizAttemptId)

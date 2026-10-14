@@ -15,7 +15,7 @@ namespace FastQuiz.Quiz.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.25");
+            modelBuilder.HasAnnotation("ProductVersion", "9.0.20");
 
             modelBuilder.Entity("FastQuiz.Quiz.Domain.Entities.AnswerRecord", b =>
                 {
@@ -83,7 +83,7 @@ namespace FastQuiz.Quiz.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsCorrect")
+                    b.Property<bool?>("IsCorrect")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("MarkUpContent")

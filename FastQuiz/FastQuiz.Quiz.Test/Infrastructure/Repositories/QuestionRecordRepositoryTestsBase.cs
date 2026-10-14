@@ -267,7 +267,7 @@ internal abstract class QuestionRecordRepositoryTestsBase
         var result = await Sut.FindQuestionRecordByIdAsync(questionRecord.Id);
         result.ShouldNotBeNull();
         result.Id.ShouldBe(questionRecord.Id);
-        result.IsCorrect.ShouldBeTrue();
+        (result.IsCorrect == true).ShouldBeTrue();
     }
 
     [Test]
@@ -366,7 +366,7 @@ internal abstract class QuestionRecordRepositoryTestsBase
         result.Id.ShouldBe(questionRecord.Id);
         result.QuizAttemptId.ShouldBe(questionRecord.QuizAttemptId);
         result.QuestionSnapshotId.ShouldBe(questionRecord.QuestionSnapshotId);
-        result.IsCorrect.ShouldBeTrue();
+        (result.IsCorrect == true).ShouldBeTrue();
     }
 
     [Test]
@@ -475,8 +475,11 @@ internal abstract class QuestionRecordRepositoryTestsBase
         var updated = await Sut.GetAllByQuizAttempIdAsync(quizAttempt.Id, null, 3);
         updated.ShouldNotBeNull();
         updated.Count.ShouldBe(3);
-        updated.Where(r => correctIds.Contains(r.Id)).All(r => r.IsCorrect).ShouldBeTrue();
-        updated.Where(r => !correctIds.Contains(r.Id)).All(r => !r.IsCorrect).ShouldBeTrue();
+        updated.Where(r => correctIds.Contains(r.Id)).All(r => r.IsCorrect == true).ShouldBeTrue();
+        updated
+            .Where(r => !correctIds.Contains(r.Id))
+            .All(r => r.IsCorrect == false)
+            .ShouldBeTrue();
     }
 
     [Test]

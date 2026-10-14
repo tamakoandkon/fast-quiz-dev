@@ -76,14 +76,31 @@ public class QuizReviewService(
             return;
         }
 
+        if (attempt.Status != QuizAttemptStatus.Submitted)
+        {
+            throw new BusinessException("只有已提交的试卷可以完成阅卷");
+        }
+
         var rules = await _questionSelectionRuleRepository.GetByQuizTemplateIdAsync(
             attempt.QuizTemplateId
         );
         var joined = await BuildJoinedListAsync(quizAttemptId);
 
+        var unreviewedRecordIds = joined
+            .Where(x => !x.Record.IsCorrect.HasValue)
+            .Select(x => x.Record.Id)
+            .ToList();
+
+        if (unreviewedRecordIds.Count > 0)
+        {
+            throw new BusinessException(
+                $"仍有 {unreviewedRecordIds.Count} 道题未完成批阅，无法结束阅卷"
+            );
+        }
+
         // 不再重判(re-decode)：得分按已定判的每题 IsCorrect × 对应规则分数求和
         attempt.Score = joined.Sum(x =>
-            x.Record.IsCorrect
+            x.Record.IsCorrect == true
                 ? FindRuleScore(rules, x.Question)
                 : 0
         );
