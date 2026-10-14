@@ -14,6 +14,21 @@ public class PermissionService(
     private readonly IEasyCachingProvider _cach = _cachingProvider.GetPermissionCacheProvider();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _cacheLocks = new();
 
+    public async Task InvalidateUserPermissionsAsync(string tenantId, string userId)
+    {
+        var key = $"permissions:{tenantId}@{userId}";
+        var gate = _cacheLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await _cach.RemoveAsync(key).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     private static TimeSpan GetRandomExpiration()
     {
         var baseExpiration = TimeSpan.FromHours(24);

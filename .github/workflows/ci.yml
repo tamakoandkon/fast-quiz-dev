@@ -23,8 +23,33 @@ jobs:
       - run: dotnet ef migrations has-pending-model-changes --project FastQuiz.Question --context SqliteQuestionDbContext --no-build --configuration Release
       - run: dotnet ef migrations has-pending-model-changes --project FastQuiz.Quiz --context SqliteQuizDbContext --no-build --configuration Release
       # Provider fixtures recreate databases; never target shared databases.
-      - run: dotnet test FastQuiz.sln --no-build --configuration Release --filter 'FullyQualifiedName!~MariaDb&FullyQualifiedName!~PostgreSql&FullyQualifiedName!~PostgreSQL'
+      - run: dotnet test FastQuiz.sln --no-build --configuration Release --filter 'FullyQualifiedName!~MariaDb&FullyQualifiedName!~PostgreSql&FullyQualifiedName!~PostgreSQL&TestCategory!=PostgreSql'
       - run: dotnet list FastQuiz.sln package --vulnerable --include-transitive
+  postgres-regression:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FASTQUIZ_TEST_POSTGRES: Host=127.0.0.1;Username=postgres;Password=postgres
+    defaults:
+      run:
+        working-directory: FastQuiz
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: FastQuiz/global.json
+      - run: dotnet test FastQuiz.Quiz.Test --configuration Release --filter 'FullyQualifiedName~QuizTransactionTests&TestCategory=PostgreSql'
   frontend:
     runs-on: ubuntu-latest
     defaults:

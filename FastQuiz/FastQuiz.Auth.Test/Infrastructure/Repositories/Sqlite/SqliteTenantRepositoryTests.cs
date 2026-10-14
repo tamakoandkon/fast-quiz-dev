@@ -3,6 +3,8 @@ using FastQuiz.Auth.Infrastructure.Repositories.Sqlite;
 using FastQuiz.Auth.Test.Infrastructure.Repositories.Utils;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using FastQuiz.Auth.Domain.Entities;
+using Shouldly;
 
 namespace FastQuiz.Auth.Test.Infrastructure.Repositories.Sqlite;
 
@@ -60,5 +62,29 @@ internal class SqliteTenantRepositoryTests : TenantRepositoryTestBase
         await _dbContext.Tenants.ExecuteDeleteAsync();
         _dbContext?.Dispose();
         _connection?.Dispose();
+    }
+
+    [Test]
+    public async Task RemovingMemberPreservesSharedAccountAndOtherTenantRolesAndGroups()
+    {
+        var user = new User(Guid.NewGuid().ToString(), Guid.NewGuid().ToString(), null, "hash");
+        var tenantA = new Tenant(Guid.NewGuid().ToString(), "A", "");
+        var tenantB = new Tenant(Guid.NewGuid().ToString(), "B", "");
+        var groupA = new Organization(Guid.NewGuid().ToString(), tenantA.Id, null, "A");
+        var groupB = new Organization(Guid.NewGuid().ToString(), tenantB.Id, null, "B");
+        var roleA = new Role(Guid.NewGuid().ToString(), tenantA.Id, "A", "", false, true);
+        var roleB = new Role(Guid.NewGuid().ToString(), tenantB.Id, "B", "", false, true);
+        _dbContext.AddRange(user, tenantA, tenantB, groupA, groupB, roleA, roleB,
+            new TenantUserMap(tenantA.Id, user.Id), new TenantUserMap(tenantB.Id, user.Id),
+            new UserRole(user.Id, roleA.Id, tenantA.Id), new UserRole(user.Id, roleB.Id, tenantB.Id),
+            new OrganizationUserMap(groupA.Id, user.Id), new OrganizationUserMap(groupB.Id, user.Id));
+        await _dbContext.SaveChangesAsync();
+
+        await Sut.RemoveUserFromTenantAsync(tenantA.Id, user.Id);
+
+        (await _dbContext.Users.AsNoTracking().SingleAsync()).Id.ShouldBe(user.Id);
+        (await _dbContext.TenantUserMaps.AsNoTracking().SingleAsync()).TenantId.ShouldBe(tenantB.Id);
+        (await _dbContext.UserRoles.AsNoTracking().SingleAsync()).RoleId.ShouldBe(roleB.Id);
+        (await _dbContext.OrganizationUserMaps.AsNoTracking().SingleAsync()).OrganizationId.ShouldBe(groupB.Id);
     }
 }

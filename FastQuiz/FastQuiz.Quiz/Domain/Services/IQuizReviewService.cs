@@ -16,7 +16,7 @@ public interface IQuizReviewService
 
     /// <summary>
     /// 仅在所有题目的 IsCorrect 都已落定后把整卷置为 Graded；null 表示尚未批阅。
-    /// 得分不做重判(re-decode)，直接按“每题的持久化 IsCorrect × 对应抽题规则分数”求和。
+    /// 重新计算客观题，保留人工题的持久化判定，然后汇总整卷得分。
     /// </summary>
     Task CompleteReviewAsync(string quizAttemptId);
 

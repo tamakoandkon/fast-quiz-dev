@@ -18,7 +18,8 @@ public class AnswerBufferService(
         PendingAnswer answer,
         CancellationToken cancellationToken = default
     ) =>
-        unitOfWork.ExecuteInTransactionAsync(
+        unitOfWork.ExecuteForAttemptAsync(
+            answer.QuizAttemptId,
             async _ =>
             {
                 await questionRecordRepository
