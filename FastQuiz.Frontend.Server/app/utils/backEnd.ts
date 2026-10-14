@@ -287,6 +287,7 @@ export interface QuestionTypeCountDto {
 export interface QuizAttempDto {
   id?: string | null;
   assignId?: string | null;
+  assignUsername?: string | null;
   quizTemplateId?: string | null;
   quizTemplateNema?: string | null;
   quizSampleId?: string | null;

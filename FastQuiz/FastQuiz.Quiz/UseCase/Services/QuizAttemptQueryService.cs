@@ -1,6 +1,8 @@
 using FastQuiz.Auth.Domain.Entities;
+using FastQuiz.Auth.Domain.Repositories;
 using FastQuiz.Auth.UseCase.Services;
 using FastQuiz.Common.Exceptions;
+using FastQuiz.Quiz.Domain.Entities;
 using FastQuiz.Quiz.Domain.Repositories;
 using FastQuiz.Quiz.UseCase.Dtos;
 using FastQuiz.Quiz.UseCase.Queries;
@@ -12,7 +14,8 @@ public sealed class QuizAttemptQueryService(
     IQuizTemplateRepository _quizTemplateRepository,
     IQuizTemplateService _quizTemplateService,
     IPermissionService _permissionService,
-    ITenantService _tenantService
+    ITenantService _tenantService,
+    IUserRepository _userRepository
 ) : IQuizAttemptQueryService
 {
     public async Task<IReadOnlyList<QuizAttempDto>> GetAllQuizAttemptAsync(
@@ -84,6 +87,9 @@ public sealed class QuizAttemptQueryService(
             throw new PermissionException();
         }
 
+        // Validate the requested template before reading its records or account names.
+        await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quizTemplateId);
+
         var attempts = await _quizAttemptRepository
             .GetAllRecordsByTemplateIdAsync(
                 quizTemplateId,
@@ -98,6 +104,8 @@ public sealed class QuizAttemptQueryService(
             [.. attempts.Select(x => x.QuizTemplateId)]
         );
 
+        var names = await GetAssigneeNamesAsync(attempts);
+
         return
         [
             .. attempts
@@ -111,7 +119,8 @@ public sealed class QuizAttemptQueryService(
                     x.StartTime,
                     x.SubmitTime,
                     x.Score,
-                    x.Status
+                    x.Status,
+                    names.GetValueOrDefault(x.AssignId!)
                 )),
         ];
     }
@@ -232,6 +241,9 @@ public sealed class QuizAttemptQueryService(
             throw new PermissionException();
         }
 
+        if (query.TemplateId is not null)
+            await _quizTemplateService.GetQuizTemplateAsync(operatorId, tenantId, query.TemplateId);
+
         var attempts = await _quizAttemptRepository
             .GetAllRecordsByUserIdAsync(
                 userId,
@@ -239,7 +251,8 @@ public sealed class QuizAttemptQueryService(
                 query.OnlyBest,
                 query.Cursor,
                 query.Count,
-                query.IsPrevious
+                query.IsPrevious,
+                tenantId
             )
             .ConfigureAwait(false);
 
@@ -247,18 +260,24 @@ public sealed class QuizAttemptQueryService(
             [.. attempts.Select(x => x.QuizTemplateId)]
         );
 
+        // User accounts are global; their records must still remain tenant-scoped.
+        var tenantTemplates = templates.Where(x => x.OwnerId == tenantId).ToDictionary(x => x.Id);
+        var visibleAttempts = attempts.Where(x => tenantTemplates.ContainsKey(x.QuizTemplateId)).ToList();
+        var names = await GetAssigneeNamesAsync(visibleAttempts);
+
         return
         [
-            .. attempts.Select(x => new QuizAttempDto(
+            .. visibleAttempts.Select(x => new QuizAttempDto(
                 x.Id,
                 x.AssignId!,
                 x.QuizTemplateId,
-                templates.Where(t => t.Id == x.QuizTemplateId).First().Name,
+                tenantTemplates[x.QuizTemplateId].Name,
                 x.QuizSnapshotId,
                 x.StartTime,
                 x.SubmitTime,
                 x.Score,
-                x.Status
+                x.Status,
+                names.GetValueOrDefault(x.AssignId!)
             )),
         ];
     }
@@ -311,5 +330,13 @@ public sealed class QuizAttemptQueryService(
             quizAttempt.Score,
             quizAttempt.Status
         );
+    }
+
+    private async Task<Dictionary<string, string>> GetAssigneeNamesAsync(IEnumerable<QuizAttempt> attempts)
+    {
+        var ids = attempts.Select(x => x.AssignId).Where(x => x is not null).Cast<string>().Distinct().ToArray();
+        if (ids.Length == 0) return [];
+        var users = await _userRepository.GetUsersByIdsAsync(ids);
+        return users.ToDictionary(x => x.Id, x => x.Username);
     }
 }

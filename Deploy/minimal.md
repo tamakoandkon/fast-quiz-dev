@@ -16,6 +16,8 @@
 
 非容器环境创建可写的 `data` 目录，通过 `Jwt__Key` 注入密钥；首次启动前设置 `Migrations__RunMigrationsOnly=true` 执行一次程序。需要首次管理员时再同时设置 `BootstrapAdmin__Enabled=true` 和 `BootstrapAdmin__Password`。完成后移除这三个初始化变量，再以常规服务启动。初始化失败必须先排查，不能忽略退出码启动服务。
 
+文件日志目录使用 `FASTQUIZ_LOG_DIR`。采用 systemd 只读发布目录时，将其设为 `/var/log/fast-quiz`，由部署工具预先创建并授权服务用户写入，同时在服务的 `ReadWritePaths` 放行该日志目录。发布后必须实际请求接口，确认该目录中的 `all.log` / `system.log` 文件有新增内容；不能只凭目录权限或 journal 正常就认定文件日志落盘成功。未设置变量的本地开发仍写入程序目录下的 `logs`。
+
 ## 非容器发布
 
 在开发机或构建机的仓库内执行：

@@ -50,7 +50,7 @@ const props = defineProps({
   },
 });
 
-const groups = ref<QuestionGroupDto[]>([]);
+
 
 // 计算属性：将groups转换为USelect需要的格式
 const groupOptions = computed(() => {
@@ -82,6 +82,8 @@ const level = ref<number>(0);
 const count = ref<number>(1);
 const score = ref<number>(1);
 
+const { groups } = useQuestionGroups(() => props.tenantId, () => !!show.value);
+
 const emit = defineEmits<{
   (e: "update", payLoad: UpdateQuestionSelectionRuleCommand): void;
 }>();
@@ -101,74 +103,21 @@ const updateQuestionSelectionRule = function () {
   score.value = 1;
 };
 
-// 加载所有题库分组（不分页，加载全部）
-const loadAllGroups = async () => {
+watch([() => props.tenantId, () => props.id, show], async ([tenant, id, open], _, onCleanup) => {
+  let current = true;
+  onCleanup(() => { current = false; });
+  groupId.value = '';
+  if (!open || !tenant?.trim() || !id?.trim()) return;
   try {
-    let allGroups: QuestionGroupDto[] = [];
-    let cursor: string | undefined = undefined;
-    let hasMore = true;
-
-    // 循环加载所有分组，直到没有更多数据
-    while (hasMore) {
-      const result = await $api.tenant.questionGroupList(props.tenantId, {
-        Cursor: cursor,
-        Count: 200, // 每页加载50条
-        IsPrevious: false,
-        NamePrefix: undefined,
-      });
-
-      if (result.data && result.data.length > 0) {
-        allGroups = [...allGroups, ...result.data];
-        // 如果返回的数据少于请求的数量，说明没有更多数据了
-        if (result.data.length < 50) {
-          hasMore = false;
-        } else {
-          // 获取最后一个元素的ID作为下一页的游标
-          cursor = result.data[result.data.length - 1]?.id ?? undefined;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    groups.value = allGroups;
+    const result = await $api.tenant.quizTemplateRuleDetail(tenant, id);
+    if (!current) return;
+    groupId.value = result.data.groupId ?? '';
+    questionType.value = result.data.questionType ?? QuestionType.SingleChoice;
+    level.value = result.data.level ?? 0;
+    count.value = result.data.count ?? 1;
+    score.value = result.data.score ?? 1;
   } catch (error) {
-    console.error("加载题库分组失败:", error);
-    groups.value = [];
+    if (current) console.error('加载抽题规则失败:', error);
   }
-};
-
-// 监听props.id变化，加载规则详情
-watch(
-  () => props.id,
-  async (newId) => {
-    if (newId) {
-      await fetchQuestionSelectionRuleAsync(newId);
-    }
-  },
-  { immediate: true },
-);
-
-// 组件挂载时加载所有分组
-onMounted(async () => {
-  await loadAllGroups();
-  await fetchQuestionSelectionRuleAsync(props.id);
-});
-
-const fetchQuestionSelectionRuleAsync = async (id: string) => {
-  if (!id || id.trim() === "") {
-    return;
-  }
-
-  let result = await $api.tenant.quizTemplateRuleDetail(
-    props.tenantId,
-    props.id,
-  );
-
-  groupId.value = result.data.groupId ?? "";
-  questionType.value = result.data.questionType ?? QuestionType.SingleChoice;
-  level.value = result.data.level ?? 0;
-  count.value = result.data.count ?? 1;
-  score.value = result.data.score ?? 1;
-};
+}, { immediate: true });
 </script>

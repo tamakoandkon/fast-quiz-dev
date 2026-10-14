@@ -23,16 +23,17 @@ internal class PostgreSQLQuizAttemptRepositoryTests : QuizAttemptRepositoryTests
     [OneTimeSetUp]
     public async Task OneTimeSetup()
     {
-        _dbContext = InitialTestDbHelper.GetTestPostgreSqlQuizDbContext();
-        await _dbContext.Database.EnsureDeletedAsync();
-        await _dbContext.Database.EnsureCreatedAsync();
+        await using var setup = InitialTestDbHelper.GetTestPostgreSqlQuizDbContext();
+        await setup.Database.EnsureDeletedAsync();
+        await setup.Database.EnsureCreatedAsync();
     }
 
     [OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
-        await _dbContext.Database.EnsureDeletedAsync();
-        await _dbContext.DisposeAsync();
+        // Each test already disposes its context; fixture cleanup needs a fresh one.
+        await using var cleanup = InitialTestDbHelper.GetTestPostgreSqlQuizDbContext();
+        await cleanup.Database.EnsureDeletedAsync();
     }
 
     [SetUp]
