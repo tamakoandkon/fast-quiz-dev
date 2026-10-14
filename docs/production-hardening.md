@@ -7,7 +7,7 @@
 - `BootstrapAdmin:Enabled` 默认 false。只有显式启用且管理员不存在时，才用外部 `BootstrapAdmin__Password` 创建账号 `defaultadmin`；密码须 12–20 字符（与当前登录校验上限一致），推荐密码管理器生成。缺失/非法密码在种子写入前失败。已有管理员不重置密码，也不需要再次提供密码。
 - `Migrations:RunMigrationsOnStartup` 默认 false，包括配置缺失时；数据库更新须通过一次性 `Migrations__RunMigrationsOnly=true` 任务完成。该任务可同时执行显式管理员初始化，然后退出，不监听 API、不启动后台 worker。
 - Hangfire 默认 `sqlite`，文件 `data/hangfire.db`。SQLite 的 `Hangfire:ConnectionString` 实际接受**文件路径**；MariaDB/PostgreSQL 接受数据库连接字符串，必须外部提供。仅 Development 允许显式 memory；生产启动会拒绝内存存储。
-- API 主数据库、答题缓冲表和 Hangfire 文件均需持久化及备份。持久化任务调度不等于调度与业务事务原子提交：提交后、入队前崩溃仍是待改进的 outbox 边界，不宣称 exactly-once。
+- Auth / Question / Quiz 数据库与 Hangfire 存储均需持久化及备份。答案直接事务落库，没有独立的内存缓冲表。持久化任务调度不等于调度与业务事务原子提交：提交后、入队前崩溃仍是待改进的 outbox 边界，不宣称 exactly-once。
 
 ## 开发启动
 
@@ -17,10 +17,10 @@
 
 `QuizAttemptService` 保留为兼容 facade，原接口、端点与已持久化 Hangfire 任务的公开方法不变。具体逻辑拆分为：
 
-- `QuizAttemptCreationService`：创建、批量创建、领取试卷。
+- `QuizAttemptCreationService`：创建、批量创建、内部领取方法（领取 API 尚未开放，批量 `Count` 尚未生效，见功能清单）。
 - `QuizAttemptQueryService`：考试/记录列表及详情。
 - `QuestionRecordQueryService`：题目与答案可见性查询。
-- `QuizAnswerService`：答题归属校验、缓冲写入。
+- `QuizAnswerService`：答题归属校验、请求内答案持久化。
 - `QuizAttemptLifecycleService`：考试状态转换、延迟阅卷调度。
 - `QuizAttemptReviewService`：人工判定与后台阅卷编排。
 
@@ -28,7 +28,9 @@
 
 部署命令和首次初始化步骤见 [部署说明](../Deploy/minimal.md)。本次源码修改不代表生产实例已经升级。
 
-## 验证记录（2026-10-14）
+## PR #14 源码阶段验证记录（2026-10-14，历史）
+
+以下记录仅描述该阶段当时执行的验证，不是当前累计状态。合并后的再次核查、前端构建、既有 PostgreSQL CI 和批量测试恢复结果见 [最新测试记录](verification-2026-10-14.md)；当前待办以 [重构行动清单](refactor-harden-roadmap.md) 和 [页面需求](../content.md) 为准。
 
 - Release 构建通过，0 错误；仍有 43 条原有警告，主要为未使用依赖及测试构造器空值告警。
 - Release SQLite/API 回归：542 通过、1 条原有批量创建测试跳过；新增 23 条配置/初始化/后台任务兼容测试。
