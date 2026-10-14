@@ -15,7 +15,7 @@ const columns = computed(() => [
   { key: 'startTime', label: '开始时间', width: '112px' },
   { key: 'submitTime', label: '交卷时间', width: '112px' },
   { key: 'score', label: '得分', width: '64px' },
-  { key: 'actions', label: '操作', width: '92px' },
+  { key: 'actions', label: '操作', width: '112px' },
 ]);
 const statuses = {
   [QuizAttemptStatus.Pending]: '未开始',
@@ -60,7 +60,7 @@ const datePart = (value: string | null | undefined, time = false) => {
       </span>
     </template>
     <template #actions="{ row }">
-      <UButton v-if="quizRecordLink(tenantId, row, !!canReview)" :to="quizRecordLink(tenantId, row, !!canReview)" color="neutral" variant="outline" size="xs" icon="i-lucide-eye">
+      <UButton v-if="quizRecordLink(tenantId, row, !!canReview)" :to="quizRecordLink(tenantId, row, !!canReview)" class="whitespace-nowrap" color="neutral" variant="outline" size="xs" icon="i-lucide-eye">
         {{ row.status === QuizAttemptStatus.Graded ? '查看答案' : '阅卷' }}
       </UButton>
       <span v-else class="text-xs text-muted">{{ row.status === QuizAttemptStatus.Submitted ? '等待阅卷' : '尚未交卷' }}</span>
