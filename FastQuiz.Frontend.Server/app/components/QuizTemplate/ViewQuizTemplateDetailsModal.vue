@@ -123,7 +123,7 @@ watch(
   { immediate: true },
 );
 
-const fetchQuizTemplate = async (id: string) => {
+async function fetchQuizTemplate(id: string) {
   if (!id || id.trim() === "") return;
 
   try {
@@ -144,7 +144,7 @@ const fetchQuizTemplate = async (id: string) => {
   } catch (error) {
     console.error("获取试卷模板详情失败:", error);
   }
-};
+}
 
 // 关闭弹窗时重置数据
 watch(show, (newVal) => {

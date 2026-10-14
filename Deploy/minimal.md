@@ -44,6 +44,9 @@ npm run build
 
 将 `.output/public/` 发布到新的 web 目录。保留 `config.json` 的 `apiBaseUrl: "/api"`；Nginx 在 3003 服务 SPA，`/api/` 移除前缀代理到私有 API 端口。前端 `/tenant/` 不应被整段代理到后端。详见 [前端 README](../FastQuiz.Frontend.Server/README.md)。
 
+Nginx 必须显式启用预压缩资源协商，不能只生成 `.gz` 文件。参见 [前端加载优化及验证](../docs/frontend-performance.md)
+和本应用 `server` 块使用的 [压缩片段](nginx-static-performance.conf)。
+
 ## Docker Compose（新环境）
 
 仓库的镜像构建使用微软、Node 和 Caddy 官方源；API 非 root 运行，数据与日志目录可写。仅前端公开 3003，后端通过 Compose 内部网络访问。
