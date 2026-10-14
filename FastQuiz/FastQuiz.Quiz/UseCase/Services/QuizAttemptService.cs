@@ -554,30 +554,17 @@ public class QuizAttemptService(
             throw new BusinessException("试卷不在可以答题的时间范围内");
         }
 
-        //await _questionRecordRepository.DeleteAnswerRecordByQuestionRecordIdAsync(questionRecordId);
-        //await _questionRecordRepository.CreateAnswerRecordAsync(
-        //    commands.Select(x => new AnswerRecord()
-        //    {
-        //        Id = _idGenerator.GenerateUlId(),
-        //        QuestionRecordId = questionRecordId,
-        //        QuizAttemptId = questionRecord.QuizAttemptId,
-        //        Value = x.Value,
-        //    })
-        //);
-        foreach (var c in commands)
-        {
-            _answerBuffer.AddAnswer(
-                new PendingAnswer
-                {
-                    UserId = userId,
-                    TenantId = tenantId,
-                    QuestionRecordId = questionRecordId,
-                    QuizAttemptId = quizAttempt.Id,
-                    Value = c.Value,
-                    AddedTime = DateTimeOffset.UtcNow,
-                }
-            );
-        }
+        _answerBuffer.SetAnswers(
+            new PendingAnswer
+            {
+                UserId = userId,
+                TenantId = tenantId,
+                QuestionRecordId = questionRecordId,
+                QuizAttemptId = quizAttempt.Id,
+                Values = commands.Select(x => x.Value).Distinct().ToArray(),
+                AddedTime = DateTimeOffset.UtcNow,
+            }
+        );
     }
 
     private async Task<QuestionRecord?> GetCachedQuestionRecordAsync(string id)
