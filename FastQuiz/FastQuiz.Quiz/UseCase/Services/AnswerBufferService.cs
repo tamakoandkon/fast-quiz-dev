@@ -15,6 +15,7 @@ public class AnswerBufferService : IAnswerBufferService
     // ============ 2. 同步控制 ============
     // 只允许一个刷出任务在执行；TryAcquire 失败说明已有刷出在跑
     private readonly SemaphoreSlim _flushSemaphore = new(1, 1);
+    private readonly object _bufferLock = new();
 
     // ============ 3. 配置参数 ============
     private readonly int _maxBufferSize = 10000;
@@ -39,13 +40,18 @@ public class AnswerBufferService : IAnswerBufferService
     /// <summary>
     /// 请求侧唯一入口：只写内存，不触发刷出，不碰数据库。
     /// </summary>
-    public void AddAnswer(PendingAnswer answer)
+    public void SetAnswers(PendingAnswer answer)
     {
-        var isNew = !_writeBuffer.ContainsKey(answer.QuestionRecordId);
-        _writeBuffer[answer.QuestionRecordId] = answer;
-        if (isNew)
+        lock (_bufferLock)
         {
-            Interlocked.Increment(ref _pendingCount);
+            if (_writeBuffer.TryAdd(answer.QuestionRecordId, answer))
+            {
+                Interlocked.Increment(ref _pendingCount);
+            }
+            else
+            {
+                _writeBuffer[answer.QuestionRecordId] = answer;
+            }
         }
 
         if (Interlocked.Read(ref _pendingCount) > _maxBufferSize)
@@ -74,17 +80,16 @@ public class AnswerBufferService : IAnswerBufferService
 
         try
         {
-            if (_writeBuffer.IsEmpty)
-                return;
+            ConcurrentDictionary<string, PendingAnswer> bufferToFlush;
+            lock (_bufferLock)
+            {
+                if (_writeBuffer.IsEmpty)
+                    return;
 
-            // 原子换出缓冲区
-            var bufferToFlush = Interlocked.Exchange(
-                ref _writeBuffer,
-                new ConcurrentDictionary<string, PendingAnswer>()
-            );
-
-            // 同步重置计数：新缓冲区从 0 开始，旧缓冲区的条数由 bufferToFlush.Count 决定
-            Interlocked.Exchange(ref _pendingCount, _writeBuffer.Count);
+                bufferToFlush = _writeBuffer;
+                _writeBuffer = new ConcurrentDictionary<string, PendingAnswer>();
+                Interlocked.Exchange(ref _pendingCount, 0);
+            }
 
             if (bufferToFlush.IsEmpty)
                 return;
@@ -110,17 +115,19 @@ public class AnswerBufferService : IAnswerBufferService
     }
 
     /// <summary>
-    /// 刷出失败时把数据放回缓冲区（覆盖写语义，避免重复插入）。
+    /// 刷出失败时把数据放回缓冲区。刷出期间收到的新答案优先，
+    /// 避免旧快照覆盖用户随后提交的答案。
     /// </summary>
     private void MergeBack(ConcurrentDictionary<string, PendingAnswer> buffer)
     {
-        foreach (var kv in buffer)
+        lock (_bufferLock)
         {
-            var isNew = !_writeBuffer.ContainsKey(kv.Key);
-            _writeBuffer[kv.Key] = kv.Value;
-            if (isNew)
+            foreach (var kv in buffer)
             {
-                Interlocked.Increment(ref _pendingCount);
+                if (_writeBuffer.TryAdd(kv.Key, kv.Value))
+                {
+                    Interlocked.Increment(ref _pendingCount);
+                }
             }
         }
     }
@@ -144,15 +151,20 @@ public class AnswerBufferService : IAnswerBufferService
             .ConfigureAwait(false);
 
         var answerRecords = items
-            .Select(x => new AnswerRecord
-            {
-                Id = idGenerator.GenerateUlId(),
-                QuestionRecordId = x.QuestionRecordId,
-                QuizAttemptId = x.QuizAttemptId,
-                Value = x.Value,
-            })
+            .SelectMany(x =>
+                x.Values.Select(value => new AnswerRecord
+                {
+                    Id = idGenerator.GenerateUlId(),
+                    QuestionRecordId = x.QuestionRecordId,
+                    QuizAttemptId = x.QuizAttemptId,
+                    Value = value,
+                })
+            )
             .ToList();
 
-        await repository.CreateAnswerRecordAsync(answerRecords).ConfigureAwait(false);
+        if (answerRecords.Count > 0)
+        {
+            await repository.CreateAnswerRecordAsync(answerRecords).ConfigureAwait(false);
+        }
     }
 }

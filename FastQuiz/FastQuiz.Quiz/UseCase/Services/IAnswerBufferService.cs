@@ -5,10 +5,11 @@ namespace FastQuiz.Quiz.UseCase.Services;
 public interface IAnswerBufferService
 {
     /// <summary>
-    /// 请求侧唯一入口：把答案写入内存缓冲区。
+    /// 请求侧唯一入口：用一组完整答案替换该题在内存缓冲区里的答案。
+    /// 空集合表示清空该题答案。
     /// 不触发刷出，不碰数据库。
     /// </summary>
-    void AddAnswer(PendingAnswer answer);
+    void SetAnswers(PendingAnswer answer);
 
     /// <summary>
     /// 把缓冲区里的数据批量落库。
