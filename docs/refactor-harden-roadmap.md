@@ -1,144 +1,127 @@
-# FastQuiz 重构 / 稳健性 / 部署 行动清单
+# FastQuiz 重构 / 稳健性 / 部署行动清单
 
-> 只读审计结论（2026-09，dev 分支）：建议先停新功能，按此清单推进。
-> 每个工作项都写清：改动点(文件:行)、怎么改、怎么验收。完成请勾选 `[x]`。
-> 架构分层、测试底座、模块划分均良好——主要债务集中在 **配置/启动、鉴权/正确性、provider 绑死 sqlite、内存态组件** 四类。
+> 更新：2026-10-14；基线 `main` / `3ebee71`（PR #14 已合并）。本版取代 2026-09 历史审计中的过时“现状”；原文保留于 Git 历史。
+> 功能范围见 [页面需求](../content.md)，配置契约见 [生产加固说明](production-hardening.md)，实际运行结果见 [测试记录](verification-2026-10-14.md)。
 
-准则：
-- 每个独立改动前先跑对应测试套件，改动后全量 `dotnet build FastQuiz.sln` + `dotnet test`。
-- 涉及安全项（JWT、默认口令）改动后务必重启并重新登录取新 token 验证。
-- GUID id / 纯字符串日期等约定照旧。
+`[x]` 仅用于明确完成的子项。实现、自动测试、生产运行验收是不同层次；未完成或未执行的验收保留 `[ ]`。本文不记录生产地址、连接串、凭据、私密文件位置或部署主机路径。
 
----
+## 阶段一：安全配置与运维基础
 
-> 此文保留历史排期和旧问题定位，并非当前缺陷清单。PR #13 已修复权限、阅卷守卫与答题持久化；生产配置及考试服务拆分的当前约定见 [收尾说明](production-hardening.md)。发布仍需轮换历史泄露凭据。
+### 1.1 外部密钥与显式管理员初始化：实现完成
 
-## 阶段一：上线止血（安全 / 部署）—— 改动小、风险低、优先做
+- [x] 当前应用配置没有默认 JWT Key / 管理员口令，无效、短或已知占位密钥拒绝启动。
+- [x] 签发和验证共用强类型设置；日志不打印密钥与数据库连接字符串。
+- [x] bootstrap 默认关闭，显式外部密码才可创建管理员；不覆盖已有账号密码。
+- [x] 配置、令牌、初始化及后台任务兼容性有回归。
+- [ ] **持续发布检查：** 每个环境确认历史泄露凭据已轮换、旧令牌失效、日志无秘密。不能靠删除当前文件消除历史泄露，也不能用代码测试替代环境验收。
 
-### 1.1 把 JWT 密钥 / 连接串 / 内置弱口令从仓库挪到环境变量（不打印）
-现状：
-- 硬编码密钥与连接串：`FastQuiz.API/appsettings.json:8-21`（`Auth`/`Question`/`Quiz` 三段 sqlite 连接串 + `Jwt:Key/Issuer/Audience` 同值 GUID）。
-- 启动日志把 JWT **Key** 与连接串打到 stdout：`FastQuiz/API/Setup/AuthSetupExtensions.cs:24-40`。
+证据：[配置与初始化测试](../FastQuiz/FastQuiz.API.Test/Configuration/ProductionConfigurationTests.cs)、[配置契约](production-hardening.md)。
 
-做法：
-1. `appsettings.json` 里删掉 `Jwt` 段明文 `Key`（可保留结构或移到 `appsettings.Development.json`）。
-2. 密钥放入 **user-secrets（dev）** 与 **环境变量 / 容器 Secret（prod）**，通过 `builder.Configuration` 的 `AddEnvironmentVariables()` / 占位符 `Jwt__Key` 注入。
-3. 删除 `AuthSetupExtensions.cs:24-40` 的两处 `Console.WriteLine`（连 DB 连接串也不要打，连接串可含口令）。
-4. `defaultadmin` 初始化：默认禁用，需要显式启用及外部提供密码；不再保留内置口令。
-   - 生产源不要提交明文。改为初始化时若口令仍是默认值则强制下一步改密，或把种子密码放入 env；
-   - 至少：上线后**立即登录并改掉**该管理员口令。
+### 1.2 CORS 与 Host：实现完成，专项验收待补
 
-验收：
-- 当前代码与配置不再包含默认 JWT 密钥或管理员口令；历史泄露值需在部署时轮换。
-- 重启后 stdout 不再打印 Key / 连接串。
-- 用新 env 签名的 token 能正常鉴权（重新登录）。
-- 生产 kill 后重连同一 DB，`defaultadmin` 仍存在且密码已是新值。
+- [x] 开发与生产策略分离，非开发环境要求 CORS 白名单及非通配 AllowedHosts。
+- [ ] 验证真实代理/浏览器下的合法来源、非法来源、预检与凭据请求；本轮未新增该项浏览器测试。
 
-### 1.2 收紧 CORS
-现状：`Program.cs:39-44` `AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()` 默认策略。
-- 前端 SPA 独立部署（Nuxt 4 SSG，见 `D:\KingProjects\FastQuiz\FastQuiz.Frontend.Server\nuxt.config.ts:3-7`，`ssr:false` + `nitro static`）。
+证据：[Program.cs](../FastQuiz/FastQuiz.API/Program.cs)。
 
-做法：按目标源列表显式授权（读 env `Cors__AllowedOrigins`），非开发环境不要再包 AllowAnyOrigin。
-验收：跨域只允许白名单源；未授权源请求被拒（浏览器 console 可见 CORS 报错）。
+### 1.3 显式迁移与 provider 选择：部分完成
 
-### 1.3 关闭"启动即自动迁移 + 只跑 sqlite"
-现状：`Program.cs:59 ApplyAllMigrations()` → 三个 applier 全部 `GetRequiredService<Sqlite*DbContext>()` 后 `Migrate()`：
-- `AuthExtensions.cs:175-180`、`QuizSetupExstensions.cs:150-156`、`QuestionExtensions.cs:135-140`。
+- [x] 普通启动迁移默认关闭；缺失配置也不迁移。
+- [x] migration-only 模式执行迁移后退出，不监听 API、不启动 worker；迁移按配置选择 provider。
+- [x] 三个 SQLite 模型与迁移一致；既有 PostgreSQL 专项 CI 验证五个事务/历史数据升级场景。
+- [ ] **未完成：MariaDB 考试模块升级迁移及专用回归。** 已有 DbContext / repository 不等于升级路径完成，考试迁移目录缺少相应 MariaDB 系列。
+- [ ] 补齐三种 provider 的空库、旧库升级及多实例部署验收；迁移由受控单次任务执行，未声称并发迁移通过。
 
-做法（二选一）：
-1. **推荐**：从 `Program.cs` 移除启动自动迁移，改成一个独立入口/脚本（或 CI 阶段执行 `dotnet ef database update`），让它指向**所选 provider** 的 DbContext。
-2. 若坚持启动迁：把 applier 改为按 `settings.Type` 解析对应 provider 的 DbContext（见阶段三 DI 重构），并只在单实例/部署编排里先跑一次，别多实例并发 Migrate。
+证据：[迁移入口](../FastQuiz/FastQuiz.API/Setup/ApplyMigrationsExtensions.cs)、[考试迁移](../FastQuiz/FastQuiz.Quiz/Migrations)、[事务测试](../FastQuiz/FastQuiz.Quiz.Test/Infrastructure/QuizTransactionTests.cs)。
 
-验收：
-- 配 postgres/maria 时能对真实目标库建表（此前只能建 sqlite）。
-- 多实例启动不再争锁迁移；重启无 pending migration 抛错。
+### 1.4 持久化后台调度：基础完成，可靠性待补
 
-### 1.4 Hangfire 换持久化存储（当前业务调度会丢）
-现状：`QuizSetupExstensions.cs:129-138` `UseInMemoryStorage()` + `AddHangfireServer()`（进程内 worker）。阅卷后台调度见 `QuizAttemptService.cs:498-520`。`:158-160` 残留一次启动入队 `Console.WriteLine("Hello world from Hangfire!")`。
+- [x] Hangfire 默认持久化 SQLite，非开发环境拒绝 memory；开发环境也须显式选 memory。
+- [x] 已入队任务可在重建服务提供器后读取并由真实 worker 执行；兼容原持久化任务入口。
+- [ ] **未完成：业务事务与任务入队的可靠衔接。** 生命周期服务在事务提交后调用 Schedule，此间崩溃/入队失败仍可能漏调度；需要事务内任务记录（outbox）及可重试投递/补偿。
+- [ ] 多实例共享存储/worker 拓扑、重复投递与幂等故障测试；不承诺 exactly-once。
 
-做法：
-1. 删除 `QuizSetupExstensions.cs:158-160` 的样板 job。
-2. 若继续用进程内 worker：把存储接到一个持久化目标（配成与业务同库或独立 Hangfire 库，`UseSqlServerStorage`/`UseNpgsqlStorage`/`UseStorage`）。多实例下选**共享存储 + 中心 worker** 或专用 worker 节点，不要每实例都 run 进程内重活。
-3. 若暂不想引入外部 broker：至少在 README 注明"Hangfire 为进程内内存存储，阅卷作业在单实例重启窗口可能丢失"，别再当生产默认。
+验收：故障注入覆盖业务提交后未入队、入队失败、worker 重启与重复投递，最终不丢作业、不重复产生有效状态更新。
 
-验收：
-- 提交一份含 Manual/自动题目的答题后，**重启 API 再等调度窗口**，阅卷作业仍能执行（内存存储则丢）。
-- 多实例下只调度一次、不重复阅卷。
+证据：[Hangfire 配置](../FastQuiz/FastQuiz.API/Setup/AddHangfireServiceExtensions.cs)、[生命周期服务](../FastQuiz/FastQuiz.Quiz/UseCase/Services/QuizAttemptLifecycleService.cs)。
 
-### 1.5 加 health 检查 + 请求日志（运维可观测）
-现状：全仓无 `AddHealthChecks/MapHealthChecks`，无 `UseHttpLogging`/请求日志中间件，ILogger 已在 service 用但无请求级追踪。
-做法：
-1. `AddHealthChecks()`（含各 DbContext 的 `AddDbContextCheck`），`MapHealthChecks("/healthz")`。
-2. 加 `UseHttpLogging()`（或用精简请求中间件），输出 method/path/status/耗时。避免把 body/敏感头打出来。
-验收：`curl /healthz` 返回 Healthy；日志能看到 5xx 的请求路径与状态。
+### 1.5 健康检查与日志：基础完成，专项验收待补
 
----
+- [x] 已有 `/health` 与模块数据库健康检查，旧文“没有健康检查”不再成立。
+- [x] 已有 NLog 及 ASP.NET Core 请求起止/耗时日志；缺少 `UseHttpLogging` 不等于没有请求日志。
+- [ ] 故障库、5xx 请求追踪、相关 ID、敏感字段脱敏与保留规则尚需专项验收/加强；本轮未逐项注入故障。
 
-## 阶段二：正确性漏洞（鉴权 / 归属 / 阅卷守卫）—— 先补测试再改
+证据：[健康检查](../FastQuiz/FastQuiz.API/Setup/AddHealthCheckService.cs)、[日志配置](../FastQuiz/FastQuiz.API/nlog.config)。
 
-### 2.1 阅卷 / 状态端点加评审角色鉴权
-现状：整组 PUT `QuizAttemptApi.cs:18-27` 仅组级 `RequireAuthorization()`；`ManualReviewQuestionRecordAsync`（`QuizAttemptService.cs:534-548`）与该项 PUT 均无"评审人/阅卷权限"校验 —— 任意登录用户可翻 isCorrect、置任意状态(含 Graded)。
+## 阶段二：正确性、归属与阅卷
 
-做法：
-- 在**组或端点**加显式权限/角色策略（对齐你现有 `HasPermissionAsync` 的权限集，但改成声明式 policy 而非散在 service 里）。
-- `ManualReviewQuestionRecordAsync`、`QuizAttemptApi.cs` PUT status 两处都验权限后才动作。
+### 2.1 阅卷 / 状态权限：漏洞已修复，声明式重构待做
 
-验收：无评审/阅卷权限的普通用户调用返回 403（先写个负向测试）。
+- [x] 人工判题、完成阅卷校验操作人权限；租户边界及题目、答案、结果可见性有负向回归。
+- [ ] 原清单提出的声明式 policy 尚未统一。当前服务端校验有效，不能将这一结构待办描述成权限漏洞仍在。
 
-### 2.2 答题端点校验 attempt 归属
-现状：`AnswerQuestionAsync`（`QuizAttemptService.cs:353-413`）只查状态与时间窗，未校验 `questionRecord` / attempt 属于**当前登录 userId**；`UpdateQuizAttemptStatusAsync`（`:476`）已查 `AssignId`。
+证据：[阅卷用例](../FastQuiz/FastQuiz.Quiz/UseCase/Services/QuizAttemptReviewService.cs)、[考试 API 测试](../FastQuiz/FastQuiz.API.Test/Quiz/QuizAttemptTests.cs)。
 
-做法：进入 `AnswerQuestionAsync` 时从 attempt/record 校验 `AssignId == callerId`（拿 HttpContext/Claims 里的 userId），不匹配抛权限/404。
+### 2.2 答题归属与角色分配：已修复
 
-验收：用 B 用户的 token 写 A 用户 in-progress 的 attempt 被拒（先写负向测试）。
+- [x] 答题核对考生、租户、状态与时间窗，提交后拒绝改答案；有越权/错租户回归。
+- [x] 角色分配/撤销检查操作管理员而非被操作用户，变更后失效权限缓存。
+- [x] 移除租户成员不删除共享账号；跨租户、全局管理员和共享账号保护有测试。
 
-### 2.3 Graded 前校验 Manual 题已全部人工复核（并拦重复 Graded）
-现状：PUT→Graded 触发 `CompleteReviewAsync`（`QuizReviewService.cs:68-92`）只按当前 `IsCorrect` 求和；未复核的 Manual 记 0。现成 helper `HasManualQuestionAsync`（`:94-98`）**未被调用**。对已 Graded 再 PUT 是静默 no-op（`:74-77`），非明确错误。
+证据：[答题服务](../FastQuiz/FastQuiz.Quiz/UseCase/Services/QuizAnswerService.cs)、[角色测试](../FastQuiz/FastQuiz.API.Test/Auth/RoleServiceTests.cs)、[用户安全测试](../FastQuiz/FastQuiz.API.Test/Auth/UserManagementSecurityTests.cs)。
 
-做法（符合你 MEMORY 里"Submitted==待人工阅卷"的模型）：
-- 在 `→Graded` 前调用 `HasManualQuestionAsync`，若仍有 Manual 题的 `IsCorrect` 未复核/未表态 → 拒绝并返回明确提示（不能把"待人工"当 0 分落库）。
-- 对已 `Graded` 再置 Graded：返回 409 而非静默吞。
+### 2.3 人工阅卷完成守卫：核心已修复，重复请求契约待定
 
-验收：含 Manual 未复核的卷子无法 PUT→Graded；已判卷再判返回 409。用测试把判卷/取消判卷/裁判一致性锁定。
+- [x] 可空 `IsCorrect` 区分未判定、判错、判对；人工题未全判不得完成阅卷。
+- [x] 客观评分、人工判定保留与汇总、历史待判记录修复及已完成成绩保留有回归。
+- [ ] **契约差异：** 旧清单要求重复 Graded 返回 409，目前同状态请求幂等返回。需决定保留幂等还是改 409，并锁定接口测试；不等于人工守卫未实现。
 
----
+证据：[领域阅卷](../FastQuiz/FastQuiz.Quiz/Domain/Services/QuizReviewService.cs)、[生命周期](../FastQuiz/FastQuiz.Quiz/UseCase/Services/QuizAttemptLifecycleService.cs)、[事务测试](../FastQuiz/FastQuiz.Quiz.Test/Infrastructure/QuizTransactionTests.cs)。
 
-## 阶段三：结构性重构（整形）——改动较大，建议在二阶段测试齐全后做
+## 阶段三：结构重构与持久化
 
-### 3.1 把"多 provider DI 绑死 sqlite"改成按配置真实绑定
-现状（跨 3 模块，同类/同病）：
-- `QuizSetupExstensions.cs:108-123`、`AuthExtensions.cs:121-133`、`QuestionExtensions.cs:114-118`：`AddDbContext` 按 `settings.Type` 切换了，但 `AddScoped<I…Repo, Sqlite…Repo>` **无条件硬编码** → 配 postgres/maria 时进程注册了对应 DbContext 却永远被 sqlite repo 引用，实际只有 sqlite 端到端能用；三套 provider 的 repo + 测试是"运行时永不绑定"的死分支。
+### 3.1 多 provider 真实绑定：已修复，去重与三库验收待补
 
-做法：
-- 在每个模块的 `switch (settings.Type)` 里，同一个 case 同时完成：注册该 provider 的 DbContext **并** 把该组 repository/serivce 绑到同 provider 的实现。把 repo/context 绑定从 switch 外的静态链移进对应 case。
-- 抽一个共享 helper 收敛三段几乎重复的 switch（AuthExtensions.cs 现已 ~x4 拷贝模板）。
-- 顺带修正模块/API setup 分层与文件名拼写（`QuizSetupExstensions`→`QuizSetupExtensions`）。
+- [x] Auth / Question / Quiz 按配置绑定同 provider 的上下文与仓储，不再绑死 SQLite。
+- [ ] 抽共享注册 helper、减少重复 switch，修正 `QuizSetupExstensions` 等拼写。
+- [ ] 补三种 provider 的 host/DI 解析矩阵测试；MariaDB 升级回归见 1.3。已有 PostgreSQL 五个专项测试不等于全部仓储测试通过。
 
-验收：
-- **写一个走 DI 的集成测试**：分别配 sqlite/postgres/maria 各起一个 host，`GetRequiredService<IQuizTemplateRepository>` 实为对应 provider 的实现（现在这个测试会失败/暴露死绑定）。这是"重启前锁死"的关键测试。
-- `dotnet test` 全绿；本地仍默认 sqlite 端到端可用。
+证据：[Auth 注册](../FastQuiz/FastQuiz.Auth/Interface/Extensions/AuthExtensions.cs)、[Question 注册](../FastQuiz/FastQuiz.Question/Interface/Setup/QuestionExtensions.cs)、[Quiz 注册](../FastQuiz/FastQuiz.Quiz/Interface/Setup/QuizSetupExstensions.cs)。
 
-### 3.2 `QuizAttemptService`(730 行) 拆分 + 依赖方向理顺
-现状：服务混答题生命周期 + 答缓存 + 阅卷转移；阅卷已被抽到 `Domain/Services/QuizReviewService`(197 行)却由 UseCase `QuizAttemptService` 经调度反向调用，依赖方向缠结。
+### 3.2 考试服务拆分：主体完成，兼容层清理待做
 
-建议（如果这段是你的重构重点，另开会话专门排）：
-- 先把可测的行为用已有 `*TestsBase` 底座补上测试，再按聚合根拆（Attempt 生命周期 / Review 编排各自一个 service，别互相持有对方大文件）。
-- 参考 `dotnet-test-coverage-audit` skill 找出当前活的未测方法。
+- [x] 拆为创建、查询、题目查询、答题、生命周期及阅卷六个独立服务与接口。
+- [x] 原 `QuizAttemptService` 为约 129 行 facade，兼容端点与旧任务；新任务调用独立阅卷接口。
+- [ ] 清理未使用的 `QuizService` / `IQuizService` 骨架，制定 `IQuizAtteptService` 拼写兼容/淘汰方案；不得破坏已持久化任务引用。
 
-### 3.3 答题缓存从"单实例内存 + 崩溃丢窗"解耦
-现状：`AnswerBufferService.cs`（`ConcurrentDictionary` + ~1s `Task.Run` 冲刷，`:184-191` 自带 `⚠️ 数据丢失风险`）；失败会把记录移出缓冲后直接丢，仅单实例可靠。
+证据：[服务目录](../FastQuiz/FastQuiz.Quiz/UseCase/Services)、[兼容测试](../FastQuiz/FastQuiz.API.Test/Configuration/ProductionConfigurationTests.cs)。
 
-建议：为持久化缓冲设回退通道：写失败进 dedicated outbox/表或死信队列，提交时同步/半同步落盘关键答案、并做重试；或把高频提交合并批量写而保留单条确认。此点想清楚"到底允许多久丢窗口"再动。
+### 3.3 答案可靠保存与快照事务：原缺陷已修复
 
-### 3.4 异常语法收敛
-- 异常基类与 ProblemDetails 已不错（`GlobalExceptionHandler.cs` 400/404/403/422）。
-- 统一 `PermissionException` vs `BusinessException`(中文) vs `ResourceNotFoundException` 的使用口径；删 `Program.cs:17-25` 里重复注册的枚举转换器（STJ 与 MVC 二选一即可）；清理生产路径的裸 `Console.WriteLine`。
+- [x] 不再使用易失内存答案缓冲；保留 `AnswerBufferService` 名称兼容，完整答案集在请求内事务替换。
+- [x] 多选、清空、失败回滚、并发答案集不混合有单元/API/事务回归。
+- [x] 答题与提交/阅卷通过数据库事务和锁协调；快照生成有统一事务边界。
+- [ ] 数据库故障、备份恢复等运维演练持续执行；后台漏调度见 1.4，不能再称为“答案还在内存里”。
 
----
+证据：[答案保存](../FastQuiz/FastQuiz.Quiz/UseCase/Services/AnswerBufferService.cs)、[快照](../FastQuiz/FastQuiz.Quiz/UseCase/Services/QuizSnapshotService.cs)、[事务实现](../FastQuiz/FastQuiz.Quiz/Infrastructure/Repositories/EfQuizUnitOfWork.cs)。
 
-## 建议分工给"你自己做"时的顺序
-1. `1.1 → 1.2 → 1.3 → 1.4 → 1.5`（阶段一，小步提交，一条一个 commit，现象都能立刻自验）
-2. `2.1/2.2/2.3`（每条**先写失败测试 → 改实现 → 转绿**，参考 `test-driven-development` skill）
-3. `3.1`（先写"DI 按 provider 真实绑定"的失败测试作为锚，再动手）→ `3.2/3.3/3.4`
+### 3.4 异常、JSON 与日志约定：未统一收尾
 
-> 若中途想让我直接执行某条，直接说条目号即可（如 "帮我做 1.1"）。安全/DB 相关改动我会先跟你确认不会碰你没备份的数据。
+- [x] 已有全局异常处理和 ProblemDetails 基础。
+- [ ] 统一权限/业务/未找到异常与状态码，补契约测试。
+- [ ] 确认 Minimal API 与 MVC 的枚举需求后收敛双重配置，不能直接删除就当完成。
+- [ ] 清理生产路径裸 Console、旧命名及构建警告；完整 Release 构建仍有 43 条已有警告。
+
+## 测试与功能剩余项
+
+- [x] 本轮执行 SQLite/API 回归、SQLite 模型检查、前端类型检查/构建、压测脚本语法检查，结果见独立记录。
+- [x] 恢复原批量单份正向测试，修正其错误查询未分配试卷的断言来源，并校验试卷状态与关联题目实际落库；最终 SQLite/API 回归 543 通过、0 失败、0 跳过。
+- [ ] 批量 `Count`、领取/分配流程、参数、跨模板/租户、并发与回滚测试待补。
+- [ ] 已有用户跨租户、我的组织、组织内建用户、自助销户及可选手动组卷，见 [功能清单](../content.md)。
+
+## 推进与维护规则
+
+1. 优先可靠任务调度、MariaDB 升级与批量试卷闭环，再补成员管理新功能。
+2. 测试只连接隔离数据库；过滤条件明确排除未配置的外部数据库，严禁使用共享/生产库。
+3. 功能 PR 同步两份清单和验证记录，勾选附实现与测试证据，没运行的验收注明限制。
+4. PR、文档、日志、截图均不公开环境标识、真实连接参数、秘密及私密路径；部署和凭据管理需独立授权。

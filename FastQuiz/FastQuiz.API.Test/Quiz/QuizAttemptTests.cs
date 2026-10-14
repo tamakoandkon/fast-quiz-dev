@@ -9,6 +9,7 @@ using FastQuiz.Question.Domain.Entities;
 using FastQuiz.Question.UseCase.Command;
 using FastQuiz.Question.UseCase.Dto;
 using FastQuiz.Quiz.Domain.Entities;
+using FastQuiz.Quiz.Domain.Repositories;
 using FastQuiz.Quiz.UseCase.Commands;
 using FastQuiz.Quiz.UseCase.Dtos;
 using Shouldly;
@@ -70,8 +71,7 @@ internal class QuizAttemptTests : ApiTestBase
     }
 
     [Test]
-    [Ignore("方法没有实现")]
-    public async Task PostBatchQuizAttemptAsync_WhenValidRequest_ShouldReturnNoContent()
+    public async Task PostBatchQuizAttemptAsync_WhenOneCopyIsRequested_ShouldCreateUnassignedAttempt()
     {
         // Arrange
         var userId = User.DefaultAdminId;
@@ -113,14 +113,21 @@ internal class QuizAttemptTests : ApiTestBase
 
         // Assert
         response.StatusCode.ShouldBe(System.Net.HttpStatusCode.NoContent);
-        var result = await Sut.GetAllQuizAttemptByTemplateIdAsync(
-            userId,
-            template.Id,
-            new FastQuiz.Quiz.UseCase.Queries.GetAllQuizAttemptQuery(null, 1)
-        );
+        // The public record list excludes unassigned attempts. Check the persisted
+        // batch result directly instead of mistaking that filter for creation failure.
+        await using var scope = Sut.Services.CreateAsyncScope();
+        var result = await scope.ServiceProvider.GetRequiredService<IQuizAttemptRepository>()
+            .GetAllByTemplateIdAsync(template.Id, null, 10);
         result.ShouldNotBeNull();
         result.Count.ShouldBe(1);
-        result[0].QuizSampleId.ShouldBe(snapshots[0].Id);
+        result[0].QuizSnapshotId.ShouldBe(snapshots[0].Id);
+        result[0].AssignId.ShouldBeNull();
+        result[0].Status.ShouldBe(QuizAttemptStatus.Pending);
+        var records = await scope.ServiceProvider.GetRequiredService<IQuestionRecordRepository>()
+            .GetAllByQuizAttempIdAsync(result[0].Id);
+        records.Count.ShouldBe(1);
+        records[0].QuizAttemptId.ShouldBe(result[0].Id);
+        records[0].QuestionSnapshotId.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Test]
