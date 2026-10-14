@@ -1,6 +1,7 @@
 <template>
   <div
     class="data-table w-full"
+    :class="{ 'data-table-compact': compact }"
   >
     <table class="min-w-full divide-y divide-gray-200 table-fixed">
       <colgroup>
@@ -60,9 +61,9 @@
           <td
             v-for="(col, colIndex) in columns"
             :key="col.key || colIndex"
-            class="px-6 py-4 text-sm text-gray-600 text-center whitespace-nowrap"
+            :class="compact ? 'px-2 py-3 text-sm text-gray-600 text-center whitespace-normal' : 'px-6 py-4 text-sm text-gray-600 text-center whitespace-nowrap'"
           >
-            <div class="flex justify-center items-center">
+            <div class="flex min-w-0 justify-center items-center">
               <slot :name="col.key" :row="row" :index="rowIndex">
                 <template v-if="col.getValue">
                   {{ col.getValue(row) }}
@@ -98,6 +99,7 @@ const props = defineProps<{
   columns: TableColumn<T>[];
   data: T[];
   selectable?: boolean; // 是否开启选择功能
+  compact?: boolean;
 }>();
 
 const selected = defineModel<T[]>();
@@ -156,3 +158,8 @@ const handleRowRightClick = (row: T, index: number) => {
   emit("rowRightClick", row, index);
 };
 </script>
+
+<style scoped>
+.data-table-compact table { width: 100%; min-width: 580px; }
+.data-table-compact th { padding: 12px 8px; }
+</style>

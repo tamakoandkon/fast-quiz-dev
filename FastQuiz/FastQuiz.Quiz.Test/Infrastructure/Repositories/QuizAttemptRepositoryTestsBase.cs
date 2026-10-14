@@ -822,6 +822,32 @@ internal abstract class QuizAttemptRepositoryTestsBase
 
     #region GetAllRecordsByUserId
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task GetUserRecords_TenantFilterAppliesBeforePagination(bool onlyBest)
+    {
+        var userId = Guid.NewGuid().ToString();
+        var tenantId = Guid.NewGuid().ToString();
+        var local = QuizTemplateBuilder.New().WithOwnerId(tenantId).Build();
+        var foreign = QuizTemplateBuilder.New().WithOwnerId(Guid.NewGuid().ToString()).Build();
+        await Templates.CreateAsync(local);
+        await Templates.CreateAsync(foreign);
+        var localSnapshot = await GetCreatedQuizSnapshotAsync(local.Id);
+        var foreignSnapshot = await GetCreatedQuizSnapshotAsync(foreign.Id);
+        var localAttempt = QuizAttemptBuilder.New().WithId("00000000000000000000000001")
+            .WithAssignId(userId).WithQuizTemplateId(local.Id).WithQuizSnapshotId(localSnapshot.Id)
+            .WithStatus(QuizAttemptStatus.Graded).Build();
+        var foreignAttempt = QuizAttemptBuilder.New().WithId("00000000000000000000000002")
+            .WithAssignId(userId).WithQuizTemplateId(foreign.Id).WithQuizSnapshotId(foreignSnapshot.Id)
+            .WithStatus(QuizAttemptStatus.Graded).Build();
+        await Sut.CreateAsync(new[] { localAttempt, foreignAttempt });
+
+        var result = await Sut.GetAllRecordsByUserIdAsync(userId, null, onlyBest, null, 1, false, tenantId);
+        result.Count.ShouldBe(1);
+        result.Single().Id.ShouldBe(localAttempt.Id);
+        (await Sut.GetAllRecordsByUserIdAsync(userId, null, onlyBest, null, 1, false, "unrelated-tenant")).ShouldBeEmpty();
+    }
+
     [Test]
     public async Task GetUserRecords_WhenNoTemplateFilter_ShouldReturnAllRecordsOfUser()
     {

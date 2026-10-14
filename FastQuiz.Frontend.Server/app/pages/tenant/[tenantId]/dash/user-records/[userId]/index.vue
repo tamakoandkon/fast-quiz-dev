@@ -6,7 +6,7 @@
     <!-- 标题与筛选 -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <h2 class="text-xl font-semibold">考试成绩记录</h2>
-      <span class="text-sm text-gray-500">考生：{{ userId }}</span>
+      <span class="text-sm text-gray-500 break-all" :title="userId">考生：{{ assigneeName }}</span>
 
       <div class="ml-auto flex flex-wrap items-center gap-3">
         <!-- 列表筛选：考试模板（仅列出该考生参加过的考试） -->
@@ -39,49 +39,7 @@
       </div>
     </div>
 
-    <CommonDataTable :columns="cols" :data="records" :selectable="false">
-      <template #quizTemplateNema="{ row }">
-        {{ row.quizTemplateNema || "--" }}
-      </template>
-
-      <template #status="{ row }">
-        <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
-          {{ getStatusText(row.status) }}
-        </UBadge>
-      </template>
-
-      <template #startTime="{ row }">
-        {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
-      </template>
-
-      <template #submitTime="{ row }">
-        {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
-      </template>
-
-      <template #score="{ row }">
-        <span
-          :class="
-            row.status === QuizAttemptStatus.Graded
-              ? 'text-green-600 font-medium'
-              : ''
-          "
-        >
-          {{ row.score ?? "--" }}
-        </span>
-      </template>
-
-      <template #actions="{ row }">
-        <UButton
-          :to="`/tenant/${tenantId}/dash/quiz-template/${row.quizTemplateId}/review/${row.id}`"
-          color="neutral"
-          variant="outline"
-          size="xs"
-          icon="i-lucide-eye"
-        >
-          查看
-        </UButton>
-      </template>
-    </CommonDataTable>
+    <QuizAttemptResultsTable :records="records" :tenant-id="tenantId" :can-review="can('quiz-attempt')" show-exam />
 
     <CommonCursorPageManager
       @change="fetchList"
@@ -112,6 +70,8 @@ import type { BreadcrumbItem } from "@nuxt/ui";
 const { $api } = useNuxtApp();
 const route = useRoute();
 const toast = useToast();
+const { can } = useWorkspaceAccess();
+const userStore = useUserStore();
 
 const tenantId = ref("");
 const userId = ref("");
@@ -119,6 +79,8 @@ const userId = ref("");
 const links = ref<BreadcrumbItem[]>([]);
 const records = ref<QuizAttempDto[]>([]);
 const loaded = ref(false);
+const assigneeName = computed(() => records.value.find(r => r.assignUsername)?.assignUsername
+  || (userStore.user?.id === userId.value ? userStore.user.username : userId.value));
 
 // 列表筛选（templateId 为 undefined 表示「全部考试」）
 const templateId = ref<string | undefined>(undefined);
@@ -128,15 +90,6 @@ const onlyBest = ref(false);
 const attendedTemplates = ref<{ id: string; label: string }[]>([]);
 
 const pageSize = ref(10);
-
-const cols = [
-  { key: "quizTemplateNema", label: "考试" },
-  { key: "status", label: "状态" },
-  { key: "startTime", label: "开始时间" },
-  { key: "submitTime", label: "交卷时间" },
-  { key: "score", label: "得分" },
-  { key: "actions", label: "操作", width: "120px" },
-];
 
 // 下拉选项：首位「全部考试」（id 为 undefined），其后为该考生参加过的各场考试。
 const templateOptions = computed(() => [
@@ -149,9 +102,9 @@ onMounted(async () => {
   userId.value = route.params.userId as string;
 
   links.value.push({
-    label: "用户管理",
+    label: userStore.user?.id === userId.value ? "我的考试" : "用户管理",
     icon: "iconoir:user",
-    to: `/tenant/${tenantId.value}/dash/user`,
+    to: userStore.user?.id === userId.value ? `/tenant/${tenantId.value}/my-quiz-attempt` : `/tenant/${tenantId.value}/dash/user`,
   });
   links.value.push({ label: `考试成绩记录` });
 
