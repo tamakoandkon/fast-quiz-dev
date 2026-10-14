@@ -10,6 +10,8 @@ FastQuiz 是一套多租户题库、在线考试与阅卷系统，围绕“组�
 
 前端采用 **Nuxt 4 / Vue 3**，后端采用 **ASP.NET Core 10**。支持 SQLite、PostgreSQL、MariaDB 数据库配置，默认从 SQLite 起步。
 
+版本说明：本文截图及功能介绍包含当前已上线版本。2026-10-15 的成绩展示、租户请求及文件日志修复已合入 [`perf/workspace-loading`](https://github.com/tamakoandkon/fast-quiz-dev/tree/perf/workspace-loading)，尚未同步到 `main`；本次 README 同步不包含这些业务代码变更。
+
 [界面预览](#界面预览) · [主要功能](#主要功能) · [运行逻辑](#运行逻辑) · [快速开始](#快速开始) · [测试与构建](#测试与构建) · [生产部署](#生产部署) · [文档导航](#文档导航)
 
 ## 界面预览
@@ -217,7 +219,7 @@ npm run check:loading
 
 静态产物位于 `.output/public/`，不需要常驻 Node 页面渲染服务。
 
-仓库 [CI](.github/workflows/ci.yml) 包含后端回归、PostgreSQL 专项回归、前端测试／构建／入口预算及压测脚本语法检查。历史执行结果见[验证记录](docs/verification-2026-10-15.md)，不代表所有功能、数据库及故障场景均已完整验收。
+仓库 [CI](.github/workflows/ci.yml) 包含后端回归、PostgreSQL 专项回归、前端测试／构建／入口预算及压测脚本语法检查。历史执行结果见[验证记录](https://github.com/tamakoandkon/fast-quiz-dev/blob/5929fa188985d4b576e962809d149dd1ade53e9a/docs/verification-2026-10-15.md)，不代表所有功能、数据库及故障场景均已完整验收。
 
 ## 生产部署
 
@@ -247,7 +249,7 @@ npm run check:loading
 | [部署与回滚](Deploy/minimal.md) | 发布、数据备份、迁移与回滚注意事项 |
 | [依赖升级说明](docs/dependency-modernization.md) | SDK、运行时、驱动兼容及已知限制 |
 | [2026-10-14 验证记录](docs/verification-2026-10-14.md) | 功能与清单核对的历史验证 |
-| [2026-10-15 验证记录](docs/verification-2026-10-15.md) | 成绩展示、租户请求与文件日志修复验证 |
+| [2026-10-15 验证记录](https://github.com/tamakoandkon/fast-quiz-dev/blob/5929fa188985d4b576e962809d149dd1ade53e9a/docs/verification-2026-10-15.md) | 成绩展示、租户请求与文件日志修复验证（修复分支记录） |
 
 ## 参与开发
 
