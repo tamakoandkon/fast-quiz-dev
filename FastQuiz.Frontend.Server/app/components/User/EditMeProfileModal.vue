@@ -41,6 +41,7 @@
 </template>
 <script setup lang="ts">
 const { $api } = useNuxtApp();
+const userStore = useUserStore();
 const toast = useToast();
 const show = defineModel<boolean>({ required: true, default: true });
 const username = ref<string>("");
@@ -95,6 +96,7 @@ const updateUser = async function () {
     isSubmitting.value = false;
   }
 
+  await userStore.fetchCurrentUser(true);
   toast.add({ title: "更新用户成功", color: "success" });
   password.value = "";
   show.value = false;
@@ -120,7 +122,7 @@ watch(show, async (opened) => {
   if (opened) {
     await init();
   }
-});
+}, { immediate: true });
 </script>
 
 <style scoped></style>

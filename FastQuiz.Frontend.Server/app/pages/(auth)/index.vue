@@ -19,7 +19,7 @@ async function onSubmit() {
   try {
     const res = await $api.auth.loginCreate({ username: state.username.trim(), password: state.password });
     if (res.data.accessToken) {
-      userStore.setToken(res.data.accessToken);
+      await userStore.setToken(res.data.accessToken);
       await router.push('/tenant');
     }
   } catch (err: any) {

@@ -72,8 +72,7 @@ onMounted(async () => {
   mediaQuery = window.matchMedia('(max-width: 767px)');
   syncViewport();
   mediaQuery.addEventListener('change', syncViewport);
-  await userStore.fetchCurrentUser();
-  await loadPermissions();
+  await Promise.all([userStore.init(), loadPermissions()]);
 });
 </script>
 
@@ -115,6 +114,6 @@ onMounted(async () => {
       </header>
       <main class="workspace-content"><slot /></main>
     </div>
-    <UserEditMeProfileModal v-model="showProfile" />
+    <LazyUserEditMeProfileModal v-if="showProfile" v-model="showProfile" />
   </div>
 </template>

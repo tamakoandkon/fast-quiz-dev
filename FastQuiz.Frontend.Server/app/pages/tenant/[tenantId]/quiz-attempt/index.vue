@@ -6,7 +6,8 @@
 
     <main class="flex-1 min-w-0">
       <!-- 试卷详情模态 -->
-      <QuizTemplateViewQuizTemplateDetailsModal
+      <LazyQuizTemplateViewQuizTemplateDetailsModal
+        v-if="showDetail"
         :id="viewId"
         v-model="showDetail"
         :tenant-id="tenantId"

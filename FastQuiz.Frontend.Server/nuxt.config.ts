@@ -2,6 +2,15 @@
 export default defineNuxtConfig({
   ssr: false,
 
+  experimental: {
+    defaults: {
+      nuxtLink: {
+        // A workspace exposes many routes; prefetch only when a user intends to visit one.
+        prefetchOn: { visibility: false, interaction: true },
+      },
+    },
+  },
+
   nitro: {
     preset: "static",
     compressPublicAssets: {
