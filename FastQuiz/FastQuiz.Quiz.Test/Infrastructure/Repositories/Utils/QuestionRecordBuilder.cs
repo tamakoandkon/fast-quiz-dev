@@ -10,7 +10,7 @@ public class QuestionRecordBuilder
     // 1. 私有字段区域
     private string _id;
     private string _markUpContent;
-    private bool _isCorrect;
+    private bool? _isCorrect;
     private string _quizAttemptId;
     private string _questionSnapshotId;
     private int _sortOrder;
@@ -110,7 +110,7 @@ public class QuestionRecordBuilder
     {
         _id = null!;
         _markUpContent = null!;
-        _isCorrect = false;
+        _isCorrect = null;
         _quizAttemptId = null!;
         _questionSnapshotId = null!;
         _sortOrder = 0;
@@ -143,7 +143,7 @@ public class QuestionRecordBuilder
 
         if (!_isCorrectSet)
         {
-            _isCorrect = false;
+            _isCorrect = null;
         }
 
         if (!_quizAttemptIdSet)

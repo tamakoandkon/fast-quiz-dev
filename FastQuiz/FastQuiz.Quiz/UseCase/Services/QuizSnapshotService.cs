@@ -25,6 +25,7 @@ public class QuizSnapshotService(
     IQuizSnapshotRepository _quizSnapshotRepository,
     IQuestionSnapshotRepository _questionSnapshotRepository,
     IQuizSnapshotQuestionSnapshotMapRepository _quizSnapshotQuestionSnapshotMapRepository,
+    IQuizUnitOfWork _unitOfWork,
     IIdGenerator _idGenerator,
     IPermissionService _permissionService,
     IEasyCachingProviderFactory _easyCachingProviderFactory,
@@ -99,10 +100,10 @@ public class QuizSnapshotService(
             TotalScore = totalScore,
         };
 
-        await _quizSnapshotRepository.CreateAsync(quizSnapshot);
-
-        try // TODO: 使用事务接口，并补充创建失败后删除逻辑
+        await _unitOfWork.ExecuteInTransactionAsync(async _ =>
         {
+            await _quizSnapshotRepository.CreateAsync(quizSnapshot).ConfigureAwait(false);
+
             foreach (var rule in ruleList)
             {
                 var questions = await _questionServie.GetRandomQuestionAsync(
@@ -149,14 +150,9 @@ public class QuizSnapshotService(
                         QuizSnapshotId = quizSnapshot.Id,
                         QuestionSnapshotId = x,
                     })
-                );
+                ).ConfigureAwait(false);
             }
-        }
-        catch
-        {
-            await _quizSnapshotRepository.DeleteByIdAsync(quizSnapshot.Id);
-            throw;
-        }
+        }).ConfigureAwait(false);
     }
 
     public async Task<QuizSnapshotDto> GetQuizSnapshotByIdAsync(

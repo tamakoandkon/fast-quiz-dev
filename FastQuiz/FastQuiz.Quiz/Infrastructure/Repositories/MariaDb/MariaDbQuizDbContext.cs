@@ -280,7 +280,7 @@ public class MariaDbQuizDbContext(
 
             entity.Property(e => e.Id).HasMaxLength(128).IsRequired();
             entity.Property(e => e.MarkUpContent).IsRequired();
-            entity.Property(e => e.IsCorrect).IsRequired();
+            entity.Property(e => e.IsCorrect);
             entity.Property(e => e.QuizAttemptId).HasMaxLength(128).IsRequired();
             entity.Property(e => e.SortOrder).IsRequired();
             entity.Property(e => e.QuestionSnapshotId).HasMaxLength(128).IsRequired();

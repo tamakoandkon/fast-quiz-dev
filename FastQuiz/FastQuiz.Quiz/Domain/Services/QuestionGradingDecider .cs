@@ -25,7 +25,7 @@ public class QuestionGradingDecider : IQuestionGradingDecider
                 .Order()
                 .ToList();
 
-            var answerList = record.AnswerRecords.Select(x => x.Id).Order().ToList();
+            var answerList = record.AnswerRecords.Select(x => x.Value).Distinct().Order().ToList();
 
             return correctList.SequenceEqual(answerList);
         }

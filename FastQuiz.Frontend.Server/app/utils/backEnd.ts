@@ -226,7 +226,7 @@ export interface QuestionRecordWithAnswerDto {
   parentId?: string | null;
   answers?: QuestionAnswerSnapshotDto[] | null;
   answerRecords?: AnswerRecordDto[] | null;
-  isCorrect?: boolean;
+  isCorrect?: boolean | null;
 }
 
 export interface QuestionRecordWithoutAnswerDto {

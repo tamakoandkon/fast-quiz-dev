@@ -136,10 +136,7 @@ public class PostgreSqlTenantRepository(PostgreSqlAuthDbContext _dbContext) : IT
 
     public async Task RemoveUserFromTenantAsync(string tenantId, string userId)
     {
-        await _tenantUserMaps
-            .Where(x => x.UserId == userId && x.TenantId == tenantId)
-            .ExecuteDeleteAsync()
-            .ConfigureAwait(false);
+        await AuthMembershipRemoval.RemoveAsync(_dbContext, tenantId, userId).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<string>> GetUserIdsByTenantIdAsync(string tenantId)

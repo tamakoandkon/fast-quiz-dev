@@ -87,7 +87,7 @@
           color="success"
           size="md"
           icon="i-lucide-check-check"
-          :disabled="!manualQuestions.length"
+          :disabled="judgedCount !== manualQuestions.length"
           @click="completedAndNext"
         >
           {{
@@ -105,7 +105,6 @@
         :index="questionIndex + 1"
         :tenant-id="tenantId"
         :readonly="!isReviewable"
-        @judged="handleJudged"
       />
 
       <!-- 空状态：没有需要人工判定的主观题 -->
@@ -192,13 +191,10 @@ const isReviewable = computed(
     canStartReviewing(template.value),
 );
 
-/** 本次会话中已人工判定过的题目 id 集合。 */
-const judgedIds = ref<Set<string>>(new Set());
-const judgedCount = computed(() => judgedIds.value.size);
-
-const handleJudged = (questionId: string) => {
-  judgedIds.value = new Set(judgedIds.value).add(questionId);
-};
+/** 从持久化判定计算进度，刷新或续阅时保留已判错和已判对的题目。 */
+const judgedCount = computed(() =>
+  manualQuestions.value.filter((q) => typeof q.isCorrect === "boolean").length,
+);
 
 /** 拉取一份作答的完整题目列表（with-answer），含分页。 */
 const fetchAllQuestionRecords = async () => {

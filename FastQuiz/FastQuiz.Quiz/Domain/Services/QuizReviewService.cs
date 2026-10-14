@@ -16,10 +16,12 @@ public class QuizReviewService(
     IQuestionRecordRepository _questionRecordRepository,
     IQuestionSnapshotRepository _questionSnapshotRepository,
     IQuestionSelectionRuleRepository _questionSelectionRuleRepository,
-    IQuestionGradingDecider _questionGradingDecider
+    IQuestionGradingDecider _questionGradingDecider,
+    IQuizUnitOfWork _unitOfWork
 ) : IQuizReviewService
 {
-    public async Task ReviewAttemptAsync(string quizAttemptId)
+    public Task ReviewAttemptAsync(string quizAttemptId) =>
+        _unitOfWork.ExecuteForAttemptAsync(quizAttemptId, async _ =>
     {
         // 0) 获取试卷
         var attempt =
@@ -36,6 +38,22 @@ public class QuizReviewService(
         var template =
             await _quizTemplateRepository.FindByIdAsync(attempt.QuizTemplateId)
             ?? throw new QuizTemplateNotFoundException();
+
+        if (attempt.Status == QuizAttemptStatus.InProgress)
+        {
+            var deadline = attempt.StartTime?.AddMinutes(template.DurationMinutes);
+            if (!deadline.HasValue || DateTimeOffset.UtcNow < deadline.Value)
+            {
+                return;
+            }
+            attempt.Status = QuizAttemptStatus.Submitted;
+            attempt.SubmitTime = deadline.Value;
+            await _quizAttemptRepository.UpdateAsync(attempt);
+        }
+        if (attempt.Status != QuizAttemptStatus.Submitted)
+        {
+            return;
+        }
 
         // 2) 获取抽题规则
         var rules = await _questionSelectionRuleRepository.GetByQuizTemplateIdAsync(template.Id);
@@ -63,9 +81,10 @@ public class QuizReviewService(
 
         // 存在 Manual 题：整卷判定为“需要人工阅卷”，不自动完成阅卷；状态仍停留在 Submitted 待人工，
         // 最终得分由 CompleteReviewAsync 在全卷人工判定后统一汇总，此处不落半截分。
-    }
+    });
 
-    public async Task CompleteReviewAsync(string quizAttemptId)
+    public Task CompleteReviewAsync(string quizAttemptId) =>
+        _unitOfWork.ExecuteForAttemptAsync(quizAttemptId, async _ =>
     {
         var attempt =
             await _quizAttemptRepository.FindByIdAsync(quizAttemptId)
@@ -76,20 +95,41 @@ public class QuizReviewService(
             return;
         }
 
+        if (attempt.Status != QuizAttemptStatus.Submitted)
+        {
+            throw new BusinessException("只有已提交的试卷可以完成阅卷");
+        }
+
         var rules = await _questionSelectionRuleRepository.GetByQuizTemplateIdAsync(
             attempt.QuizTemplateId
         );
         var joined = await BuildJoinedListAsync(quizAttemptId);
 
-        // 不再重判(re-decode)：得分按已定判的每题 IsCorrect × 对应规则分数求和
+        // Recompute objective questions, including legacy pending records reset by migration.
+        // Manual decisions remain untouched and must all be present before completion.
+        await JudgeAndPersistAsync(joined.Where(x => !IsManual(x.Question)).ToList(), rules);
+
+        var unreviewedRecordIds = joined
+            .Where(x => !x.Record.IsCorrect.HasValue)
+            .Select(x => x.Record.Id)
+            .ToList();
+
+        if (unreviewedRecordIds.Count > 0)
+        {
+            throw new BusinessException(
+                $"仍有 {unreviewedRecordIds.Count} 道题未完成批阅，无法结束阅卷"
+            );
+        }
+
+        // 客观题已重算，人工题保留老师的判定，统一按对应规则汇总。
         attempt.Score = joined.Sum(x =>
-            x.Record.IsCorrect
+            x.Record.IsCorrect == true
                 ? FindRuleScore(rules, x.Question)
                 : 0
         );
         attempt.Status = QuizAttemptStatus.Graded;
         await _quizAttemptRepository.UpdateAsync(attempt);
-    }
+    });
 
     public async Task<bool> HasManualQuestionAsync(string quizAttemptId)
     {
@@ -133,7 +173,8 @@ public class QuizReviewService(
 
     private static bool IsManual(QuestionSnapshot question)
     {
-        return question.AnswerSnapshots.Any(s => s.Strategy == MatchStrategy.Manual);
+        return question.Type == QuestionType.FillIn
+            && question.AnswerSnapshots.Any(s => s.Strategy == MatchStrategy.Manual);
     }
 
     private static int FindRuleScore(
@@ -171,6 +212,8 @@ public class QuizReviewService(
                 || item.Record.AnswerRecords.Count > 0
                     ? _questionGradingDecider.Decide(item.Question, item.Record)
                     : false;
+
+            item.Record.IsCorrect = isCorrect;
 
             if (isCorrect)
             {

@@ -17,7 +17,7 @@ namespace FastQuiz.Quiz.Migrations.PostgreSql
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.25")
+                .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -99,7 +99,7 @@ namespace FastQuiz.Quiz.Migrations.PostgreSql
                         .HasColumnType("character varying(128)")
                         .HasColumnName("id");
 
-                    b.Property<bool>("IsCorrect")
+                    b.Property<bool?>("IsCorrect")
                         .HasColumnType("boolean")
                         .HasColumnName("iscorrect");
 

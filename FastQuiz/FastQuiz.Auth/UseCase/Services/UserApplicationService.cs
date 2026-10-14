@@ -162,11 +162,7 @@ public class UserApplicationService(
 
     public async Task<UserDto> GetUserByIdAsync(string myId, string tenantId, string userId)
     {
-        if (!await _permissionService.HasPermissionAsync(tenantId, myId, Permissions.User))
-        {
-            throw new PermissionException();
-        }
-
+        await EnsureCanManageUserAsync(myId, tenantId, userId, false).ConfigureAwait(false);
         return await GetProfileAsync(userId);
     }
 
@@ -177,11 +173,7 @@ public class UserApplicationService(
         UpdateUserCommand command
     )
     {
-        if (!await _permissionService.HasPermissionAsync(tenantId, myId, Permissions.User))
-        {
-            throw new PermissionException();
-        }
-
+        await EnsureCanManageUserAsync(myId, tenantId, userId, true).ConfigureAwait(false);
         var user = await EnsureAndGetUserAsync(userId).ConfigureAwait(false);
 
         ApplyUpdate(user, command);
@@ -216,14 +208,48 @@ public class UserApplicationService(
 
     public async Task DeleteUserByIdAsync(string myId, string tenantId, string userId)
     {
-        if (!await _permissionService.HasPermissionAsync(tenantId, myId, Permissions.User))
+        await EnsureCanManageUserAsync(myId, tenantId, userId, false).ConfigureAwait(false);
+        if (userId == User.DefaultAdminId || await _permissionService.HasPermissionAsync(
+            Tenant.DefaultTenantId, userId, Permissions.SystemAdmin))
+        {
+            throw new PermissionException("不能从租户中移除系统管理员");
+        }
+
+        // This is a tenant membership endpoint. A shared global account must survive removal.
+        await _tenantRepository.RemoveUserFromTenantAsync(tenantId, userId);
+        await _permissionService.InvalidateUserPermissionsAsync(tenantId, userId);
+    }
+
+    private async Task EnsureCanManageUserAsync(
+        string operatorId,
+        string tenantId,
+        string targetUserId,
+        bool modifiesGlobalAccount
+    )
+    {
+        if (!await _permissionService.HasPermissionAsync(tenantId, operatorId, Permissions.User)
+            || !await _tenantRepository.GetUserInTenantAsync(tenantId, targetUserId))
         {
             throw new PermissionException();
         }
 
-        await _tenantRepository.RemoveUserFromTenantAsync(tenantId, userId);
+        var isSystemAdmin = await _permissionService.HasPermissionAsync(
+            Tenant.DefaultTenantId, operatorId, Permissions.SystemAdmin);
+        if (!isSystemAdmin && (targetUserId == User.DefaultAdminId
+            || await _permissionService.HasPermissionAsync(
+                Tenant.DefaultTenantId, targetUserId, Permissions.SystemAdmin)))
+        {
+            throw new PermissionException("只有系统管理员可以管理系统管理员账号");
+        }
 
-        await _userRepository.DeleteByIdAsync(userId);
+        if (modifiesGlobalAccount && !isSystemAdmin)
+        {
+            var memberships = await _tenantRepository.GetAllMyTenantAsync(targetUserId, null, 2);
+            if (memberships.Any(x => x.Id != tenantId))
+            {
+                throw new PermissionException("跨租户共享账号只能由本人或系统管理员修改");
+            }
+        }
     }
 
     private async Task<User> EnsureAndGetUserAsync(string userId)

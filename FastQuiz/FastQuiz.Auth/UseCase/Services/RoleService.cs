@@ -40,7 +40,7 @@ public class RoleService(
             ?? throw new RoleNotFoundExcpetion();
         if (
             !await _permissionService
-                .HasPermissionAsync(role.TenantId, userId, Permissions.Role)
+                .HasPermissionAsync(role.TenantId, myId, Permissions.Role)
                 .ConfigureAwait(false)
         )
         {
@@ -48,6 +48,7 @@ public class RoleService(
         }
 
         await _roleRepository.AddRoleToUserAsync(userId, roleId, role.TenantId);
+        await _permissionService.InvalidateUserPermissionsAsync(role.TenantId, userId);
     }
 
     public async Task<RoleDto> CreateAsync(
@@ -234,7 +235,7 @@ public class RoleService(
         }
         if (
             !await _permissionService
-                .HasPermissionAsync(role.TenantId, userId, Permissions.Role)
+                .HasPermissionAsync(role.TenantId, myId, Permissions.Role)
                 .ConfigureAwait(false)
         )
         {
@@ -242,6 +243,7 @@ public class RoleService(
         }
 
         await _roleRepository.RemoveRoleFromUserAsync(userId, roleId);
+        await _permissionService.InvalidateUserPermissionsAsync(role.TenantId, userId);
     }
 
     public async Task UpdateAsync(string userId, string roleId, UpdateRoleCommand command)
