@@ -6,7 +6,6 @@ public class User
 {
     public const string DefaultAdminId = "default_admin";
     public const string DefaultAdminUsername = "defaultadmin";
-    public const string DefaultAdminPassword = "fastquiz";
 
     public string Id { get; private set; } = null!;
     public string Username { get; set; } = null!;

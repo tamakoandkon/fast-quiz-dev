@@ -7,8 +7,14 @@
 1. 查看 [升级说明](../docs/dependency-modernization.md) 的兼容性与未完成验证。
 2. 验证 SQLite、PostgreSQL 或 MariaDB 中实际使用的那种数据库；测试只能使用隔离库。仓库的数据库测试会删除/重建测试库，不能指向生产。
 3. 备份数据库、运行配置、JWT 密钥与当前发布目录。SQLite 在线备份必须使用 SQLite backup API，或停服务后完整备份数据库和 WAL/SHM 文件；不要只复制正在写入的主库文件。
-4. 不改变现有 JWT 密钥、数据库路径和端口，避免令牌失效或意外生成空库。
-5. 本次没有新增业务迁移，历史迁移与快照保留原样；不要为了“升级”重建数据库或删除迁移。
+4. 保持数据库路径和端口不变。仓库历史中的 JWT 密钥及默认口令已公开：发布时必须换成私有随机密钥，并通过现有账号管理流程更换旧管理员密码。轮换密钥会使旧令牌失效，需重新登录；初始化不会重置已有账号。
+5. 业务迁移沿用已合并的 PR #13，升级前显式执行迁移；不要重建数据库或删除迁移。普通启动不再自动迁移。
+
+## 配置与初始化
+
+详见 [生产配置及服务拆分说明](../docs/production-hardening.md)。JWT 密钥可以用 `openssl rand -base64 48` 生成，保存到私有环境配置/secret store，不要提交。Hangfire 默认持久化到 `data/hangfire.db`（配置项是文件路径，不是连接字符串），生产环境不允许 `memory`。保留整个 data 目录的写权限和持久卷。
+
+非容器环境创建可写的 `data` 目录，通过 `Jwt__Key` 注入密钥；首次启动前设置 `Migrations__RunMigrationsOnly=true` 执行一次程序。需要首次管理员时再同时设置 `BootstrapAdmin__Enabled=true` 和 `BootstrapAdmin__Password`。完成后移除这三个初始化变量，再以常规服务启动。初始化失败必须先排查，不能忽略退出码启动服务。
 
 ## 非容器发布
 
@@ -47,6 +53,17 @@ cp Deploy/.env.example Deploy/.env
 # 编辑 Deploy/.env：设置真实的随机 JWT 密钥、主机名/IP 和完整公开 URL。
 docker compose -f Deploy/docker-compose.yml config --quiet
 docker compose -f Deploy/docker-compose.yml build
+# 显式迁移（无 API 监听，也不启动 Hangfire worker）
+docker compose -f Deploy/docker-compose.yml run --rm -e Migrations__RunMigrationsOnly=true fqz-core
+
+# 仅首次创建管理员时执行：交互输入 12–20 字符密码，不写入仓库或命令历史。
+read -r -s BootstrapAdmin__Password # Bash；Zsh 请用 read -r -s "BootstrapAdmin__Password?管理员密码: "
+export BootstrapAdmin__Password
+docker compose -f Deploy/docker-compose.yml run --rm \
+  -e Migrations__RunMigrationsOnly=true -e BootstrapAdmin__Enabled=true \
+  -e BootstrapAdmin__Password fqz-core
+unset BootstrapAdmin__Password
+
 docker compose -f Deploy/docker-compose.yml up -d
 ```
 

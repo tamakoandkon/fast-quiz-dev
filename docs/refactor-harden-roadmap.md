@@ -11,6 +11,8 @@
 
 ---
 
+> 此文保留历史排期和旧问题定位，并非当前缺陷清单。PR #13 已修复权限、阅卷守卫与答题持久化；生产配置及考试服务拆分的当前约定见 [收尾说明](production-hardening.md)。发布仍需轮换历史泄露凭据。
+
 ## 阶段一：上线止血（安全 / 部署）—— 改动小、风险低、优先做
 
 ### 1.1 把 JWT 密钥 / 连接串 / 内置弱口令从仓库挪到环境变量（不打印）
@@ -22,12 +24,12 @@
 1. `appsettings.json` 里删掉 `Jwt` 段明文 `Key`（可保留结构或移到 `appsettings.Development.json`）。
 2. 密钥放入 **user-secrets（dev）** 与 **环境变量 / 容器 Secret（prod）**，通过 `builder.Configuration` 的 `AddEnvironmentVariables()` / 占位符 `Jwt__Key` 注入。
 3. 删除 `AuthSetupExtensions.cs:24-40` 的两处 `Console.WriteLine`（连 DB 连接串也不要打，连接串可含口令）。
-4. `defaultadmin`（`Auth/Domain/Entities/User.cs:8-9`，口令 `fastquiz`）：
+4. `defaultadmin` 初始化：默认禁用，需要显式启用及外部提供密码；不再保留内置口令。
    - 生产源不要提交明文。改为初始化时若口令仍是默认值则强制下一步改密，或把种子密码放入 env；
    - 至少：上线后**立即登录并改掉**该管理员口令。
 
 验收：
-- `git grep -n "08D734F1\|fastquiz\|DefaultAdminPassword"` 不再出现明文密钥/口令于入库配置（Domain 常量里保留的仅作兜底判断，需在种子会话判定）。
+- 当前代码与配置不再包含默认 JWT 密钥或管理员口令；历史泄露值需在部署时轮换。
 - 重启后 stdout 不再打印 Key / 连接串。
 - 用新 env 签名的 token 能正常鉴权（重新登录）。
 - 生产 kill 后重连同一 DB，`defaultadmin` 仍存在且密码已是新值。

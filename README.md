@@ -16,6 +16,7 @@
 - [本次依赖升级与验证记录](docs/dependency-modernization.md)
 - [前端开发与同域代理配置](FastQuiz.Frontend.Server/README.md)
 - [部署与回滚注意事项](Deploy/minimal.md)
+- [生产密钥、首次初始化与考试服务拆分](docs/production-hardening.md)
 - [开发预期](content.md)
 - [后端结构](FastQuiz/README.md)
 

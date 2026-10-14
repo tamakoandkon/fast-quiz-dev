@@ -9,9 +9,20 @@ public static class AddHangfireServiceExtensions
 {
     public static IServiceCollection AddHangfireServcie(
         this IServiceCollection services,
-        IConfiguration configuration
+        IConfiguration configuration,
+        IHostEnvironment environment
     )
     {
+        var provider = configuration["Hangfire:Type"]?.ToLowerInvariant() ?? "sqlite";
+        var conn = configuration["Hangfire:ConnectionString"];
+        if (provider == "memory" && !environment.IsDevelopment())
+            throw new InvalidOperationException("In-memory Hangfire storage is only allowed in Development.");
+        if (provider is "mariadb" or "postgresql" && string.IsNullOrWhiteSpace(conn))
+            throw new InvalidOperationException("Hangfire:ConnectionString is required for the selected database.");
+
+        if (provider == "sqlite" && conn?.Contains('=') == true)
+            throw new InvalidOperationException("SQLite Hangfire storage requires a file path, not a connection string.");
+
         services.AddHangfire(config =>
         {
             config
@@ -19,16 +30,15 @@ public static class AddHangfireServiceExtensions
                 .UseSimpleAssemblyNameTypeSerializer()
                 .UseRecommendedSerializerSettings();
 
-            var provider = configuration["Hangfire:Type"]?.ToLowerInvariant();
-            var conn = configuration.GetSection("Hangfire:ConnectionString").Get<string>();
-
             switch (provider)
             {
                 case "memory":
                     config.UseInMemoryStorage();
                     break;
                 case "sqlite":
-                    var sqlitePath = conn ?? "hangfire.db";
+                    // This provider expects a filename, not an ADO.NET connection string.
+                    var sqlitePath = Path.GetFullPath(conn ?? "data/hangfire.db");
+                    Directory.CreateDirectory(Path.GetDirectoryName(sqlitePath)!);
                     config.UseSQLiteStorage(sqlitePath);
                     break;
                 case "mariadb":

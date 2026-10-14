@@ -58,6 +58,12 @@ public static class QuizSetupExstensions
             .AddScoped<IQuizTemplateService, QuizTemplateService>()
             .AddScoped<IQuizSnapshotService, QuizSnapshotService>()
             .AddScoped<IQuizAtteptService, QuizAttemptService>()
+            .AddScoped<IQuizAttemptCreationService, QuizAttemptCreationService>()
+            .AddScoped<IQuizAttemptQueryService, QuizAttemptQueryService>()
+            .AddScoped<IQuestionRecordQueryService, QuestionRecordQueryService>()
+            .AddScoped<IQuizAnswerService, QuizAnswerService>()
+            .AddScoped<IQuizAttemptLifecycleService, QuizAttemptLifecycleService>()
+            .AddScoped<IQuizAttemptReviewService, QuizAttemptReviewService>()
             .AddScoped<IQuestionGradingDecider, QuestionGradingDecider>()
             .AddScoped<IQuizReviewService, QuizReviewService>();
 

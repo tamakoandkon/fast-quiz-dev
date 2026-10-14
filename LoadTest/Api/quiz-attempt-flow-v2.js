@@ -74,7 +74,7 @@
  *   INSECURE_TLS      是否跳过证书校验，默认 true（本地自签证书必须跳过）
  *   TENANT_ID         租户 id，默认 system_tenant
  *   ADMIN_USERNAME    管理员用户名，默认 defaultadmin
- *   ADMIN_PASSWORD    管理员密码，默认 fastquiz
+ *   ADMIN_PASSWORD    管理员密码，必须通过环境变量显式提供
  *
  *   QUESTION_POOL     题库题数，默认 10
  *   QUESTIONS_PER_RULE 抽题规则抽取数，默认 10
@@ -137,12 +137,12 @@ const INSECURE_TLS = bool(__ENV.INSECURE_TLS, true);
 //   FastQuiz.Auth/Domain/Entities/User.cs
 //       DefaultAdminId       = "default_admin"
 //       DefaultAdminUsername = "defaultadmin"
-//       DefaultAdminPassword = "fastquiz"
 //   FastQuiz.Auth/Domain/Entities/Tenant.cs
 //       DefaultTenantId      = "system_tenant"
 const TENANT_ID = __ENV.TENANT_ID || "system_tenant";
 const ADMIN_USERNAME = __ENV.ADMIN_USERNAME || "defaultadmin";
-const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD || "fastquiz";
+const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) throw new Error("必须提供 ADMIN_PASSWORD，系统不再内置默认管理员密码");
 
 // ---- 数据规模 --------------------------------------------------------------
 // 题库建 10 道题（全部单选题）
@@ -386,7 +386,7 @@ function setupLogin() {
     fail(
       `管理员登录失败。请确认：\n` +
         `  1. 服务已启动在 ${BASE_URL}\n` +
-        `  2. 账号 ${ADMIN_USERNAME} / ${ADMIN_PASSWORD} 正确（源码常量见文件头 SECTION 1）`,
+        `  2. 管理员凭据正确（通过环境变量提供，不在日志中输出）`,
     );
   }
   const body = asJson(res);

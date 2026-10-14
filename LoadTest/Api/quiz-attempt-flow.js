@@ -8,7 +8,7 @@
  *   k6 run LoadTest/Api/quiz-attempt-flow.js
  *   # 自定义目标与规模
  *   k6 run -e BASE_URL=https://localhost:7040 -e ADMIN_USERNAME=defaultadmin \
- *          -e ADMIN_PASSWORD=fastquiz -e VUS=50 -e DURATION=2m \
+ *          -e ADMIN_PASSWORD="$ADMIN_PASSWORD" -e VUS=50 -e DURATION=2m \
  *          -e QUESTION_POOL=200 -e SNAPSHOT_POOL=100 \
  *          LoadTest/Api/quiz-attempt-flow.js
  *
@@ -68,7 +68,8 @@ import exec from 'k6/execution';
 const BASE_URL = (__ENV.BASE_URL || 'https://localhost:7040').replace(/\/$/, '');
 const TENANT_ID = __ENV.TENANT_ID || 'system_tenant';
 const ADMIN_USERNAME = __ENV.ADMIN_USERNAME || 'defaultadmin';
-const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD || 'fastquiz';
+const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) throw new Error("必须提供 ADMIN_PASSWORD，系统不再内置默认管理员密码");
 
 const VUS = Number(__ENV.VUS || 20);
 const DURATION = __ENV.DURATION || '1m';
@@ -230,7 +231,7 @@ export function setup() {
     { headers: jsonHeaders(), tags: { name: 'setup:login' } }
   );
   if (!expect(loginRes, 'login', [200])) {
-    fail(`登录失败，请确认 ${BASE_URL} 已启动且 ${ADMIN_USERNAME}/${ADMIN_PASSWORD} 可用`);
+    fail(`登录失败，请确认 ${BASE_URL} 已启动且 管理员凭据可用`);
   }
   const token = parseJson(loginRes).accessToken;
   if (!token) {

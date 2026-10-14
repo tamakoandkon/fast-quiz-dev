@@ -10,7 +10,7 @@ services:
       Jwt__Key: ${FASTQUIZ_JWT_KEY:?Set a private JWT signing key of at least 32 bytes}
       AllowedHosts: ${FASTQUIZ_ALLOWED_HOSTS:?Set the public hostname or IP}
       Cors__AllowedOrigins__0: ${FASTQUIZ_PUBLIC_ORIGIN:?Set the public URL including port}
-      Migrations__RunMigrationsOnStartup: "true"
+      Migrations__RunMigrationsOnStartup: "false"
     volumes:
       - fqz_data:/app/data
     restart: unless-stopped

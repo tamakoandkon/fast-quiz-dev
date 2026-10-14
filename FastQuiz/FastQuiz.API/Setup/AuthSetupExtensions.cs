@@ -32,7 +32,9 @@ public static class AuthSetupExtensions
             }
         );
 
-        services.AddHostedService<AuthDbInitializer>();
+        services.Configure<BootstrapAdminSettings>(configuration.GetSection("BootstrapAdmin"));
+        if (configuration.GetValue<bool>("BootstrapAdmin:Enabled"))
+            services.AddHostedService<AuthDbInitializer>();
 
         return services;
     }
