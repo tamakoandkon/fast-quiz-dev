@@ -178,7 +178,10 @@ public class UserApplicationService(
 
         ApplyUpdate(user, command);
 
-        await _userRepository.UpdateAsync(user);
+        if (string.IsNullOrEmpty(command.Password))
+            await _userRepository.UpdateProfileAsync(user);
+        else
+            await _userRepository.UpdateAsync(user);
     }
 
     public async Task UpdateUserByIdAsync(string myId, UpdateUserCommand command)

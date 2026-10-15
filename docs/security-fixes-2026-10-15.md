@@ -21,8 +21,8 @@
 
 ## 验证结果
 
-- macOS / .NET SDK 10.0.401：586 项通过（Auth 103、Question 76、Quiz 160、API 247），无跳过；排除 MariaDB/PostgreSQL provider 专项。
-- 隔离 Linux x64 / SDK 10.0.302：同一业务与测试源码的 586 项通过；仅隔离副本的 SDK 选择文件调整为服务器已有版本。
+- macOS / .NET SDK 10.0.401：587 项通过（Auth 103、Question 76、Quiz 160、API 248），无跳过；排除 MariaDB/PostgreSQL provider 专项。
+- 隔离 Linux x64 / SDK 10.0.302：同一业务与测试源码的 587 项通过；仅隔离副本的 SDK 选择文件调整为服务器已有版本。
 - 独立 PostgreSQL：新增认证安全仓储 3 项、既有考试事务 6 项全部通过，使用测试专属随机数据库并清理，不连接生产库。
 - 前端 Node 26.11.1 / npm 12.2.0：19 项测试、typecheck、静态构建及加载预算通过。
 - 独立 Chrome：未清洗对照事件可执行，经过实际共享清洗函数后事件不执行；启用生成的 CSP 后应用进入登录页、无运行时异常，额外未授权内联脚本被拦截。

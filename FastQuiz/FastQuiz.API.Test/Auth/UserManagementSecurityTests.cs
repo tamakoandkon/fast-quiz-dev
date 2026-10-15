@@ -78,6 +78,15 @@ internal class UserManagementSecurityTests
     }
 
     [Test]
+    public async Task AdministratorProfileEditMustNotOverwriteConcurrentPasswordChange()
+    {
+        await _service.UpdateUserByIdAsync("operator", "tenant", _target.Id,
+            new UpdateUserCommand("renamed", "", null));
+        _users.Verify(x => x.UpdateProfileAsync(_target), Times.Once);
+        _users.Verify(x => x.UpdateAsync(It.IsAny<User>()), Times.Never);
+    }
+
+    [Test]
     public async Task RemovingTenantMemberMustNotDeleteGlobalAccount()
     {
         await Invoke("remove");
