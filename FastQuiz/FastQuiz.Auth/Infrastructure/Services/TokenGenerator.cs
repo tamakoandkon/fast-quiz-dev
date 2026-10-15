@@ -18,6 +18,7 @@ public class TokenGenerator(IOptions<JwtTokenSettings> settings) : ITokenGenerat
         {
             new(ClaimTypes.NameIdentifier, user.Id),
             new(ClaimTypes.Name, user.Username),
+            new(CredentialStamp.ClaimType, CredentialStamp.Create(user.PasswordHash, config.Key)),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.Key));

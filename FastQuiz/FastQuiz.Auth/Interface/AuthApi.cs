@@ -30,7 +30,8 @@ public static class AuthApi
             .Produces<UserDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/me", PutMeAsync).Produces<UserDto>(StatusCodes.Status200OK);
+        group.MapPut("/me", PutMeAsync).RequireAuthorization().Produces(StatusCodes.Status204NoContent);
+        group.MapPut("/me/password", ChangePasswordAsync).RequireAuthorization().Produces<AuthDto>();
 
         var userGroup = app.MapGroup("/tenant")
             .RequireAuthorization()
@@ -183,6 +184,10 @@ public static class AuthApi
         await service.UpdateUserByIdAsync(myId, command);
         return Results.NoContent();
     }
+
+    private static async Task<IResult> ChangePasswordAsync(
+        ChangePasswordCommand command, IClaimsManager claimsManager, IUserApplicationService service
+    ) => Results.Ok(await service.ChangePasswordAsync(claimsManager.EnsureAndGetUserId(), command));
 
     private static async Task<IResult> DeleteUserByIdAsync(
         string tenantId,

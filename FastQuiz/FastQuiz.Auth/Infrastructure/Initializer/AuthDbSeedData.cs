@@ -104,6 +104,17 @@ public static class AuthDbSeedData
             await userRepository.CreateAsync(defaultAdmin).ConfigureAwait(false);
         }
 
+        var tenantUserMapExisted = await tenantRepository
+            .GetUserInTenantAsync(Tenant.DefaultTenantId, User.DefaultAdminId)
+            .ConfigureAwait(false);
+
+        if (!tenantUserMapExisted)
+        {
+            await tenantRepository
+                .AddUserToTenantAsync(Tenant.DefaultTenantId, User.DefaultAdminId)
+                .ConfigureAwait(false);
+        }
+
         var defaultUserRole = await roleRepository
             .ExistsUserRoleAsync(User.DefaultAdminId, Role.DefaultAdminRoleId)
             .ConfigureAwait(false);
@@ -115,17 +126,6 @@ public static class AuthDbSeedData
                     Role.DefaultAdminRoleId,
                     Tenant.DefaultTenantId
                 )
-                .ConfigureAwait(false);
-        }
-
-        var tenantUserMapExisted = await tenantRepository
-            .GetUserInTenantAsync(Tenant.DefaultTenantId, User.DefaultAdminId)
-            .ConfigureAwait(false);
-
-        if (!tenantUserMapExisted)
-        {
-            await tenantRepository
-                .AddUserToTenantAsync(Tenant.DefaultTenantId, User.DefaultAdminId)
                 .ConfigureAwait(false);
         }
     }

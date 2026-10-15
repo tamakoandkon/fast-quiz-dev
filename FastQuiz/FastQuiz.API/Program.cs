@@ -122,7 +122,8 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
 
-        app.UseHangfireDashboard();
+        // Background workers do not need a public task dashboard.
+        // In particular, localhost reverse proxies must not imply administrator access.
 
         app.MapAuthEndPoints();
         app.MapQuestionGroupEndPoints();

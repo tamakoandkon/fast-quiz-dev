@@ -1,4 +1,4 @@
-﻿using FastQuiz.Quiz.Domain.Entities;
+using FastQuiz.Quiz.Domain.Entities;
 
 namespace FastQuiz.Quiz.Domain.Repositories;
 
@@ -45,7 +45,8 @@ public interface IQuizAttemptRepository
         bool onlyBest,
         string? cursor,
         int count,
-        bool isPrevious
+        bool isPrevious,
+        string? tenantId = null
     );
     /// <summary>
     /// 获取指定考生在某场考试(模板)下的全部考试记录，包含所有状态(未开始/进行中/待批阅/已批阅)。

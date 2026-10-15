@@ -1,4 +1,4 @@
-﻿using FastQuiz.Auth.Domain.Entities;
+using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.Domain.Repositories;
 using FastQuiz.Common.Exceptions;
 using Microsoft.EntityFrameworkCore;
@@ -135,20 +135,7 @@ public class PostgreSqlRoleRepository(PostgreSqlAuthDbContext _dbContext) : IRol
             .ConfigureAwait(false);
     }
 
-    public async Task UpdateAsync(Role role)
-    {
-        await _roles
-            .Where(x => x.Id == role.Id)
-            .ExecuteUpdateAsync(entity =>
-                entity
-                    .SetProperty(x => x.Name, role.Name)
-                    .SetProperty(x => x.Description, role.Description)
-                    .SetProperty(x => x.IsSystem, role.IsSystem)
-                    .SetProperty(x => x.IsEnabled, role.IsEnabled)
-                    .SetProperty(x => x.UpdatedAt, role.UpdatedAt)
-            )
-            .ConfigureAwait(false);
-    }
+    public Task UpdateAsync(Role role) => AuthRoleUpdates.UpdateAsync(_dbContext, role);
 
     public async Task DeleteAsync(string id)
     {
@@ -268,18 +255,8 @@ public class PostgreSqlRoleRepository(PostgreSqlAuthDbContext _dbContext) : IRol
     #endregion
 
     #region User Role
-    public async Task AddRoleToUserAsync(string userId, string roleId, string tenantId)
-    {
-        try
-        {
-            await _userRoles.AddAsync(new UserRole(userId, roleId, tenantId)).ConfigureAwait(false);
-            await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            throw new DataAccessException("为用户添加角色出错", ex);
-        }
-    }
+    public Task AddRoleToUserAsync(string userId, string roleId, string tenantId) =>
+        AuthRoleUpdates.AddToMemberAsync(_dbContext, tenantId, userId, roleId);
 
     public async Task RemoveRoleFromUserAsync(string userId, string roleId)
     {
@@ -293,7 +270,9 @@ public class PostgreSqlRoleRepository(PostgreSqlAuthDbContext _dbContext) : IRol
     {
         return await _roles
             .AsNoTracking()
-            .Where(r =>
+            .Where(r => r.TenantId == tenantId && r.IsEnabled
+                && _dbContext.TenantUserMaps.Any(m => m.TenantId == tenantId && m.UserId == userId)
+                &&
                 _userRoles
                     .AsNoTracking()
                     .Where(x => x.TenantId == tenantId && x.UserId == userId)

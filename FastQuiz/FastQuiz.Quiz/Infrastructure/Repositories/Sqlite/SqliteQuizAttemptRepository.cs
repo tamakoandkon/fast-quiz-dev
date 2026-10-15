@@ -1,4 +1,4 @@
-﻿using FastQuiz.Quiz.Domain.Entities;
+using FastQuiz.Quiz.Domain.Entities;
 using FastQuiz.Quiz.Domain.Exceptions;
 using FastQuiz.Quiz.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -192,13 +192,18 @@ public class SqliteQuizAttemptRepository(SqliteQuizDbContext _dbContext) : IQuiz
         bool onlyBest,
         string? cursor,
         int count,
-        bool isPrevious
+        bool isPrevious,
+        string? tenantId = null
     )
     {
         // 只统计已完成的考试(已批阅)：未开始/进行中/待批阅的记录不返回。
         var query = QuizAttempts
             .AsNoTracking()
             .Where(x => x.AssignId == userId && x.Status == QuizAttemptStatus.Graded);
+
+        if (!string.IsNullOrWhiteSpace(tenantId))
+            query = query.Where(x => _dbContext.QuizTemplates.Any(t =>
+                t.Id == x.QuizTemplateId && t.OwnerId == tenantId));
 
         if (!string.IsNullOrWhiteSpace(templateId))
         {

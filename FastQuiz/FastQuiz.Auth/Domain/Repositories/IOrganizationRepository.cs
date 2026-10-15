@@ -1,4 +1,4 @@
-﻿using FastQuiz.Auth.Domain.Entities;
+using FastQuiz.Auth.Domain.Entities;
 
 namespace FastQuiz.Auth.Domain.Repositories;
 
@@ -16,7 +16,8 @@ public interface IOrganizationRepository
         string parentId,
         string? cursor,
         int count,
-        bool isPrevious
+        bool isPrevious,
+        string? tenantId = null
     );
     Task UpdateAsync(Organization organization);
     Task DeleteAsync(string id);

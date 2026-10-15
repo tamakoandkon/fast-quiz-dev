@@ -225,7 +225,7 @@ internal class AuthTests : ApiTestBase
     }
 
     [Test]
-    public async Task PutMyAccount_WhenPasswordIsProvided_ShouldUpdatePassword()
+    public async Task PutMyAccount_WhenPasswordIsProvided_ShouldRejectAndKeepPassword()
     {
         // Arrange
         var username = Guid.NewGuid().ToString("N")[..12];
@@ -239,12 +239,12 @@ internal class AuthTests : ApiTestBase
         var response = await client.PutAsJsonAsync(UrlPackage.MyAccount(), command);
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
 
         var loginClient = Sut.CreateClient();
         var loginResponse = await loginClient.PostAsJsonAsync(
             UrlPackage.Login(),
-            new UserLoginCommand(username, newPassword)
+            new UserLoginCommand(username, password)
         );
         loginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

@@ -12,7 +12,8 @@ namespace FastQuiz.Auth.UseCase.Services;
 public class RoleService(
     IIdGenerator _idGenerator,
     IRoleRepository _roleRepository,
-    IPermissionService _permissionService
+    IPermissionService _permissionService,
+    ITenantRepository _tenantRepository
 ) : IRoleService
 {
     public async Task AddPermissionToRoleAsync(string userId, string roleId, string permission)
@@ -47,6 +48,8 @@ public class RoleService(
             throw new PermissionException();
         }
 
+        if (!role.IsEnabled || !await _tenantRepository.GetUserInTenantAsync(role.TenantId, userId))
+            throw new PermissionException("只能为本租户成员授予已启用的角色");
         await _roleRepository.AddRoleToUserAsync(userId, roleId, role.TenantId);
         await _permissionService.InvalidateUserPermissionsAsync(role.TenantId, userId);
     }
@@ -66,6 +69,7 @@ public class RoleService(
             throw new PermissionException();
         }
 
+        ValidatePermissions(command.Permissions);
         var role = new Role(
             _idGenerator.GenerateUlId(),
             tenantId,
@@ -264,8 +268,16 @@ public class RoleService(
         role.IsEnabled = command.IsEnable;
         role.IsSystem = command.IsSystem;
         role.UpdatedAt = DateTimeOffset.UtcNow;
+        ValidatePermissions(command.Permissions);
+        role.Permissions = [.. command.Permissions.Distinct()];
 
         await _roleRepository.UpdateAsync(role);
+    }
+
+    private static void ValidatePermissions(List<string>? permissions)
+    {
+        if (permissions is null || permissions.Any(x => !Permissions.AllPermissions().Contains(x)))
+            throw new EntityArgumentException("角色权限列表无效");
     }
 
     public Task<IReadOnlyList<string>> GetAllPermissionsAsync(string userId)

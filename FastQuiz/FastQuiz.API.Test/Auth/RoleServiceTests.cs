@@ -18,7 +18,7 @@ internal class RoleServiceTests
         repository.Setup(x => x.FindByIdAsync(role.Id)).ReturnsAsync(role);
         var permissions = new Mock<IPermissionService>();
         permissions.Setup(x => x.HasPermissionAsync("tenant", "target-admin", Permissions.Role)).ReturnsAsync(true);
-        var service = new RoleService(new IdGenerator(), repository.Object, permissions.Object);
+        var service = new RoleService(new IdGenerator(), repository.Object, permissions.Object, Mock.Of<ITenantRepository>());
 
         await Should.ThrowAsync<PermissionException>(() =>
             service.RemoveRoleFromUserAsync("intruder", "target-admin", role.Id));
@@ -33,7 +33,7 @@ internal class RoleServiceTests
         repository.Setup(x => x.FindByIdAsync(role.Id)).ReturnsAsync(role);
         var permissions = new Mock<IPermissionService>();
         permissions.Setup(x => x.HasPermissionAsync("tenant", "operator", Permissions.Role)).ReturnsAsync(true);
-        var service = new RoleService(new IdGenerator(), repository.Object, permissions.Object);
+        var service = new RoleService(new IdGenerator(), repository.Object, permissions.Object, Mock.Of<ITenantRepository>());
         await service.RemoveRoleFromUserAsync("operator", "target", role.Id);
         repository.Verify(x => x.RemoveRoleFromUserAsync("target", role.Id), Times.Once);
         permissions.Verify(x => x.InvalidateUserPermissionsAsync("tenant", "target"), Times.Once);
@@ -54,7 +54,8 @@ internal class RoleServiceTests
         var service = new RoleService(
             Mock.Of<IIdGenerator>(),
             roleRepository.Object,
-            permissionService.Object
+            permissionService.Object,
+            Mock.Of<ITenantRepository>(x => x.GetUserInTenantAsync(role.TenantId, targetUserId) == Task.FromResult(true))
         );
 
         await service.AddRoleToUserAsync(operatorId, targetUserId, role.Id);

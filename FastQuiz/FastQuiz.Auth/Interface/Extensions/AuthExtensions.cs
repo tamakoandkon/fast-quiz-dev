@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using FastQuiz.Auth.Domain.Repositories;
+using System.Security.Claims;
 using FastQuiz.Auth.Domain.Services;
 using FastQuiz.Auth.Infrastructure.Repositories;
 using FastQuiz.Auth.Infrastructure.Repositories.MariaDb;
@@ -87,6 +88,18 @@ public static class AuthExtensions
             })
             .AddJwtBearer(options =>
             {
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        var users = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                        var user = userId is null ? null : await users.FindByIdAsync(userId);
+                        var stamp = context.Principal?.FindFirstValue(CredentialStamp.ClaimType);
+                        if (user is null || !CredentialStamp.Matches(stamp, user.PasswordHash, jwtSettings.Key))
+                            context.Fail("账号凭据已变更，请重新登录");
+                    },
+                };
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

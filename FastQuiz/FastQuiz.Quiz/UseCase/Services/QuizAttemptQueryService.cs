@@ -36,6 +36,7 @@ public sealed class QuizAttemptQueryService(
             throw new PermissionException();
         }
 
+        await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quizTemplateId);
         var attempts = await _quizAttemptRepository.GetAllByTemplateIdAsync(
             quizTemplateId,
             query.Cursor,
@@ -84,6 +85,7 @@ public sealed class QuizAttemptQueryService(
             throw new PermissionException();
         }
 
+        await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quizTemplateId);
         var attempts = await _quizAttemptRepository
             .GetAllRecordsByTemplateIdAsync(
                 quizTemplateId,
@@ -172,6 +174,7 @@ public sealed class QuizAttemptQueryService(
         }
 
         // 只看自己的记录，故无需 quiz 模块权限校验(与 GetUserRecordsAsync 的「本人」分支同义)。
+        await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quizTemplateId);
         var attempts = await _quizAttemptRepository
             .GetAllRecordsByTemplateIdAndUserIdAsync(
                 userId,
@@ -232,6 +235,8 @@ public sealed class QuizAttemptQueryService(
             throw new PermissionException();
         }
 
+        if (query.TemplateId is not null)
+            await _quizTemplateService.GetQuizTemplateAsync(operatorId, tenantId, query.TemplateId);
         var attempts = await _quizAttemptRepository
             .GetAllRecordsByUserIdAsync(
                 userId,
@@ -239,7 +244,8 @@ public sealed class QuizAttemptQueryService(
                 query.OnlyBest,
                 query.Cursor,
                 query.Count,
-                query.IsPrevious
+                query.IsPrevious,
+                tenantId
             )
             .ConfigureAwait(false);
 
@@ -247,13 +253,14 @@ public sealed class QuizAttemptQueryService(
             [.. attempts.Select(x => x.QuizTemplateId)]
         );
 
+        var tenantTemplates = templates.Where(x => x.OwnerId == tenantId).ToDictionary(x => x.Id);
         return
         [
-            .. attempts.Select(x => new QuizAttempDto(
+            .. attempts.Where(x => tenantTemplates.ContainsKey(x.QuizTemplateId)).Select(x => new QuizAttempDto(
                 x.Id,
                 x.AssignId!,
                 x.QuizTemplateId,
-                templates.Where(t => t.Id == x.QuizTemplateId).First().Name,
+                tenantTemplates[x.QuizTemplateId].Name,
                 x.QuizSnapshotId,
                 x.StartTime,
                 x.SubmitTime,

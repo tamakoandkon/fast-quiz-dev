@@ -12,10 +12,10 @@
         <div class="text-sm text-gray-700 leading-relaxed">
           <div class="flex items-start gap-2">
             <div class="flex-1">
-              <div
+              <CommonSafeMarkup
                 v-if="question.markUpContent"
-                v-html="question.markUpContent"
-              ></div>
+                :content="question.markUpContent"
+               />
               <div v-else class="text-gray-400 italic">题目内容暂无</div>
             </div>
             <UBadge
@@ -45,10 +45,10 @@
                   {{ aIndex + 1 }}.
                 </span>
               </div>
-              <div
+              <CommonSafeMarkup
                 class="flex-1 text-sm text-gray-700"
-                v-html="answer.markUpContent || '答案内容暂无'"
-              ></div>
+                :content="answer.markUpContent || '答案内容暂无'"
+               />
               <div class="flex-shrink-0">
                 <UBadge
                   v-if="answer.matchStrategy"
@@ -84,10 +84,10 @@
                   {{ String.fromCharCode(65 + aIndex) }}.
                 </span>
               </div>
-              <div
+              <CommonSafeMarkup
                 class="flex-1 text-sm text-gray-700"
-                v-html="answer.markUpContent || '选项内容暂无'"
-              ></div>
+                :content="answer.markUpContent || '选项内容暂无'"
+               />
               <div class="flex-shrink-0 flex gap-1 flex-wrap items-center">
                 <UBadge
                   v-if="answer.isCorrect"

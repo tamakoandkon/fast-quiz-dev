@@ -16,15 +16,6 @@
           placeholder="选填，用于接收通知"
           :error="errors.email"
         ></CommonFormInput>
-        <CommonFormInput
-          label="新密码"
-          v-model="password"
-          type="password"
-          placeholder="留空则不修改密码"
-          :error="errors.password"
-          description="如需修改密码，请输入 6-20 位新密码"
-          autocomplete="new-password"
-        ></CommonFormInput>
 
         <UButton
           label="保存"
@@ -35,6 +26,13 @@
           @click="updateUser"
           class="w-full justify-center"
         />
+        <hr class="my-4" />
+        <CommonFormInput label="原密码" v-model="currentPassword" type="password"
+          autocomplete="current-password" placeholder="修改密码时填写" />
+        <CommonFormInput label="新密码" v-model="password" type="password"
+          autocomplete="new-password" placeholder="6-20 位新密码" :error="errors.password" />
+        <UButton label="修改密码" :loading="isChangingPassword" :disabled="isChangingPassword"
+          @click="changePassword" class="w-full justify-center" />
       </CommonFormContainer>
     </template>
   </UModal>
@@ -46,6 +44,8 @@ const toast = useToast();
 const show = defineModel<boolean>({ required: true, default: true });
 const username = ref<string>("");
 const password = ref<string>("");
+const currentPassword = ref("");
+const isChangingPassword = ref(false);
 const email = ref<string>("");
 const isSubmitting = ref(false);
 
@@ -67,11 +67,6 @@ const validate = () => {
     next.email = "邮箱格式不正确";
   }
 
-  // 留空表示不修改密码
-  if (password.value && (password.value.length < 6 || password.value.length > 20)) {
-    next.password = "密码长度必须在6-20个字符之间";
-  }
-
   errors.value = next;
   return Object.keys(next).length === 0;
 };
@@ -86,7 +81,7 @@ const updateUser = async function () {
     await $api.auth.putAuth({
       username: username.value.trim(),
       email: email.value.trim(),
-      password: password.value,
+      password: "",
     });
   } catch (e: any) {
     const title = e.response?.data?.title ?? "未知错误";
@@ -102,6 +97,30 @@ const updateUser = async function () {
   show.value = false;
 };
 
+const changePassword = async () => {
+  if (!currentPassword.value || password.value.length < 6 || password.value.length > 20) {
+    errors.value.password = "请输入原密码和 6-20 位新密码";
+    return;
+  }
+  isChangingPassword.value = true;
+  try {
+    const result = await $api.auth.mePasswordUpdate({
+      currentPassword: currentPassword.value,
+      newPassword: password.value,
+    });
+    if (!result.data.accessToken) throw new Error("服务器未返回新会话");
+    await userStore.setToken(result.data.accessToken);
+    currentPassword.value = "";
+    password.value = "";
+    errors.value = {};
+    toast.add({ title: "密码已修改，其他旧会话已失效", color: "success" });
+  } catch (e: any) {
+    toast.add({ title: e.response?.data?.title ?? "修改密码失败", color: "error" });
+  } finally {
+    isChangingPassword.value = false;
+  }
+};
+
 const init = async () => {
   let result;
   try {
@@ -115,6 +134,7 @@ const init = async () => {
   email.value = result.data.email ?? "";
   password.value = "";
   errors.value = {};
+  currentPassword.value = "";
 };
 
 // 每次打开重新拉取，避免显示上一次编辑的残留值

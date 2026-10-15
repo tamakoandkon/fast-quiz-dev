@@ -9,5 +9,6 @@ RUN npm run postinstall && npm run build
 
 FROM caddy:2.11.7-alpine AS runner
 COPY --from=builder /app/.output/public /usr/share/caddy
+COPY --from=builder /app/.output/security/caddy-csp.conf /etc/caddy/csp.conf
 COPY docker/Caddyfile /etc/caddy/Caddyfile
 EXPOSE 80

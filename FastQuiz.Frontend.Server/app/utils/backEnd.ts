@@ -48,6 +48,11 @@ export interface AuthDto {
   user?: UserDto;
 }
 
+export interface ChangePasswordCommand {
+  currentPassword?: string | null;
+  newPassword?: string | null;
+}
+
 export interface CreateOrganizationCommand {
   name?: string | null;
   parentId?: string | null;
@@ -498,7 +503,21 @@ export namespace Auth {
     export type RequestQuery = {};
     export type RequestBody = UpdateUserCommand;
     export type RequestHeaders = {};
-    export type ResponseBody = UserDto;
+    export type ResponseBody = void;
+  }
+
+  /**
+   * No description
+   * @tags Auth
+   * @name MePasswordUpdate
+   * @request PUT:/auth/me/password
+   */
+  export namespace MePasswordUpdate {
+    export type RequestParams = {};
+    export type RequestQuery = {};
+    export type RequestBody = ChangePasswordCommand;
+    export type RequestHeaders = {};
+    export type ResponseBody = AuthDto;
   }
 }
 
@@ -2213,8 +2232,27 @@ export class Api<
      * @request PUT:/auth/me
      */
     putAuth: (data: UpdateUserCommand, params: RequestParams = {}) =>
-      this.request<UserDto, ProblemDetails>({
+      this.request<void, ProblemDetails>({
         path: `/auth/me`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Auth
+     * @name MePasswordUpdate
+     * @request PUT:/auth/me/password
+     */
+    mePasswordUpdate: (
+      data: ChangePasswordCommand,
+      params: RequestParams = {},
+    ) =>
+      this.request<AuthDto, ProblemDetails>({
+        path: `/auth/me/password`,
         method: "PUT",
         body: data,
         type: ContentType.Json,

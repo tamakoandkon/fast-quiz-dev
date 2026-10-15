@@ -61,6 +61,12 @@ public class OrganizationService(
             command.ParentId,
             command.Name
         );
+        if (command.ParentId is not null)
+        {
+            var parent = await EnsureAndGetOrganizationAsync(command.ParentId);
+            if (parent.TenantId != tenantId)
+                throw new PermissionException();
+        }
         await _organizationRepository.CreateAsync(organization).ConfigureAwait(false);
         return new OrganizationDto(
             organization.Id,
@@ -135,8 +141,11 @@ public class OrganizationService(
             throw new PermissionException();
         }
 
+        var parent = await EnsureAndGetOrganizationAsync(parentId);
+        if (parent.TenantId != tenantId)
+            throw new PermissionException();
         var result = await _organizationRepository
-            .GetByParentIdAsync(parentId, query.Cursor, query.Count, query.IsPrevious)
+            .GetByParentIdAsync(parentId, query.Cursor, query.Count, query.IsPrevious, tenantId)
             .ConfigureAwait(false);
 
         return

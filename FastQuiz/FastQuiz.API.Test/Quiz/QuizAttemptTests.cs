@@ -510,6 +510,15 @@ internal partial class QuizAttemptTests : ApiTestBase
     }
 
     [Test]
+    public async Task FillInQuestions_DoNotExposeReferenceAnswersDuringAttempt()
+    {
+        var (_, fillIn) = await CreateInProgressAttemptWithQuestionAsync(User.DefaultAdminId, QuestionType.FillIn);
+        fillIn.Answers.ShouldBeEmpty();
+        var (_, choice) = await CreateInProgressAttemptWithQuestionAsync(User.DefaultAdminId, QuestionType.SingleChoice);
+        choice.Answers.ShouldNotBeEmpty();
+    }
+
+    [Test]
     public async Task PutAnswerQuestionAsync_WhenAttemptBelongsToAnotherUser_ShouldReturnForbidden()
     {
         var ownerId = User.DefaultAdminId;
@@ -518,7 +527,7 @@ internal partial class QuizAttemptTests : ApiTestBase
 
         var response = await otherUserClient.PutAsJsonAsync(
             UrlPackage.QuizAttemptQuestionWithQuestionId(question.Id),
-            new[] { new SetAnswerRecordCommand(question.Answers[0].Id) }
+            new[] { new SetAnswerRecordCommand("unauthorized-answer") }
         );
 
         response.StatusCode.ShouldBe(System.Net.HttpStatusCode.Forbidden);
