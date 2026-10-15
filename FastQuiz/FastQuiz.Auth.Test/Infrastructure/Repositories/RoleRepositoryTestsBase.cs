@@ -514,7 +514,7 @@ internal abstract class RoleRepositoryTestBase
         await Sut.CreateAsync(role);
 
         // Act & Assert
-        await Assert.ThrowsAsync<DataAccessException>(
+        await Assert.ThrowsAsync<PermissionException>(
             () => Sut.AddRoleToUserAsync(Guid.NewGuid().ToString(), role.Id, tenant.Id)
         );
     }
@@ -527,7 +527,7 @@ internal abstract class RoleRepositoryTestBase
         var user = await CreateUserAsync(tenant.Id);
 
         // Act & Assert
-        await Assert.ThrowsAsync<DataAccessException>(
+        await Assert.ThrowsAsync<PermissionException>(
             () => Sut.AddRoleToUserAsync(user.Id, Guid.NewGuid().ToString(), tenant.Id)
         );
     }

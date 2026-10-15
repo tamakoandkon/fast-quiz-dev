@@ -1,4 +1,5 @@
 :80 {
+    import /etc/caddy/csp.conf
     root * /usr/share/caddy
     encode zstd gzip
 

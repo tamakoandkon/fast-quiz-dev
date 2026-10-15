@@ -187,6 +187,8 @@ public class QuizTemplateService(
         GetPublishedQuizTemplateQuery query
     )
     {
+        if (!await _tenantService.GetUserInTenantAsync(tenantId, userId))
+            throw new PermissionException();
         _getPublishedQuizTemplateQueryValidator.ValidateAndThrowArgumentException(query);
 
         var result = await _quizTemplateRepository

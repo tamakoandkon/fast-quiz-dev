@@ -95,7 +95,7 @@ const init = async (id: string) => {
   }
   name.value = result.data.name || "";
   description.value = result.data.description || "";
-  isEnable.value = result.data.isEnable || true;
+  isEnable.value = result.data.isEnable ?? true;
   selectedPermissions.value = result.data.permissions ?? [];
 };
 

@@ -21,10 +21,10 @@
         <div class="text-sm text-gray-700 leading-relaxed">
           <div class="flex items-start gap-2">
             <div class="flex-1">
-              <div
+              <CommonSafeMarkup
                 v-if="question.markUpContent"
-                v-html="question.markUpContent"
-              ></div>
+                :content="question.markUpContent"
+               />
               <div v-else class="text-gray-400 italic">题目内容暂无</div>
             </div>
             <UBadge
@@ -101,10 +101,10 @@
               <span class="text-gray-400 flex-shrink-0">
                 {{ String.fromCharCode(65 + answerIndex) }}.
               </span>
-              <span
+              <CommonSafeMarkup
                 class="text-gray-700 flex-1"
-                v-html="answer.markUpContent || '无内容'"
-              ></span>
+                :content="answer.markUpContent || '无内容'"
+               />
               <!-- 标签显示：正确答案 + 你的答案 -->
               <div class="flex-shrink-0 flex gap-2 flex-wrap items-center">
                 <!-- 正确答案标签 -->

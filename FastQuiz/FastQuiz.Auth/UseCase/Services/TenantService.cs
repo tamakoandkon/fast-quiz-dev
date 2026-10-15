@@ -248,6 +248,15 @@ public class TenantService(
 
     public async Task UpdateTenantAsync(string userId, string tenantId, UpdateTenantCommand command)
     {
+        var systemAdmin = await _permissionService.HasPermissionAsync(
+            Tenant.DefaultTenantId, userId, Permissions.SystemAdmin);
+        if (!await _permissionService.HasPermissionAsync(tenantId, userId, Permissions.Tenant)
+            || (!systemAdmin && !await _tenantRepository.GetUserInTenantAsync(tenantId, userId)))
+            throw new PermissionException();
+        if (string.IsNullOrWhiteSpace(command.Name) || command.Name.Length > 50
+            || command.Description is null || command.Description.Length > 200)
+            throw new EntityArgumentException("租户名称不能为空且最多50个字符，描述最多200个字符");
+
         var tenant =
             await _tenantRepository.FindByIdAsync(tenantId).ConfigureAwait(false)
             ?? throw new TenantNotFoundException();

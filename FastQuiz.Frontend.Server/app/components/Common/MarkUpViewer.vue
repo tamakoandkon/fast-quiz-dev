@@ -1,5 +1,5 @@
 <template>
-  <UEditor v-model="props.content" content-type="markdown" :editable="false" />
+  <CommonSafeMarkup :content="props.content" />
 </template>
 
 <script setup lang="ts">

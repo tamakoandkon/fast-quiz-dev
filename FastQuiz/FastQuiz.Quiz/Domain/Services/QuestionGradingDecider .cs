@@ -31,16 +31,31 @@ public class QuestionGradingDecider : IQuestionGradingDecider
         }
         else if (question.Type == QuestionType.FillIn)
         {
+            if (question.AnswerSnapshots.Count == 0 || record.AnswerRecords.Count == 0)
+                return false;
             var correctAnswer = question.AnswerSnapshots[0];
             var answer = record.AnswerRecords[0];
             return correctAnswer.Strategy switch
             {
                 MatchStrategy.Exact => correctAnswer.MarkUpContent == answer.Value,
                 MatchStrategy.Contains => answer.Value.Contains(correctAnswer.MarkUpContent),
-                MatchStrategy.Regex => Regex.IsMatch(answer.Value, correctAnswer.MarkUpContent),
+                MatchStrategy.Regex => MatchRegex(answer.Value, correctAnswer.MarkUpContent),
                 _ => false,
             };
         }
         return false;
+    }
+
+    private static bool MatchRegex(string value, string pattern)
+    {
+        try { return Regex.IsMatch(value, pattern, RegexOptions.None, TimeSpan.FromMilliseconds(100)); }
+        catch (RegexMatchTimeoutException)
+        {
+            throw new BusinessException("题目正则判题超时，请联系管理员调整规则");
+        }
+        catch (ArgumentException)
+        {
+            throw new BusinessException("题目正则判题规则无效，请联系管理员");
+        }
     }
 }

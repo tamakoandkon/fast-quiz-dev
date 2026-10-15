@@ -183,11 +183,30 @@ public class UserApplicationService(
 
     public async Task UpdateUserByIdAsync(string myId, UpdateUserCommand command)
     {
+        if (!string.IsNullOrEmpty(command.Password))
+            throw new EntityArgumentException("修改密码请使用密码修改接口并验证当前密码");
         var user = await EnsureAndGetUserAsync(myId).ConfigureAwait(false);
 
         ApplyUpdate(user, command);
 
-        await _userRepository.UpdateAsync(user);
+        // A concurrent profile edit must never restore an earlier password hash.
+        await _userRepository.UpdateProfileAsync(user);
+    }
+
+    public async Task<AuthDto> ChangePasswordAsync(string myId, ChangePasswordCommand command)
+    {
+        if (string.IsNullOrEmpty(command.CurrentPassword) || command.CurrentPassword.Length > 20
+            || string.IsNullOrEmpty(command.NewPassword) || command.NewPassword.Length is < 6 or > 20)
+            throw new EntityArgumentException("请输入当前密码，新密码须为6–20个字符");
+        var user = await EnsureAndGetUserAsync(myId);
+        if (!_passwordHasher.Verify(command.CurrentPassword, user.PasswordHash))
+            throw new PermissionException("当前密码不正确");
+        var newHash = _passwordHasher.Hash(command.NewPassword);
+        if (!await _userRepository.TryChangePasswordAsync(user.Id, user.PasswordHash, newHash))
+            throw new PermissionException("账号凭据已变更，请重新登录后重试");
+        user.PasswordHash = newHash;
+        return new AuthDto(_tokenGenerator.GenerateToken(user), -1,
+            new UserDto(user.Id, user.Username, user.Email, user.CreatedAt));
     }
 
     /// <summary>

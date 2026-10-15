@@ -1,4 +1,4 @@
-﻿using FastQuiz.Auth.Domain.Entities;
+using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.Domain.Repositories;
 using FastQuiz.Common.Exceptions;
 using Microsoft.EntityFrameworkCore;
@@ -75,10 +75,14 @@ public class PostgreSqlOrganizationRepository(PostgreSqlAuthDbContext _dbContext
         string parentId,
         string? cursor,
         int count,
-        bool isPrevious
+        bool isPrevious,
+        string? tenantId = null
     )
     {
         var query = _organizations.AsNoTracking().Where(x => x.ParentId == parentId);
+
+        if (tenantId is not null)
+            query = query.Where(x => x.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(cursor))
         {

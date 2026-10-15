@@ -74,7 +74,7 @@ public sealed class QuestionRecordQueryService(
                     q.Level,
                     q.GroupId,
                     q.ParentId,
-                    [
+                    q.Type == FastQuiz.Question.Domain.Entities.QuestionType.FillIn ? [] : [
                         .. q.AnswerSnapshots.Select(
                             answer => new QuestionAnswerRecordWithoutAnswerDto(
                                 answer.Id,

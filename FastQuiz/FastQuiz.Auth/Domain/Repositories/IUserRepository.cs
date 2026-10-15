@@ -10,5 +10,7 @@ public interface IUserRepository
     Task<User?> FindByUsernameAsync(string username);
     Task<User?> FindByEmailAsync(string email);
     Task UpdateAsync(User user);
+    Task UpdateProfileAsync(User user);
+    Task<bool> TryChangePasswordAsync(string userId, string previousHash, string newHash);
     Task DeleteByIdAsync(string userId);
 }

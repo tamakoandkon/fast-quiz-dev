@@ -50,6 +50,7 @@ jobs:
         with:
           global-json-file: FastQuiz/global.json
       - run: dotnet test FastQuiz.Quiz.Test --configuration Release --filter 'FullyQualifiedName~QuizTransactionTests&TestCategory=PostgreSql'
+      - run: dotnet test FastQuiz.Auth.Test --configuration Release --filter 'FullyQualifiedName~SecurityRepositoryTests&TestCategory=PostgreSql'
   frontend:
     runs-on: ubuntu-latest
     defaults:

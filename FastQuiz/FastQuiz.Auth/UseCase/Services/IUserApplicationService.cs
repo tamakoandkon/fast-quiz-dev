@@ -33,5 +33,6 @@ public interface IUserApplicationService
         UpdateUserCommand command
     );
     Task UpdateUserByIdAsync(string myId, UpdateUserCommand command);
+    Task<AuthDto> ChangePasswordAsync(string myId, ChangePasswordCommand command);
     Task DeleteUserByIdAsync(string myId, string tenantId, string userId);
 }

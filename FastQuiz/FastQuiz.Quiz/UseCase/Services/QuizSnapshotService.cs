@@ -199,6 +199,7 @@ public class QuizSnapshotService(
             throw new PermissionException();
         }
 
+        await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quiztemplateId);
         var result = await _quizSnapshotRepository.GetAllAsync(
             quiztemplateId,
             query.Cursor,

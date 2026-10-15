@@ -1,4 +1,3 @@
-﻿using System.Collections.Concurrent;
 using EasyCaching.Core;
 using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.Domain.Repositories;
@@ -6,112 +5,26 @@ using FastQuiz.Auth.UseCase.Extensions;
 
 namespace FastQuiz.Auth.UseCase.Services;
 
-public class PermissionService(
-    IRoleRepository _roleRepository,
-    IEasyCachingProviderFactory _cachingProvider
-) : IPermissionService
+public class PermissionService(IRoleRepository roleRepository, IEasyCachingProviderFactory cachingProvider)
+    : IPermissionService
 {
-    private readonly IEasyCachingProvider _cach = _cachingProvider.GetPermissionCacheProvider();
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _cacheLocks = new();
-
-    public async Task InvalidateUserPermissionsAsync(string tenantId, string userId)
-    {
-        var key = $"permissions:{tenantId}@{userId}";
-        var gate = _cacheLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            await _cach.RemoveAsync(key).ConfigureAwait(false);
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
-
-    private static TimeSpan GetRandomExpiration()
-    {
-        var baseExpiration = TimeSpan.FromHours(24);
-        var offsetMinutes = Random.Shared.Next(-120, 120);
-        return baseExpiration.Add(TimeSpan.FromMinutes(offsetMinutes));
-    }
+    // Keep invalidation for callers and old cache entries, but never authorize from stale memory.
+    public Task InvalidateUserPermissionsAsync(string tenantId, string userId) =>
+        cachingProvider.GetPermissionCacheProvider().RemoveAsync($"permissions:{tenantId}@{userId}");
 
     public async Task<UserPermissionSet> GetUserPermissionSetAsync(string tenantId, string userId)
     {
-        string cachingKey = $"permissions:{tenantId}@{userId}";
-
-        var cached = await _cach.GetAsync<UserPermissionSet>(cachingKey).ConfigureAwait(false);
-
-        if (cached.HasValue)
-        {
-            return cached.Value;
-        }
-
-        var lockObj = _cacheLocks.GetOrAdd(cachingKey, new SemaphoreSlim(1, 1));
-
-        await lockObj.WaitAsync().ConfigureAwait(false);
-
-        try
-        {
-            var reCached = await _cach
-                .GetAsync<UserPermissionSet>(cachingKey)
-                .ConfigureAwait(false);
-
-            if (reCached.HasValue)
-            {
-                return reCached.Value;
-            }
-
-            var result = await LoadFromDatabaseAsync(tenantId, userId).ConfigureAwait(false);
-
-            var expires =
-                result.Permissions.Count != 0 ? GetRandomExpiration() : TimeSpan.FromHours(1);
-
-            await _cach.SetAsync(cachingKey, result, expires).ConfigureAwait(false);
-
-            return result;
-        }
-        finally
-        {
-            lockObj.Release();
-        }
-    }
-
-    private async Task<UserPermissionSet> LoadFromDatabaseAsync(string tenantId, string userId)
-    {
-        var maps = await _roleRepository
-            .FindRolesByUserIdAsync(tenantId, userId)
-            .ConfigureAwait(false);
-
-        var permissions = new List<string>();
-
-        if (maps.Count != 0)
-        {
-            permissions.AddRange(
-                await _roleRepository
-                    .GetPermissionsByRoleIdAsync(maps.Select(x => x.Id))
-                    .ConfigureAwait(false)
-            );
-        }
-
-        return new UserPermissionSet()
-        {
-            UserId = userId,
-            Permissions = [.. permissions.Distinct()],
-            TenantId = tenantId,
-        };
+        // Repository filters disabled roles and requires a current tenant membership.
+        var roles = await roleRepository.FindRolesByUserIdAsync(tenantId, userId);
+        IReadOnlyList<string> permissions = roles.Count == 0 ? [] : await roleRepository.GetPermissionsByRoleIdAsync(roles.Select(x => x.Id));
+        return new UserPermissionSet { UserId = userId, TenantId = tenantId, Permissions = [.. permissions.Distinct()] };
     }
 
     public async Task<bool> HasPermissionAsync(string tenantId, string userId, string permission)
     {
-        var systemAdmin = await GetUserPermissionSetAsync(Tenant.DefaultTenantId, userId);
-        if (systemAdmin.Permissions.Any(x => x == Permissions.SystemAdmin))
-        {
-            return true;
-        }
-
-        var permissions = await GetUserPermissionSetAsync(tenantId, userId).ConfigureAwait(false);
-
-        return permissions.Permissions.Any(x => x == permission);
+        var system = await GetUserPermissionSetAsync(Tenant.DefaultTenantId, userId);
+        if (system.Permissions.Contains(Permissions.SystemAdmin)) return true;
+        var local = tenantId == Tenant.DefaultTenantId ? system : await GetUserPermissionSetAsync(tenantId, userId);
+        return local.Permissions.Contains(permission);
     }
 }

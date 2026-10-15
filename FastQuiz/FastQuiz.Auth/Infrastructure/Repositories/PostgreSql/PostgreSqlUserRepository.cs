@@ -1,4 +1,4 @@
-﻿using FastQuiz.Auth.Domain.Entities;
+using FastQuiz.Auth.Domain.Entities;
 using FastQuiz.Auth.Domain.Repositories;
 using FastQuiz.Common.Exceptions;
 using Microsoft.EntityFrameworkCore;
@@ -61,6 +61,16 @@ public class PostgreSqlUserRepository(PostgreSqlAuthDbContext _dbContext) : IUse
                     .SetProperty(x => x.Email, user.Email)
             );
     }
+
+    public async Task UpdateProfileAsync(User user)
+    {
+        await Users.Where(x => x.Id == user.Id).ExecuteUpdateAsync(x => x
+            .SetProperty(u => u.Username, user.Username).SetProperty(u => u.Email, user.Email));
+    }
+
+    public async Task<bool> TryChangePasswordAsync(string userId, string previousHash, string newHash) =>
+        await Users.Where(x => x.Id == userId && x.PasswordHash == previousHash)
+            .ExecuteUpdateAsync(x => x.SetProperty(u => u.PasswordHash, newHash)) == 1;
 
     public async Task DeleteByIdAsync(string userId)
     {

@@ -18,6 +18,7 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
         // 2. 根据异常类型决定返回逻辑
         var (statusCode, title) = exception switch
         {
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "请先登录"),
             BusinessException => (StatusCodes.Status400BadRequest, exception.Message),
             ResourceNotFoundException => (StatusCodes.Status404NotFound, exception.Message),
             PermissionException => (StatusCodes.Status403Forbidden, exception.Message),
@@ -37,7 +38,7 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
             {
                 Status = statusCode,
                 Title = title,
-                Detail = exception.Message,
+                Detail = statusCode >= 500 ? null : title,
                 Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}",
             },
             cancellationToken
