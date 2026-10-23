@@ -1,7 +1,5 @@
 <template>
   <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
     <CommonButtonsContainer>
       <TenantCreateTenantModal
         v-model="showCreateModal"
@@ -62,7 +60,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: "tenant" });
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 import type { ContextMenuItem } from "@nuxt/ui";
 
 const items = ref<ContextMenuItem[][]>([
@@ -82,14 +79,6 @@ const items = ref<ContextMenuItem[][]>([
     },
   ],
 ]);
-const links = ref<BreadcrumbItem[]>([
-  {
-    label: "租户管理",
-    icon: "i-lucide-book-open",
-    to: "/dash/tenant",
-  },
-]);
-
 const toast = useToast();
 
 const tenants = ref<TenantDto[]>([]);

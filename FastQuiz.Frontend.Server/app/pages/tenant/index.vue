@@ -26,6 +26,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: "tenant" });
 const { $api } = useNuxtApp();
+const router = useRouter();
 const toast = useToast();
 
 const tenants = ref<TenantDto[]>([]);
@@ -36,6 +37,9 @@ const loadError = ref(false);
 onMounted(async () => {
   await fetchList(false, pageSize.value, true);
   loaded.value = true;
+  if (tenants.value.length === 1 && tenants.value[0]?.id) {
+    await router.replace(`/tenant/${tenants.value[0].id}`);
+  }
 });
 
 const haveMore = ref(true);
