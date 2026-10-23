@@ -26,9 +26,7 @@ async function onRegister() {
 <template>
   <section class="auth-panel" aria-labelledby="register-title">
     <div class="auth-heading">
-      <CommonBrandMark />
-      <h1 id="register-title">新的开始。</h1>
-      <p>创建账号，开启更有条理的学习。</p>
+      <h1 id="register-title">创建账号</h1>
     </div>
     <UForm :state="state" @submit="onRegister" class="auth-form">
       <UFormField label="用户名" name="username" required>

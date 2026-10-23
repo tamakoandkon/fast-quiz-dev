@@ -1,16 +1,23 @@
 <template>
   <UDrawer v-model:open="open" direction="right" :modal="false">
     <template #content>
-      <div class="p-4">
-        <div class="flex flex-wrap gap-1.5 w-100">
-          <div
+      <div class="answer-sheet">
+        <div class="answer-sheet-heading">
+          <h2>答题卡</h2>
+          <button type="button" aria-label="关闭答题卡" @click="open = false"><Icon name="i-heroicons-x-mark" /></button>
+        </div>
+        <div class="answer-sheet-grid">
+          <button
             v-for="item in numberedIds"
             :key="item.id"
             @click="emit('click', item.id)"
-            class="h-9 w-9 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700 text-sm select-none"
+            type="button"
+            class="answer-sheet-item"
+            :class="{ 'is-answered': answeredIds?.includes(item.id) }"
+            :aria-label="`第 ${item.number} 题，${answeredIds?.includes(item.id) ? '已答' : '未答'}`"
           >
             {{ item.number }}
-          </div>
+          </button>
         </div>
       </div>
     </template>
@@ -24,6 +31,7 @@ const open = defineModel({ required: true, default: false });
 
 const props = defineProps<{
   ids: string[];
+  answeredIds?: string[];
 }>();
 
 const emit = defineEmits<{
