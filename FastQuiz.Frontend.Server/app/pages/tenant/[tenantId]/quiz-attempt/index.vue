@@ -1,9 +1,5 @@
 <template>
   <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" />
-    </template>
-
     <main class="flex-1 min-w-0">
       <!-- 试卷详情模态 -->
       <LazyQuizTemplateViewQuizTemplateDetailsModal
@@ -13,83 +9,33 @@
         :tenant-id="tenantId"
       />
 
-      <div class="space-y-4">
-        <!-- 考试行：每个考试占一整行 -->
-        <UCard
+      <div class="exam-list">
+        <article
           v-for="template in templates"
           :key="template.id || ''"
-          class="w-full"
-          :ui="{ body: 'p-0 sm:p-0' }"
+          class="exam-row"
         >
-          <template #header>
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <h3 class="text-lg font-semibold truncate">
-                {{ template.name }}
-              </h3>
-
-              <span class="text-sm text-gray-500">
-                考试时长 {{ template.durationMinutes }} 分钟
-              </span>
-
-              <UBadge v-if="template.isUnlimitedTime" color="neutral" size="sm">
-                无限时间
-              </UBadge>
-              <span v-else class="text-xs text-gray-500">
-                <template v-if="template.beginTime">
-                  开始：{{ formatDate(template.beginTime) }}
-                </template>
-                <template v-if="template.endTime">
-                  ｜结束：{{ formatDate(template.endTime) }}
-                </template>
-              </span>
-
-              <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  @click="handleView(template)"
-                >
-                  查看详情
-                </UButton>
-                <UButton
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                  :disabled="!isExamAvailable(template) || starting"
-                  :loading="startingId === template.id && claiming"
-                  @click="startAnswer(template.id || '', true)"
-                >领取预生成试卷</UButton>
-                <UButton
-                  color="primary"
-                  variant="solid"
-                  size="sm"
-                  :disabled="!isExamAvailable(template) || starting"
-                  :loading="startingId === template.id && !claiming"
-                  @click="startAnswer(template.id || '')"
-                >
-                  {{ getExamStatusText(template) }}
-                </UButton>
-              </div>
+          <div class="exam-main">
+            <h2>{{ template.name }}</h2>
+            <div class="exam-meta">
+              <span>{{ template.isUnlimitedTime ? '不限时' : `${template.durationMinutes ?? 0} 分钟` }}</span>
+              <span v-if="template.beginTime">{{ formatDate(template.beginTime) }} 开始</span>
+              <span v-if="template.endTime">{{ formatDate(template.endTime) }} 截止</span>
             </div>
-          </template>
-
-          <!-- 描述（有才显示） -->
-          <div
-            v-if="template.description"
-            class="px-6 py-3 text-sm text-gray-600 dark:text-gray-400"
-          >
-            {{ template.description }}
           </div>
-        </UCard>
+          <div class="exam-actions">
+            <UButton color="neutral" variant="ghost" size="sm" @click="handleView(template)">详情</UButton>
+            <UButton color="neutral" variant="outline" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && claiming" @click="startAnswer(template.id || '', true)">领取试卷</UButton>
+            <UButton color="primary" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && !claiming" @click="startAnswer(template.id || '')">{{ getExamStatusText(template) }}</UButton>
+          </div>
+        </article>
 
-        <!-- 无已发布考试 -->
-        <div
-          v-if="loaded && templates.length === 0"
-          class="workspace-card py-16 text-center text-muted"
-        >
-          当前没有可参加的考试。
+        <div v-if="!loaded" class="exam-empty" role="status">正在加载考试…</div>
+        <div v-else-if="loadError && templates.length === 0" class="exam-empty">
+          <p>考试列表暂时无法加载。</p>
+          <UButton color="neutral" variant="outline" size="sm" @click="fetchTemplates(true)">重试</UButton>
         </div>
+        <div v-else-if="templates.length === 0" class="exam-empty">当前没有可参加的考试。</div>
       </div>
     </main>
 
@@ -103,11 +49,7 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
-
 const toast = useToast();
-
-const links = ref<BreadcrumbItem[]>([]);
 
 const router = useRouter();
 const route = useRoute();
@@ -118,17 +60,12 @@ const pageSize = ref(10);
 const templates = ref<QuizTemplateDto[]>([]);
 const haveMore = ref(true);
 const loaded = ref(false);
+const loadError = ref(false);
 /** 下一页游标；追加模式下用「最后一条的 id」，不依赖数组增长。 */
 const nextCursor = ref<string | undefined>(undefined);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
-
-  links.value.push({
-    label: "考试中心",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/quiz-attempt`,
-  });
 
   await fetchTemplates(true);
   loaded.value = true;
@@ -147,12 +84,14 @@ const fetchTemplates = async (refresh: boolean = false) => {
       Count: pageSize.value,
     });
   } catch (e: any) {
+    loadError.value = true;
     const title = e?.response?.data?.title ?? "获取试卷失败";
     toast.add({ title: `获取试卷出错了：${title}`, color: "error" });
     return;
   }
 
   const batch = result.data ?? [];
+  loadError.value = false;
 
   if (refresh) {
     templates.value = batch;
@@ -180,9 +119,6 @@ const loadMore = async () => {
 
 // 新增：检查考试是否可开始
 const isExamAvailable = (template: QuizTemplateDto) => {
-  // 无限时间始终可开始
-  if (template.isUnlimitedTime) return true;
-
   const now = new Date();
   const beginTime = template.beginTime ? new Date(template.beginTime) : null;
   const endTime = template.endTime ? new Date(template.endTime) : null;
@@ -198,8 +134,6 @@ const isExamAvailable = (template: QuizTemplateDto) => {
 
 // 新增：获取考试状态文本
 const getExamStatusText = (template: QuizTemplateDto) => {
-  if (template.isUnlimitedTime) return "开始考试";
-
   const now = new Date();
   const beginTime = template.beginTime ? new Date(template.beginTime) : null;
   const endTime = template.endTime ? new Date(template.endTime) : null;

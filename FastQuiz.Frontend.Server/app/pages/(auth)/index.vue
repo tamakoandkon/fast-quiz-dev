@@ -30,9 +30,7 @@ async function onSubmit() {
 <template>
   <section class="auth-panel" aria-labelledby="login-title">
     <div class="auth-heading">
-      <CommonBrandMark />
-      <h1 id="login-title">欢迎回来。</h1>
-      <p>登录 FastQuiz，继续你的学习旅程。</p>
+      <h1 id="login-title">登录 FastQuiz</h1>
     </div>
     <UForm :state="state" @submit="onSubmit" class="auth-form">
       <UFormField label="用户名" name="username" required>
@@ -49,6 +47,6 @@ async function onSubmit() {
       <UButton type="submit" block :loading="loading" :disabled="loading">登录</UButton>
     </UForm>
     <div class="auth-divider" />
-    <p class="auth-switch">第一次使用？<NuxtLink to="/register">创建账号</NuxtLink></p>
+    <p class="auth-switch">还没有账号？<NuxtLink to="/register">创建账号</NuxtLink></p>
   </section>
 </template>

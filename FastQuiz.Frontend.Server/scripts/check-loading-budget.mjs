@@ -8,7 +8,7 @@ const html = fs.readFileSync(new URL('index.html', root), 'utf8');
 const entry = html.match(/<script[^>]+src="\/_nuxt\/([^"]+\.js)"/)[1];
 const sources = new Map(fs.readdirSync(assets).filter(name => name.endsWith('.js'))
   .map(name => [name, fs.readFileSync(new URL(name, assets), 'utf8')]));
-const markers = ['FASTQUIZ / OVERVIEW', 'workspace-sidebar', '领取预生成试卷'];
+const markers = ['workspace-card-icon', 'workspace-sidebar', 'exam-row'];
 const roots = markers.map(marker => {
   const matches = [...sources].filter(([, source]) => source.includes(marker));
   assert.equal(matches.length, 1, 'Update the route marker: ' + marker);

@@ -1,43 +1,20 @@
 <template>
   <CommonManagePageContainer>
     <header class="workspace-hero">
-      <p class="workspace-eyebrow">FASTQUIZ / WORKSPACES</p>
-      <h1 class="workspace-title">你的工作空间。</h1>
-      <p class="workspace-description">选择一个租户，进入你的考试与学习空间。</p>
+      <h1 class="workspace-title">我的租户</h1>
     </header>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
-    <!-- 卡片网格 -->
-    <div class="relative">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <UCard
-          v-for="tenant in tenants"
-          :key="tenant.id || ''"
-          class="cursor-pointer rounded-2xl hover:shadow-md transition-shadow duration-200"
-          role="link"
-          tabindex="0"
-          @keydown.enter="router.push('/tenant/' + tenant.id)"
-          @keydown.space.prevent="router.push('/tenant/' + tenant.id)"
-          @click="() => router.push(`/tenant/${tenant.id}`)"
-        >
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="font-medium text-gray-900 truncate">
-                {{ tenant.name || "未命名租户" }}
-              </span>
-              <UTooltip v-if="tenant.id" text="点击查看详情">
-                <UIcon name="i-lucide-chevron-right" class="text-gray-400" />
-              </UTooltip>
-            </div>
-          </template>
-
-          <!-- 卡片内容：显示租户基本信息 -->
-          <div class="text-sm text-gray-500 space-y-1">
-            {{ tenant.description }}
-          </div>
-        </UCard>
-      </div>
+    <div class="workspace-grid">
+      <NuxtLink v-for="tenant in tenants" :key="tenant.id || ''" :to="`/tenant/${tenant.id}`" class="workspace-card tenant-card">
+        <h2>{{ tenant.name || "未命名租户" }}</h2>
+        <UIcon name="i-lucide-arrow-up-right" class="workspace-card-arrow" aria-hidden="true" />
+      </NuxtLink>
     </div>
+    <div v-if="!loaded" class="exam-empty" role="status">正在加载租户…</div>
+    <div v-else-if="loadError && tenants.length === 0" class="exam-empty">
+      <p>租户列表暂时无法加载。</p>
+      <UButton color="neutral" variant="outline" @click="fetchList(false, pageSize, true)">重试</UButton>
+    </div>
+    <div v-else-if="tenants.length === 0" class="exam-empty">暂无可进入的租户。</div>
     <CommonLoadMoreButton
       v-if="haveMore"
       @click="() => fetchList(false, pageSize, false)"
@@ -49,32 +26,16 @@
 <script setup lang="ts">
 definePageMeta({ layout: "tenant" });
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
-
-const router = useRouter();
-
-const links = ref<BreadcrumbItem[]>([
-  {
-    label: "我的租户",
-    icon: "iconoir:home-simple",
-    to: "/tenant",
-  },
-]);
-
 const toast = useToast();
 
 const tenants = ref<TenantDto[]>([]);
 const pageSize = ref(30);
+const loaded = ref(false);
+const loadError = ref(false);
 
 onMounted(async () => {
   await fetchList(false, pageSize.value, true);
-  // 检查租户数量，如果只有一个则自动跳转
-  if (tenants.value.length === 1) {
-    const tenantId = tenants.value[0]?.id;
-    if (tenantId) {
-      router.push(`/tenant/${tenantId}`);
-    }
-  }
+  loaded.value = true;
 });
 
 const haveMore = ref(true);
@@ -96,10 +57,13 @@ const fetchList = async (
       IsPrevious: isPre,
     });
   } catch (e: any) {
-    const title = e.response.data.title;
+    loadError.value = true;
+    const title = e?.response?.data?.title ?? "请稍后重试";
     toast.add({ title: "获取租户列表失败：" + title });
     return;
   }
+
+  loadError.value = false;
 
   if (refresh) {
     tenants.value = result.data;

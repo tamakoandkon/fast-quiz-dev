@@ -1,10 +1,8 @@
 <template>
-  <div class="inline-flex items-center gap-2 font-mono">
-    <!-- 分 -->
+  <div class="inline-flex items-center gap-2 font-mono" role="timer" aria-label="剩余时间">
     <CommonTimeUnit :value="minutes" label="分" />
-    <span class="text-gray-400 text-lg">:</span>
+    <span aria-hidden="true">:</span>
 
-    <!-- 秒 -->
     <CommonTimeUnit :value="seconds" label="秒" />
   </div>
 </template>
@@ -13,13 +11,11 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 
 const props = defineProps({
-  // 倒计时总时长（分钟）
   minutes: {
     type: Number,
     required: true,
     validator: (val) => val > 0,
   },
-  // 开始时间：时间戳（毫秒）或 ISO 字符串
   startTime: {
     type: [Number, String],
     required: true,
@@ -28,11 +24,10 @@ const props = defineProps({
 
 const emit = defineEmits(["end"]);
 
-// ---------- 状态 ----------
 const remainingMs = ref(0);
 let timer = null;
+let ended = false;
 
-// ---------- 计算剩余时间 ----------
 const calcRemaining = () => {
   const start =
     typeof props.startTime === "string"
@@ -44,13 +39,13 @@ const calcRemaining = () => {
 
   remainingMs.value = Math.max(0, remain);
 
-  if (remainingMs.value === 0) {
+  if (remainingMs.value === 0 && !ended) {
+    ended = true;
     clearInterval(timer);
     emit("end");
   }
 };
 
-// ---------- 格式化时间 ----------
 const formatTime = (ms) => {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -58,15 +53,13 @@ const formatTime = (ms) => {
   return { minutes, seconds };
 };
 
-// ---------- 计算属性 ----------
 const time = computed(() => formatTime(remainingMs.value));
 const minutes = computed(() => time.value.minutes);
 const seconds = computed(() => time.value.seconds);
 
-// ---------- 生命周期 ----------
 onMounted(() => {
   calcRemaining();
-  timer = setInterval(calcRemaining, 1000);
+  if (!ended) timer = setInterval(calcRemaining, 1000);
 });
 
 onUnmounted(() => {
