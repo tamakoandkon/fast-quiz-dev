@@ -1,6 +1,11 @@
 <template>
   <UModal title="新增试卷模板" v-model:open="show">
-    <UButton label="新增试卷模板" color="primary" variant="solid" />
+    <UButton
+      label="新增试卷模板"
+      color="primary"
+      variant="solid"
+      icon="i-lucide-plus"
+    />
 
     <template #body>
       <CommonFormContainer>

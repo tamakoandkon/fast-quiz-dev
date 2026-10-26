@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const userStore = useUserStore();
 const { tenantId, can } = useWorkspaceAccess();
+const greeting = computed(() => `你好，${userStore.user?.username || '欢迎回来'}`);
 const cards = computed(() => [
   { title: '考试中心', icon: 'i-lucide-graduation-cap', path: '/quiz-attempt' },
   { title: '我的考试', icon: 'i-lucide-chart-no-axes-column-increasing', path: '/my-quiz-attempt' },
@@ -11,10 +12,7 @@ const cards = computed(() => [
 ].filter(card => can(card.permission)));
 </script>
 <template>
-  <section>
-    <header class="workspace-hero">
-      <h1 class="workspace-title">你好，{{ userStore.user?.username || '欢迎回来' }}</h1>
-    </header>
+  <CommonPageLayout :title="greeting">
     <div class="workspace-grid">
       <NuxtLink v-for="card in cards" :key="card.path" :to="'/tenant/' + tenantId + card.path" class="workspace-card">
         <UIcon :name="card.icon" class="workspace-card-icon" aria-hidden="true" />
@@ -22,5 +20,5 @@ const cards = computed(() => [
         <UIcon name="i-lucide-arrow-up-right" class="workspace-card-arrow" aria-hidden="true" />
       </NuxtLink>
     </div>
-  </section>
+  </CommonPageLayout>
 </template>

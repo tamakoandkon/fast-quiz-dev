@@ -1,10 +1,6 @@
 <template>
   <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" />
-    </template>
-
-    <main class="flex-1 overflow-y-auto bg-gray-50">
+    <main class="min-w-0">
       <!-- 试卷详情模态 -->
       <QuizTemplateViewQuizTemplateDetailsModal
         :id="viewId"
@@ -12,106 +8,84 @@
         :tenant-id="tenantId"
       />
 
-      <div class="p-4 space-y-3">
-        <!-- 考试模板行：每个模板占一整行 -->
-        <UCard
-          v-for="template in templates"
-          :key="template.id || ''"
-          class="w-full"
-          :ui="{ body: 'p-0 sm:p-0' }"
-        >
-          <!-- 行首：模板信息 + 操作 -->
-          <template #header>
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :icon="
-                  isExpanded(template)
-                    ? 'i-lucide-chevron-down'
-                    : 'i-lucide-chevron-right'
-                "
-                :aria-label="isExpanded(template) ? '收起' : '展开'"
-                @click="toggleExpand(template)"
-              />
-
-              <h3 class="text-lg font-semibold truncate">
-                {{ template.name }}
-              </h3>
-
-              <span class="text-sm text-gray-500">
-                考试时长 {{ template.durationMinutes }} 分钟
-              </span>
-
-              <UBadge v-if="template.isUnlimitedTime" color="neutral" size="sm">
-                无限时间
-              </UBadge>
-              <span v-else class="text-xs text-gray-500">
-                <template v-if="template.beginTime">
-                  开始：{{ formatDate(template.beginTime) }}
-                </template>
-                <template v-if="template.endTime">
-                  ｜结束：{{ formatDate(template.endTime) }}
-                </template>
-              </span>
-
-              <div class="ml-auto flex items-center gap-2">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  @click="handleView(template)"
-                >
-                  查看详情
-                </UButton>
-
-                <!-- 有进行中的记录时给出「继续考试」，否则「开始考试」 -->
-                <UButton
-                  v-if="ongoingAttemptOf(template)"
-                  color="warning"
-                  variant="solid"
-                  size="sm"
-                  @click="resumeAttempt(ongoingAttemptOf(template)!)"
-                >
-                  继续考试
-                </UButton>
-                <UButton
-                  v-else
-                  color="primary"
-                  variant="solid"
-                  size="sm"
-                  :disabled="!isExamAvailable(template)"
-                  @click="startAnswer(template.id || '')"
-                >
-                  {{ getExamStatusText(template) }}
-                </UButton>
-
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-clipboard-list"
-                  :disabled="!myUserId"
-                  @click.stop="goMyRecords"
-                >
-                  查看我的成绩
-                </UButton>
-              </div>
-            </div>
-          </template>
-
-          <!-- 描述（有才显示） -->
+      <div class="exam-list" :aria-busy="loadingMore">
+        <template v-if="!loaded">
           <div
-            v-if="template.description"
-            class="px-6 pt-3 text-sm text-gray-600 dark:text-gray-400"
+            v-for="n in 3"
+            :key="n"
+            class="exam-skeleton-row"
+            aria-hidden="true"
           >
-            {{ template.description }}
+            <div class="exam-skeleton-main">
+              <span class="skeleton-line"></span>
+              <span class="skeleton-line is-short is-small"></span>
+            </div>
+            <span class="skeleton-pill"></span>
           </div>
+        </template>
+
+        <template v-for="template in templates" :key="template.id || ''">
+          <article class="exam-row">
+            <div class="exam-main">
+              <h2 class="exam-title-line">
+                <button
+                  type="button"
+                  class="exam-title-button"
+                  :aria-expanded="isExpanded(template)"
+                  @click="toggleExpand(template)"
+                >
+                  <span>{{ template.name }}</span>
+                  <UIcon
+                    class="exam-title-chevron"
+                    :name="isExpanded(template) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                  />
+                </button>
+              </h2>
+
+              <div class="exam-meta">
+                <span>{{ template.isUnlimitedTime ? '不限时' : `${template.durationMinutes ?? 0} 分钟` }}</span>
+                <span v-if="template.beginTime">{{ formatDateTime(template.beginTime) }} 开始</span>
+                <span v-if="template.endTime">{{ formatDateTime(template.endTime) }} 截止</span>
+              </div>
+
+              <p v-if="template.description" class="exam-desc">{{ template.description }}</p>
+            </div>
+
+            <div class="exam-actions">
+              <UButton color="neutral" variant="ghost" size="sm" @click="handleView(template)">详情</UButton>
+              <!-- 有进行中的记录时给出「继续考试」，否则「开始考试」 -->
+              <UButton
+                v-if="ongoingAttemptOf(template)"
+                color="warning"
+                variant="soft"
+                size="sm"
+                @click="resumeAttempt(ongoingAttemptOf(template)!)"
+              >
+                继续考试
+              </UButton>
+              <UButton
+                v-else
+                color="primary"
+                size="sm"
+                :disabled="!isExamAvailable(template)"
+                @click="startAnswer(template.id || '')"
+              >
+                {{ getExamStatusText(template) }}
+              </UButton>
+            </div>
+          </article>
 
           <!-- 展开区：该考试下的考试记录（独立分页） -->
-          <div v-if="isExpanded(template)" class="border-t divide-y">
+          <div v-if="isExpanded(template)" class="exam-records">
+            <div
+              v-if="recordState(template).loading && !recordsOf(template).length"
+              class="exam-records-empty"
+              role="status"
+            >
+              正在加载考试记录…
+            </div>
             <CommonDataTable
+              v-else-if="recordsOf(template).length"
               :columns="recordCols"
               :data="recordsOf(template)"
               :selectable="false"
@@ -175,26 +149,19 @@
 
             <!-- 该模板无记录 -->
             <div
-              v-if="
-                !recordState(template).loading &&
-                recordsOf(template).length === 0
-              "
-              class="px-6 py-4 text-sm text-gray-500"
+              v-if="!recordState(template).loading && recordsOf(template).length === 0"
+              class="exam-records-empty"
             >
               该考试暂无你的考试记录。
             </div>
 
             <!-- 记录分页（上一页 / 下一页，各自独立） -->
             <div
-              v-if="
-                recordsOf(template).length > 0 ||
-                recordState(template).page > 0
-              "
-              class="flex items-center justify-between px-6 py-3"
+              v-if="recordsOf(template).length > 0 || recordState(template).page > 0"
+              class="exam-records-footer"
             >
-              <span class="text-xs text-gray-500">
-                第 {{ recordState(template).page + 1 }} 页 · 每页
-                {{ recordPageSize }} 条
+              <span class="text-xs">
+                第 {{ recordState(template).page + 1 }} 页 · 每页 {{ recordPageSize }} 条
               </span>
               <div class="flex items-center gap-2">
                 <UButton
@@ -202,10 +169,7 @@
                   variant="outline"
                   size="xs"
                   icon="i-lucide-chevron-left"
-                  :disabled="
-                    recordState(template).page === 0 ||
-                    recordState(template).loading
-                  "
+                  :disabled="recordState(template).page === 0 || recordState(template).loading"
                   @click="fetchRecords(template, true)"
                 >
                   上一页
@@ -215,10 +179,7 @@
                   variant="outline"
                   size="xs"
                   trailing-icon="i-lucide-chevron-right"
-                  :disabled="
-                    !recordState(template).haveMore ||
-                    recordState(template).loading
-                  "
+                  :disabled="!recordState(template).haveMore || recordState(template).loading"
                   @click="fetchRecords(template, false)"
                 >
                   下一页
@@ -226,31 +187,25 @@
               </div>
             </div>
           </div>
-        </UCard>
+        </template>
 
-        <!-- 无已发布考试 -->
-        <div
-          v-if="loaded && templates.length === 0"
-          class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
-        >
-          当前没有可参加的考试。
-        </div>
+        <div v-if="loaded && templates.length === 0" class="exam-empty" role="status">当前没有可参加的考试。</div>
       </div>
-    </main>
 
-    <!-- 加载更多：追加，而非替换 -->
-    <CommonLoadMoreButton
-      v-if="haveMore"
-      @click="loadMore"
-    ></CommonLoadMoreButton>
+      <!-- 滚动到底自动续页，替代常驻按钮 -->
+      <CommonListSentinel
+        :loading="loadingMore"
+        :end="loaded && !haveMore"
+        :end-text="`已显示全部 ${templates.length} 份考试`"
+        :disabled="!loaded || !haveMore"
+        @reach="loadMore"
+      />
+    </main>
   </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
-
-const links = ref<BreadcrumbItem[]>([]);
 
 const router = useRouter();
 const route = useRoute();
@@ -261,31 +216,17 @@ const tenantId = ref("");
 const pageSize = ref(10);
 const recordPageSize = 5;
 
-/** 当前登录用户 id（用于「查看我的成绩」跳转） */
-const myUserId = computed(() => userStore.user?.id || "");
-
-/** 跳转到当前用户的考试成绩记录页。 */
-const goMyRecords = () => {
-  if (!myUserId.value) return;
-  router.push(`/tenant/${tenantId.value}/dash/user-records/${myUserId.value}`);
-};
-
 // ---------------- 考试模板列表（外部分页 + 加载更多追加） ----------------
 
 const templates = ref<QuizTemplateDto[]>([]);
 const haveMore = ref(true);
 const loaded = ref(false);
+const loadingMore = ref(false);
 /** 是否还有下一页；用「最后一条的 id」作游标，追加模式下不会因数组增长而错位。 */
 const nextCursor = ref<string | undefined>(undefined);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
-
-  links.value.push({
-    label: "我的考试",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/my-quiz-attempt`,
-  });
 
   await fetchTemplates(true);
   // 首屏把第一页每个模板的「进行中」状态探出来，行首按钮才能显示「继续考试」
@@ -340,11 +281,16 @@ const fetchTemplates = async (refresh: boolean = false) => {
     : undefined;
 };
 
-/** 「加载更多」：追加下一页（追加后为新模板补探测） */
+/** 触底续页：追加下一页（追加后为新模板补「进行中」探测） */
 const loadMore = async () => {
-  if (!haveMore.value) return;
-  await fetchTemplates(false);
-  await probeOngoingForAll();
+  if (!loaded.value || !haveMore.value || loadingMore.value) return;
+  loadingMore.value = true;
+  try {
+    await fetchTemplates(false);
+    await probeOngoingForAll();
+  } finally {
+    loadingMore.value = false;
+  }
 };
 
 // ---------------- 展开态（同一时间只展开一个模板） ----------------
@@ -627,16 +573,8 @@ const getStatusColor = (status?: QuizAttemptStatus) => {
   }
 };
 
-const formatDateTime = (iso?: string | null): string => {
-  if (!iso) return "--";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "--"
-    : d.toLocaleString("zh-CN", { hour12: false });
-};
-
-/** 行首的时间展示与表格内一致，复用同一个格式化函数。 */
-const formatDate = formatDateTime;
+const formatDateTime = (iso?: string | null): string =>
+  iso ? formatDate(iso, "YYYY-MM-DD HH:mm") : "--";
 </script>
 
 <style scoped></style>
