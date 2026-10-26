@@ -20,10 +20,14 @@
 </template>
 
 <script setup lang="ts">
+import type { PropType } from "vue";
+
+type InputSize = "xs" | "sm" | "md" | "lg" | "xl";
+
 defineProps({
   placeholder: { type: String, default: "搜索题库名称" },
   // 标题栏里用 md；独立成行时可以用 xl
-  size: { type: String, default: "md" },
+  size: { type: String as PropType<InputSize>, default: "md" },
 });
 
 const input = defineModel({ default: "" });
