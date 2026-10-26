@@ -1,65 +1,41 @@
 <template>
   <CommonPageLayout v-if="loaded">
-    <div class="sticky top-0 z-10 bg-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center h-18">
-          <!-- 左侧：查看答题卡按钮 -->
-          <div class="flex-shrink-0">
-            <UButton
-              @click="
-                () => {
-                  showAnswerSheet = !showAnswerSheet;
-                }
-              "
-              :class="[
-                'transition-all duration-200',
-                showAnswerSheet
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700',
-              ]"
-              class="px-4 py-2 rounded-lg font-medium"
-            >
-              {{ showAnswerSheet ? "关闭答题卡" : "查看答题卡" }}
-            </UButton>
-          </div>
-
-          <div class="flex-shrink-0 ml-4">
-            <USwitch label="查看全部题目" v-model="showAllQuestion" />
-          </div>
-
-          <!-- 中间：倒计时 -->
-          <div class="flex-1 flex justify-center">
+    <div class="attempt-shell">
+      <header class="attempt-header">
+        <div class="attempt-title-row">
+          <h1>{{ template.name }}</h1>
+          <span class="attempt-progress">已答 {{ getAnsweredCount() }} / {{ questionRecords.length }}</span>
+        </div>
+        <div class="attempt-toolbar">
+          <div class="attempt-timing">
             <CommonCountDown
+              v-if="!template.isUnlimitedTime && (template.durationMinutes ?? 0) > 0"
               :minutes="template.durationMinutes ?? 0"
               :start-time="attempt.startTime ?? ''"
               @end="onCountdownEnd"
-              class="text-lg font-semibold text-gray-800"
             />
+            <span v-else>不限时</span>
           </div>
-
-          <!-- 右侧占位保持对称 -->
-          <div class="w-28 flex-shrink-0"></div>
+          <div class="attempt-toolbar-actions">
+            <UButton color="neutral" variant="ghost" @click="showAnswerSheet = true">答题卡</UButton>
+            <UButton id="submit-btn" color="primary" :disabled="submitting" :loading="submitting" @click="submitQuizAttempt">交卷</UButton>
+          </div>
         </div>
-      </div>
-      <!-- 分割线 -->
-      <hr class="border-gray-200" />
-    </div>
+      </header>
 
-    <QuestionRecordAnswerSheetDrawer
-      v-model="showAnswerSheet"
-      @click="goToQuestion"
-      :ids="ids"
-    ></QuestionRecordAnswerSheetDrawer>
+      <QuestionRecordAnswerSheetDrawer
+        v-model="showAnswerSheet"
+        :ids="ids"
+        :answered-ids="answeredIds"
+        @click="goToQuestion"
+      />
 
-    <div class="max-w-6xl mx-auto">
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 text-center">
-          {{ template.name }}
-        </h1>
+      <div class="attempt-view-switch" role="group" aria-label="答题视图">
+        <button type="button" :aria-pressed="!showAllQuestion" :class="{ 'is-active': !showAllQuestion }" @click="showAllQuestion = false">逐题</button>
+        <button type="button" :aria-pressed="showAllQuestion" :class="{ 'is-active': showAllQuestion }" @click="showAllQuestion = true">全部题目</button>
       </div>
 
-      <!-- 全题视图 -->
-      <div v-if="showAllQuestion" class="space-y-4">
+      <div v-if="showAllQuestion" class="attempt-questions">
         <QuestionRecordAnswerCard
           v-for="(question, questionIndex) in questionRecords"
           :key="question.id || questionIndex"
@@ -69,32 +45,9 @@
           @answer="updateAnswer"
           :id="question.id"
         />
-
-        <!-- 空状态 -->
-        <div
-          v-if="questionRecords.length === 0"
-          class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
-        >
-          暂无题目
-        </div>
       </div>
-
-      <!-- 单题视图 -->
-      <div v-else>
-        <div v-if="currentQuestion" class="space-y-4">
-          <!-- 进度信息 -->
-          <div
-            class="flex justify-between items-center bg-white rounded-lg shadow p-4"
-          >
-            <span class="text-sm text-gray-600">
-              第 {{ currentIndex + 1 }} / {{ questionRecords.length }} 题
-            </span>
-            <span class="text-sm text-gray-500">
-              {{ getAnsweredCount() }} / {{ questionRecords.length }} 已答
-            </span>
-          </div>
-
-          <!-- 当前题目 -->
+      <div v-else class="attempt-questions">
+        <template v-if="currentQuestion">
           <QuestionRecordAnswerCard
             :question="currentQuestion"
             :index="currentIndex + 1"
@@ -102,54 +55,23 @@
             @answer="updateAnswer"
             :id="currentQuestion.id"
           />
-
-          <!-- 导航按钮 -->
-          <div
-            class="flex justify-between items-center bg-white rounded-lg shadow p-4"
-          >
-            <UButton
-              @click="goToPreviousQuestion"
-              :disabled="currentIndex === 0"
-              color="info"
-              size="lg"
-            >
-              <Icon name="i-heroicons-chevron-left" class="mr-1" />
-              上一题
-            </UButton>
-
-            <UButton
-              @click="goToNextQuestion"
-              :disabled="currentIndex === questionRecords.length - 1"
-              color="info"
-              size="lg"
-            >
-              下一题
-              <Icon name="i-heroicons-chevron-right" class="ml-1" />
-            </UButton>
-          </div>
-        </div>
-
-        <!-- 空状态 -->
-        <div
-          v-if="questionRecords.length === 0"
-          class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
-        >
-          暂无题目
-        </div>
+          <nav class="attempt-pagination" aria-label="题目导航">
+            <UButton color="neutral" variant="ghost" :disabled="currentIndex === 0" @click="goToPreviousQuestion">上一题</UButton>
+            <span>{{ currentIndex + 1 }} / {{ questionRecords.length }}</span>
+            <UButton color="neutral" variant="ghost" :disabled="currentIndex === questionRecords.length - 1" @click="goToNextQuestion">下一题</UButton>
+          </nav>
+        </template>
       </div>
-    </div>
-
-    <div class="flex justify-center my-4">
-      <UButton
-        @click="submitQuizAttempt"
-        size="xl"
-        class="text-lg px-8 py-3"
-        id="submit-btn"
-      >
-        交卷
-      </UButton>
+      <div v-if="questionRecords.length === 0" class="exam-empty">暂无题目</div>
     </div>
   </CommonPageLayout>
+  <CommonPageLayout v-else-if="loadError">
+    <div class="exam-empty">
+      <p>试卷暂时无法加载。</p>
+      <UButton color="neutral" variant="outline" @click="loadAttempt">重试</UButton>
+    </div>
+  </CommonPageLayout>
+  <CommonPageLayout v-else><div class="exam-empty" role="status">正在加载试卷…</div></CommonPageLayout>
 </template>
 
 <script setup lang="ts">
@@ -195,27 +117,30 @@ const currentQuestion = computed(() => {
 });
 
 const loaded = ref(false);
+const loadError = ref(false);
+const submitting = ref(false);
+const answeredIds = computed(() => ids.value.filter((id) => {
+  const answers = selectedAnswers.value[id] || [];
+  return answers.some((answer) => Boolean(answer?.trim()));
+}));
 
-onMounted(async () => {
+const loadAttempt = async () => {
+  loadError.value = false;
   attemptId.value = route.params.attemptId as string;
   tenantId.value = route.params.tenantId as string;
+  try {
+    const result = await $api.tenant.quizTemplateQuizAttemptDetail(tenantId.value, attemptId.value);
+    attempt.value = result.data;
+    const templateResult = await $api.tenant.quizTemplateDetail(tenantId.value, attempt.value.quizTemplateId ?? "");
+    template.value = templateResult.data;
+    await fetchQuestions();
+    loaded.value = true;
+  } catch {
+    loadError.value = true;
+  }
+};
 
-  const result = await $api.tenant.quizTemplateQuizAttemptDetail(
-    tenantId.value,
-    attemptId.value,
-  );
-  attempt.value = result.data;
-
-  const templateResult = await $api.tenant.quizTemplateDetail(
-    tenantId.value,
-    attempt.value.quizTemplateId ?? "",
-  );
-  template.value = templateResult.data;
-
-  await fetchQuestions();
-
-  loaded.value = true;
-});
+onMounted(loadAttempt);
 
 const fetchQuestions = async () => {
   const result = await $api.tenant.quizTemplateQuizAttemptQuestionList(
@@ -292,6 +217,7 @@ const updateAnswer = async (
 
 // 交卷
 const submitQuizAttempt = async () => {
+  if (submitting.value) return;
   try {
     // 检查是否有未完成的题目
     const unansweredQuestions = questionRecords.value.filter((q) => {
@@ -303,25 +229,12 @@ const submitQuizAttempt = async () => {
       );
     });
 
-    if (unansweredQuestions.length > 0) {
-      const confirmSubmit = await new Promise((resolve) => {
-        // 使用 Nuxt UI 的弹窗或 confirm
-        if (
-          window.confirm(
-            `还有 ${unansweredQuestions.length} 道题未作答，确定交卷吗？`,
-          )
-        ) {
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      });
+    const message = unansweredQuestions.length > 0
+      ? `还有 ${unansweredQuestions.length} 道题未作答，确定交卷吗？`
+      : "确定交卷吗？";
+    if (!window.confirm(message)) return;
 
-      if (!confirmSubmit) {
-        return;
-      }
-    }
-
+    submitting.value = true;
     await $api.tenant.quizTemplateQuizAttemptUpdate(
       tenantId.value,
       attemptId.value,
@@ -333,6 +246,8 @@ const submitQuizAttempt = async () => {
     router.push(`/tenant/${tenantId.value}/my-quiz-attempt`);
   } catch (error) {
     toast.add({ title: "交卷失败", color: "error" });
+  } finally {
+    submitting.value = false;
   }
 };
 
@@ -351,9 +266,11 @@ const onCountdownEnd = async () => {
 };
 
 const goToQuestion = (id: string) => {
-  // router.push({ hash: `#${id}` });
   currentQuestionId.value = id;
-  window.location.hash = `#${id}`;
+  showAnswerSheet.value = false;
+  if (showAllQuestion.value) {
+    nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
 };
 
 // 跳转到上一题

@@ -83,7 +83,7 @@ onMounted(async () => {
       <UButton class="sidebar-close" icon="i-lucide-x" color="neutral" variant="ghost" aria-label="关闭导航" @click="mobileOpen = false" />
       <NuxtLink to="/tenant" class="workspace-brand">
         <CommonBrandMark />
-        <div><strong>FastQuiz</strong><small>考试与学习，井然有序。</small></div>
+        <strong>FastQuiz</strong>
       </NuxtLink>
       <nav class="workspace-navigation">
         <section v-for="section in sections" :key="section.label">
@@ -108,7 +108,7 @@ onMounted(async () => {
       <header class="workspace-topbar">
         <div class="workspace-context">
           <UButton class="mobile-menu-toggle" color="neutral" variant="ghost" icon="i-lucide-menu" aria-label="打开导航" aria-controls="workspace-navigation" :aria-expanded="mobileOpen" @click="mobileOpen = true" />
-          <span>工作空间</span><span class="hidden sm:inline">/</span><strong>{{ pageTitle }}</strong>
+          <strong>{{ pageTitle }}</strong>
         </div>
         <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-circle-user-round" aria-label="账户设置" @click="showProfile = true"><span class="hidden sm:inline">{{ username }}</span></UButton>
       </header>
