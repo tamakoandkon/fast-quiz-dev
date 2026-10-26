@@ -1,7 +1,5 @@
 <template>
   <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
 
     <CommonButtonsContainer>
       <OrganizationCreateOrganizationModal
@@ -138,7 +136,6 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 import type { ContextMenuItem } from "@nuxt/ui";
 
 const route = useRoute();
@@ -266,17 +263,11 @@ const items = ref<ContextMenuItem[][]>([
   ],
 ]);
 
-const links = ref<BreadcrumbItem[]>([]);
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
-  links.value.push({
-    label: "组织管理",
-    icon: "iconoir:city",
-    to: `/tenant/${tenantId.value}/dash/organization`,
-  });
   await fetchList(false, pageSize.value, true);
 });
 

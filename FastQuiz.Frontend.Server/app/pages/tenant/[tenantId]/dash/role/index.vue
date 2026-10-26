@@ -1,7 +1,5 @@
 <template>
   <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
     <CommonButtonsContainer>
       <RoleCreateRoleModal
         v-model="showCreateModal"
@@ -57,7 +55,6 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 import type { ContextMenuItem } from "@nuxt/ui";
 const route = useRoute();
 
@@ -78,7 +75,6 @@ const items = ref<ContextMenuItem[][]>([
     },
   ],
 ]);
-const links = ref<BreadcrumbItem[]>([]);
 
 const toast = useToast();
 
@@ -89,11 +85,6 @@ const selected = ref<RoleDto[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
-  links.value.push({
-    label: "角色管理",
-    icon: "iconoir:user-circle",
-    to: `/tenant/${tenantId.value}/dash/role`,
-  });
   await fetchList(false, pageSize.value, true);
 });
 

@@ -9,41 +9,64 @@
         :tenant-id="tenantId"
       />
 
-      <div class="exam-list">
-        <article
-          v-for="template in templates"
-          :key="template.id || ''"
-          class="exam-row"
-        >
-          <div class="exam-main">
-            <h2>{{ template.name }}</h2>
-            <div class="exam-meta">
-              <span>{{ template.isUnlimitedTime ? '不限时' : `${template.durationMinutes ?? 0} 分钟` }}</span>
-              <span v-if="template.beginTime">{{ formatDate(template.beginTime) }} 开始</span>
-              <span v-if="template.endTime">{{ formatDate(template.endTime) }} 截止</span>
+      <div class="exam-list" :aria-busy="loadingMore">
+        <template v-if="!loaded">
+          <div
+            v-for="n in 3"
+            :key="n"
+            class="exam-skeleton-row"
+            aria-hidden="true"
+          >
+            <div class="exam-skeleton-main">
+              <span class="skeleton-line"></span>
+              <span class="skeleton-line is-short is-small"></span>
             </div>
+            <span class="skeleton-pill"></span>
           </div>
-          <div class="exam-actions">
-            <UButton color="neutral" variant="ghost" size="sm" @click="handleView(template)">详情</UButton>
-            <UButton color="neutral" variant="outline" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && claiming" @click="startAnswer(template.id || '', true)">领取试卷</UButton>
-            <UButton color="primary" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && !claiming" @click="startAnswer(template.id || '')">{{ getExamStatusText(template) }}</UButton>
-          </div>
-        </article>
+        </template>
 
-        <div v-if="!loaded" class="exam-empty" role="status">正在加载考试…</div>
-        <div v-else-if="loadError && templates.length === 0" class="exam-empty">
+        <template v-else-if="templates.length">
+          <article
+            v-for="template in templates"
+            :key="template.id || ''"
+            class="exam-row"
+          >
+            <div class="exam-main">
+              <h2>{{ template.name }}</h2>
+              <div class="exam-meta">
+                <span>{{ template.isUnlimitedTime ? '不限时' : `${template.durationMinutes ?? 0} 分钟` }}</span>
+                <span v-if="template.beginTime">{{ examMoment(template.beginTime) }} 开始</span>
+                <span v-if="template.endTime">{{ examMoment(template.endTime) }} 截止</span>
+              </div>
+              <p v-if="template.description" class="exam-desc" :title="template.description">
+                {{ template.description }}
+              </p>
+            </div>
+            <div class="exam-actions">
+              <UButton color="neutral" variant="ghost" size="sm" @click="handleView(template)">详情</UButton>
+              <UButton color="neutral" variant="ghost" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && claiming" @click="startAnswer(template.id || '', true)">领取试卷</UButton>
+              <UButton color="primary" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && !claiming" @click="startAnswer(template.id || '')">{{ getExamStatusText(template) }}</UButton>
+            </div>
+          </article>
+        </template>
+
+        <div v-else-if="loadError" class="exam-empty" role="status">
           <p>考试列表暂时无法加载。</p>
-          <UButton color="neutral" variant="outline" size="sm" @click="fetchTemplates(true)">重试</UButton>
+          <UButton color="neutral" variant="outline" size="sm" icon="i-lucide-refresh-cw" @click="fetchTemplates(true)">重新加载</UButton>
         </div>
-        <div v-else-if="templates.length === 0" class="exam-empty">当前没有可参加的考试。</div>
+
+        <div v-else class="exam-empty" role="status">当前没有可参加的考试。</div>
       </div>
     </main>
 
-    <!-- 加载更多：追加，而非替换 -->
-    <CommonLoadMoreButton
-      v-if="haveMore"
-      @click="loadMore"
-    ></CommonLoadMoreButton>
+    <!-- 滚动到底自动续页，替代常驻按钮 -->
+    <CommonListSentinel
+      :loading="loadingMore"
+      :end="loaded && !haveMore"
+      :end-text="`已显示全部 ${templates.length} 份考试`"
+      :disabled="!loaded || !haveMore || !!loadError"
+      @reach="loadMore"
+    />
   </CommonPageLayout>
 </template>
 
@@ -60,6 +83,7 @@ const pageSize = ref(10);
 const templates = ref<QuizTemplateDto[]>([]);
 const haveMore = ref(true);
 const loaded = ref(false);
+const loadingMore = ref(false);
 const loadError = ref(false);
 /** 下一页游标；追加模式下用「最后一条的 id」，不依赖数组增长。 */
 const nextCursor = ref<string | undefined>(undefined);
@@ -111,10 +135,15 @@ const fetchTemplates = async (refresh: boolean = false) => {
     : undefined;
 };
 
-/** 「加载更多」：追加下一页 */
+/** 触底续页：追加而非替换，失败时保留已有内容。 */
 const loadMore = async () => {
-  if (!haveMore.value) return;
-  await fetchTemplates(false);
+  if (!loaded.value || !haveMore.value || loadingMore.value || loadError.value) return;
+  loadingMore.value = true;
+  try {
+    await fetchTemplates(false);
+  } finally {
+    loadingMore.value = false;
+  }
 };
 
 // 新增：检查考试是否可开始
@@ -188,14 +217,7 @@ const startAnswer = async (templateId: string, claim = false) => {
   router.push(`/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`);
 };
 
-/** 时间展示，与「我的考试」页保持一致。 */
-const formatDate = (iso?: string | null): string => {
-  if (!iso) return "--";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "--"
-    : d.toLocaleString("zh-CN", { hour12: false });
-};
+/** 时间只到分钟，避免秒与斜杠把一行元信息撑得很技术化。 */
+const examMoment = (iso?: string | null): string =>
+  iso ? formatDate(iso, "YYYY-MM-DD HH:mm") : "--";
 </script>
-
-<style scoped></style>

@@ -1,6 +1,6 @@
 <template>
   <UModal title="快速发布" v-model:open="show">
-    <UButton label="快速发布" color="primary" variant="solid" />
+    <UButton label="快速发布" color="neutral" variant="outline" />
 
     <template #body>
       <div class="space-y-4">

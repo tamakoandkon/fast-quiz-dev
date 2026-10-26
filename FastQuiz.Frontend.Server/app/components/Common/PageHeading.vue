@@ -1,6 +1,10 @@
 <script setup lang="ts">
+const props = defineProps({
+  // 显式标题优先，未传时按路由推导。
+  title: { type: String, default: undefined },
+});
 const route = useRoute();
-const heading = computed(() => {
+const routeHeading = computed(() => {
   const path = route.path;
   const entries = [
     ['/tenant/manage', '租户管理'],
@@ -19,9 +23,13 @@ const heading = computed(() => {
   }
   return null;
 });
+const heading = computed(() => props.title ?? routeHeading.value);
 </script>
 <template>
-  <header v-if="heading" class="page-heading">
-    <h1 class="workspace-title">{{ heading }}</h1>
+  <header v-if="heading || $slots.actions" class="page-heading">
+    <h1 v-if="heading" class="workspace-title">{{ heading }}</h1>
+    <div v-if="$slots.actions" class="page-heading-actions">
+      <slot name="actions"></slot>
+    </div>
   </header>
 </template>

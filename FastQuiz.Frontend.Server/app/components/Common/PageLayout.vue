@@ -1,9 +1,14 @@
 <template>
-  <div class="flex flex-col gap-5 h-full">
-    <CommonPageHeading />
-    <div v-if="$slots.breadcrumb">
+  <div class="page-shell">
+    <CommonPageHeading :title="title">
+      <template v-if="$slots.actions" #actions>
+        <slot name="actions"></slot>
+      </template>
+    </CommonPageHeading>
+
+    <div v-if="$slots.breadcrumb" class="page-breadcrumb">
       <slot name="breadcrumb"></slot>
-      <USeparator class="my-2" />
+      <USeparator />
     </div>
 
     <div v-if="$slots.header">
@@ -11,7 +16,7 @@
     </div>
 
     <!-- 内容区域 -->
-    <div class="flex-1 min-h-0">
+    <div class="flex-1 min-w-0">
       <slot></slot>
     </div>
 
@@ -22,4 +27,9 @@
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+defineProps({
+  // 覆盖路由推导出来的标题，供概览这类需要动态文案的页面使用。
+  title: { type: String, default: undefined },
+});
+</script>
