@@ -214,7 +214,7 @@ public class SqliteQuestionRepository(SqliteQuestionDbContext _dbContext) : IQue
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            throw new UpdateQuestionException("Update question fail." + ex.Message, ex);
+            throw new UpdateQuestionException("更新题目失败", ex);
         }
     }
 }

@@ -65,11 +65,37 @@ public sealed class QuizAttemptLifecycleService(
 
             if (status == QuizAttemptStatus.InProgress && attempt.Status == QuizAttemptStatus.Pending)
             {
+                if (!template.IsPublished)
+                {
+                    throw new BusinessException("考试未发布或已下架，无法开始作答");
+                }
+
+                var now = DateTimeOffset.UtcNow;
+                if (!template.IsUnlimitedTime && (now < template.BeginTime || now > template.EndTime))
+                {
+                    throw new BusinessException("不在考试开放时间范围内");
+                }
+
                 attempt.Status = status;
-                attempt.StartTime = DateTimeOffset.UtcNow;
+                attempt.StartTime = now;
                 await _quizAttemptRepository.UpdateAsync(attempt);
 
-                reviewAt = attempt.StartTime.Value.AddMinutes(template.DurationMinutes);
+                var durationDeadline =
+                    template.DurationMinutes > 0
+                        ? attempt.StartTime.Value.AddMinutes(template.DurationMinutes)
+                        : (DateTimeOffset?)null;
+                var windowDeadline = !template.IsUnlimitedTime
+                    ? template.EndTime
+                    : (DateTimeOffset?)null;
+                reviewAt = (durationDeadline, windowDeadline) switch
+                {
+                    (not null, not null) => durationDeadline.Value <= windowDeadline.Value
+                        ? durationDeadline.Value
+                        : windowDeadline.Value,
+                    (not null, null) => durationDeadline.Value,
+                    (null, not null) => windowDeadline.Value,
+                    _ => null,
+                };
                 return;
             }
 

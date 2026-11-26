@@ -57,7 +57,7 @@ public sealed class QuestionRecordQueryService(
 
         List<QuestionRecordWithoutAnswerDto> questionRecords = [];
 
-        for (int i = 0; i < questions.Count; i++)
+        for (int i = 0; i < result.Count; i++)
         {
             var record = result[i];
             var q =
@@ -111,7 +111,7 @@ public sealed class QuestionRecordQueryService(
             await _quizAttemptRepository.FindByIdAsync(attemptId)
             ?? throw new ResourceNotFoundException();
 
-        await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quizAttempt.QuizTemplateId);
+        var template = await _quizTemplateService.GetQuizTemplateAsync(userId, tenantId, quizAttempt.QuizTemplateId);
 
         var canReview = await _permissionService.HasPermissionAsync(tenantId, userId, Permissions.QuizAttempt);
         if (quizAttempt.AssignId != userId && !canReview)
@@ -124,6 +124,20 @@ public sealed class QuestionRecordQueryService(
             if (!canReview)
             {
                 throw new PermissionException();
+            }
+        }
+        else if (!canReview)
+        {
+            if (!template.IsUnlimitedTime && DateTimeOffset.UtcNow < template.EndTime)
+            {
+                throw new PermissionException("考试结束前不可查看标准答案");
+            }
+
+            if (template.AttemptLimit < 0
+                || (template.AttemptLimit > 1
+                    && await _quizAttemptRepository.GetAttemptCountAsync(userId, template.Id) < template.AttemptLimit))
+            {
+                throw new PermissionException("仍有剩余考试次数时不可查看标准答案");
             }
         }
 
@@ -139,7 +153,7 @@ public sealed class QuestionRecordQueryService(
 
         List<QuestionRecordWithAnswerDto> questionRecords = [];
 
-        for (int i = 0; i < questions.Count; i++)
+        for (int i = 0; i < result.Count; i++)
         {
             var record = result[i];
             var q =

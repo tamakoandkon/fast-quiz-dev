@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using FastQuiz.API.Setup;
 using FastQuiz.Auth.Interface.Extensions;
 using FastQuiz.Auth.Infrastructure.Initializer;
@@ -9,6 +10,8 @@ using FastQuiz.Quiz.Interface.Setup;
 using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using NLog.Extensions.Logging;
 using NLog.Web;
 
@@ -59,6 +62,34 @@ public class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        });
+
+        var authPermitLimit =
+            builder.Configuration.GetValue<int?>("RateLimiting:AuthPermitLimitPerMinute")
+            ?? (builder.Environment.IsDevelopment() ? 1000 : 30);
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("auth", httpContext =>
+            {
+                var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    remoteIp,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = Math.Max(1, authPermitLimit),
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0,
+                    }
+                );
+            });
+        });
+
         builder.Services.AddCors(options =>
         {
             if (builder.Environment.IsDevelopment())
@@ -69,9 +100,21 @@ public class Program
             }
             else
             {
-                var allowedOrigins =
-                    builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                    ?? throw new InvalidOperationException("生产环境必须配置允许的跨域来源");
+                var allowedOrigins = builder
+                    .Configuration.GetSection("Cors:AllowedOrigins")
+                    .Get<string[]>()?
+                    .Where(o => !string.IsNullOrWhiteSpace(o))
+                    .ToArray();
+                if (
+                    allowedOrigins is null
+                    || allowedOrigins.Length == 0
+                    || allowedOrigins.Any(o =>
+                        o.Contains("yourdomain.com", StringComparison.OrdinalIgnoreCase)
+                    )
+                )
+                {
+                    throw new InvalidOperationException("生产环境必须配置有效的跨域来源白名单");
+                }
 
                 options.AddDefaultPolicy(policy =>
                     policy
@@ -87,7 +130,9 @@ public class Program
         if (!builder.Environment.IsDevelopment())
         {
             var allowedHosts = builder.Configuration["AllowedHosts"];
-            if (string.IsNullOrEmpty(allowedHosts) || allowedHosts == "*")
+            var hostEntries = allowedHosts?
+                .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (hostEntries is null || hostEntries.Length == 0 || hostEntries.Contains("*"))
             {
                 throw new InvalidOperationException(
                     "AllowedHosts must be configured with specific domains in production."
@@ -111,11 +156,14 @@ public class Program
             app.UseSwaggerUI();
         }
 
+        app.UseForwardedHeaders();
+
         // 响应压缩
         app.UseResponseCompression();
         app.UseRouting();
 
         app.UseCors();
+        app.UseRateLimiter();
 
         app.UseHttpsRedirection();
 
@@ -137,17 +185,23 @@ public class Program
                 ResponseWriter = async (context, report) =>
                 {
                     context.Response.ContentType = "application/json";
-                    var result = new
-                    {
-                        status = report.Status.ToString(),
-                        timestamp = DateTimeOffset.UtcNow,
-                        checks = report.Entries.Select(e => new
+                    object result = app.Environment.IsDevelopment()
+                        ? new
                         {
-                            name = e.Key,
-                            status = e.Value.Status.ToString(),
-                            description = e.Value.Description,
-                        }),
-                    };
+                            status = report.Status.ToString(),
+                            timestamp = DateTimeOffset.UtcNow,
+                            checks = report.Entries.Select(e => new
+                            {
+                                name = e.Key,
+                                status = e.Value.Status.ToString(),
+                                description = e.Value.Description,
+                            }),
+                        }
+                        : new
+                        {
+                            status = report.Status.ToString(),
+                            timestamp = DateTimeOffset.UtcNow,
+                        };
                     await context.Response.WriteAsync(JsonSerializer.Serialize(result));
                 },
             }

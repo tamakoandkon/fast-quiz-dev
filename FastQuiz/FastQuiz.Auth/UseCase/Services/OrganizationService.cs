@@ -12,7 +12,8 @@ namespace FastQuiz.Auth.UseCase.Services;
 public class OrganizationService(
     IIdGenerator _idGenerator,
     IPermissionService _permissionService,
-    IOrganizationRepository _organizationRepository
+    IOrganizationRepository _organizationRepository,
+    ITenantRepository _tenantRepository
 ) : IOrganizationService
 {
     public async Task AddUserToOrganzitionAsync(string myId, string userId, string organizationId)
@@ -25,6 +26,11 @@ public class OrganizationService(
         )
         {
             throw new PermissionException();
+        }
+
+        if (!await _tenantRepository.GetUserInTenantAsync(org.TenantId, userId).ConfigureAwait(false))
+        {
+            throw new PermissionException("只能将本租户成员加入组织");
         }
 
         var existedMap = await _organizationRepository

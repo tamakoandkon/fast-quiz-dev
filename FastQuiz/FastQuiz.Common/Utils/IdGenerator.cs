@@ -6,9 +6,24 @@ namespace FastQuiz.Common.Utils;
 public class IdGenerator : IIdGenerator
 {
     private readonly MonotonicUlidRng _rng = new();
+    private readonly object _sync = new();
+    private DateTimeOffset _lastTimestamp = DateTimeOffset.MinValue;
 
     public string GenerateUlId()
     {
-        return Ulid.NewUlid(_rng).ToString();
+        lock (_sync)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (now < _lastTimestamp)
+            {
+                now = _lastTimestamp;
+            }
+            else
+            {
+                _lastTimestamp = now;
+            }
+
+            return Ulid.NewUlid(now, _rng).ToString();
+        }
     }
 }

@@ -59,10 +59,14 @@ public static class OrganizationApi
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         orgGroup
-            .MapDelete("organization{orgId}/user/{userId}", RemoveUserFromOrganizationAsync)
+            .MapDelete("organization/{orgId}/user/{userId}", RemoveUserFromOrganizationAsync)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        orgGroup
+            .MapDelete("organization{orgId}/user/{userId}", RemoveUserFromOrganizationAsync)
+            .ExcludeFromDescription();
         #endregion
     }
 

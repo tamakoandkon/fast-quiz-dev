@@ -120,7 +120,7 @@ public class TenantService(
         await _roleRepository.CreateAsync(role).ConfigureAwait(false);
 
         await _roleRepository
-            .AddPermissionsAsync(role.Id, Permissions.AllPermissions())
+            .AddPermissionsAsync(role.Id, Permissions.TenantPermissions())
             .ConfigureAwait(false);
 
         await _roleRepository
@@ -137,6 +137,11 @@ public class TenantService(
         )
         {
             throw new PermissionException();
+        }
+
+        if (tenantId == Tenant.DefaultTenantId)
+        {
+            throw new PermissionException("不能删除系统默认租户");
         }
 
         await _tenantRepository.DeleteAsync(tenantId).ConfigureAwait(false);
@@ -197,6 +202,10 @@ public class TenantService(
 
     public async Task<TenantDto> GetTenantByIdAsync(string userId, string tenantId)
     {
+        var systemAdmin = await _permissionService
+            .HasPermissionAsync(Tenant.DefaultTenantId, userId, Permissions.SystemAdmin)
+            .ConfigureAwait(false);
+
         if (
             !await _permissionService
                 .HasPermissionAsync(tenantId, userId, Permissions.Tenant)
@@ -206,12 +215,15 @@ public class TenantService(
             throw new PermissionException();
         }
 
-        var isInTenant = await _tenantRepository
-            .GetUserInTenantAsync(tenantId, userId)
-            .ConfigureAwait(false);
-        if (!isInTenant)
+        if (!systemAdmin)
         {
-            throw new PermissionException("不能访问其它组织");
+            var isInTenant = await _tenantRepository
+                .GetUserInTenantAsync(tenantId, userId)
+                .ConfigureAwait(false);
+            if (!isInTenant)
+            {
+                throw new PermissionException("不能访问其它组织");
+            }
         }
 
         var tenant =
@@ -236,14 +248,22 @@ public class TenantService(
     {
         if (
             !await _permissionService
-                .HasPermissionAsync(tenantId, myId, Permissions.SystemAdmin)
+                .HasPermissionAsync(Tenant.DefaultTenantId, myId, Permissions.SystemAdmin)
                 .ConfigureAwait(false)
         )
         {
             throw new PermissionException();
         }
 
+        if (userId == User.DefaultAdminId || await _permissionService
+            .HasPermissionAsync(Tenant.DefaultTenantId, userId, Permissions.SystemAdmin)
+            .ConfigureAwait(false))
+        {
+            throw new PermissionException("不能从租户中移除系统管理员");
+        }
+
         await _tenantRepository.RemoveUserFromTenantAsync(tenantId, userId).ConfigureAwait(false);
+        await _permissionService.InvalidateUserPermissionsAsync(tenantId, userId).ConfigureAwait(false);
     }
 
     public async Task UpdateTenantAsync(string userId, string tenantId, UpdateTenantCommand command)

@@ -15,6 +15,10 @@
         header @static Cache-Control "public, max-age=31536000, immutable"
         @config path /config.json
         header @config Cache-Control "no-store"
+        @document {
+            not path /_nuxt/* /config.json
+        }
+        header @document Cache-Control "no-cache"
         try_files {path} /index.html
         file_server
     }

@@ -26,6 +26,20 @@ public sealed class QuizAnswerService(
         IEnumerable<SetAnswerRecordCommand> commands
     )
     {
+        if (commands is null)
+        {
+            throw new EntityArgumentException("答案格式无效");
+        }
+
+        var commandList = commands.ToList();
+        if (
+            commandList.Count > 50
+            || commandList.Any(x => x is null || x.Value is null || x.Value.Length > 4000)
+        )
+        {
+            throw new EntityArgumentException("答案数量或长度超出限制");
+        }
+
         var questionRecord =
             await GetCachedQuestionRecordAsync(questionRecordId)
             ?? throw new ResourceNotFoundException();
@@ -50,7 +64,11 @@ public sealed class QuizAnswerService(
             {
                 throw new BusinessException("试卷的开始时间异常");
             }
-            if (DateTimeOffset.UtcNow >= quizAttempt.StartTime.Value.AddMinutes(template.DurationMinutes))
+            var now = DateTimeOffset.UtcNow;
+            if (
+                (template.DurationMinutes > 0 && now >= quizAttempt.StartTime.Value.AddMinutes(template.DurationMinutes))
+                || (!template.IsUnlimitedTime && now >= template.EndTime)
+            )
             {
                 throw new BusinessException("试卷不在可以答题的时间范围内");
             }
@@ -61,8 +79,8 @@ public sealed class QuizAnswerService(
                 TenantId = tenantId,
                 QuestionRecordId = questionRecordId,
                 QuizAttemptId = quizAttempt.Id,
-                Values = commands.Select(x => x.Value).Distinct().ToArray(),
-                AddedTime = DateTimeOffset.UtcNow,
+                Values = commandList.Select(x => x.Value).Distinct().ToArray(),
+                AddedTime = now,
             }).ConfigureAwait(false);
         }).ConfigureAwait(false);
     }

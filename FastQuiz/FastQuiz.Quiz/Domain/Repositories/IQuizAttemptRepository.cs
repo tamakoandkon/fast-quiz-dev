@@ -15,7 +15,12 @@ public interface IQuizAttemptRepository
         string templateId
     );
     Task<IReadOnlyList<QuizAttempt>> FindByQuizTemplateIdAsync(string userId, string templateId);
-    Task<IReadOnlyList<QuizAttempt>> GetAllByUserIdAsync(string userId, string? cursor, int count);
+    Task<IReadOnlyList<QuizAttempt>> GetAllByUserIdAsync(
+        string userId,
+        string? cursor,
+        int count,
+        string? tenantId = null
+    );
     Task<IReadOnlyList<QuizAttempt>> GetAllByTemplateIdAsync(
         string templateId,
         string? cursor,

@@ -14,8 +14,8 @@ const policy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self' data:",
-  // config.json supports a separately hosted API. Narrow this to its origin in production.
-  "connect-src 'self' https: http:",
+  // Default connect-src to 'self'; supply FASTQUIZ_CSP_CONNECT_SRC when hosting API on another origin.
+  `connect-src 'self' ${process.env.FASTQUIZ_CSP_CONNECT_SRC || ''}`.trim(),
   "object-src 'none'", "base-uri 'self'", "frame-ancestors 'none'", "form-action 'self'",
 ].join('; ');
 const directory = new URL('../.output/security/', import.meta.url);

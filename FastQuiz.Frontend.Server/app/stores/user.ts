@@ -21,10 +21,12 @@ export const useUserStore = defineStore("user", () => {
 
   // 使用 Nuxt 的 useCookie，它会自动同步到浏览器 Cookie
   // 设置 max-age 等选项确保在关闭浏览器后保持登录状态
-  const token = useCookie<string | null>("cw_auth_token", {
+  const cookieOptions = {
     maxAge: 60 * 60 * 24 * 7, // 7天有效期
-    sameSite: "lax",
-  });
+    sameSite: "lax" as const,
+    secure: typeof window !== "undefined" ? window.location.protocol === "https:" : true,
+  };
+  const token = useCookie<string | null>("cw_auth_token", cookieOptions);
 
   // --- Getters ---
   const isAuthenticated = computed(() => !!user.value);
@@ -94,7 +96,7 @@ export const useUserStore = defineStore("user", () => {
     // 2. 清除 Cookie
     token.value = null;
 
-    const cookie = useCookie("cw_auth_token");
+    const cookie = useCookie("cw_auth_token", cookieOptions);
     cookie.value = null;
   }
 

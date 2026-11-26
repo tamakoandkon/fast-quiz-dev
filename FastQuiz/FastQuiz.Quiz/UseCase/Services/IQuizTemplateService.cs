@@ -12,6 +12,7 @@ public interface IQuizTemplateService
         CreateQuizTemplateCommand command
     );
     Task<QuizTemplateDto> GetQuizTemplateAsync(string userId, string tenantId, string templateId);
+    Task<QuizTemplateDto> GetQuizTemplateDetailAsync(string userId, string tenantId, string templateId);
     Task<IReadOnlyList<QuizTemplateDto>> GetAllQuizTemplateAsync(
         string userId,
         string tenantId,
