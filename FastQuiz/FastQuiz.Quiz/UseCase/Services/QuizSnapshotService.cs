@@ -25,6 +25,7 @@ public class QuizSnapshotService(
     IQuizSnapshotRepository _quizSnapshotRepository,
     IQuestionSnapshotRepository _questionSnapshotRepository,
     IQuizSnapshotQuestionSnapshotMapRepository _quizSnapshotQuestionSnapshotMapRepository,
+    IQuizAttemptRepository _quizAttemptRepository,
     IQuizUnitOfWork _unitOfWork,
     IIdGenerator _idGenerator,
     IPermissionService _permissionService,
@@ -232,6 +233,11 @@ public class QuizSnapshotService(
         if (template.IsPublished)
         {
             throw new QuizSnapshotDeleteException("试卷模板已发布，不可以删除试卷快照");
+        }
+
+        if ((await _quizAttemptRepository.GetAllByTemplateIdAsync(template.Id, null, 1).ConfigureAwait(false)).Count > 0)
+        {
+            throw new QuizSnapshotDeleteException("已有考试试卷记录，不可以删除试卷快照");
         }
 
         await _quizSnapshotRepository.DeleteByIdAsync(id);

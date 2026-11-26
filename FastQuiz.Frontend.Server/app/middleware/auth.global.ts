@@ -13,10 +13,12 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   }
 
   // 4. 如果用户已登录，但访问的是登录页，重定向到首页
-  if (
-    userStore.isAuthenticated &&
-    (to.path === "/" || to.path === "/register")
-  ) {
+  const isPublicRoute = to.path === "/" || to.path === "/register";
+  if (userStore.isAuthenticated && isPublicRoute) {
     return navigateTo("/tenant");
+  }
+
+  if (!userStore.isAuthenticated && !isPublicRoute) {
+    return navigateTo("/");
   }
 });

@@ -94,9 +94,9 @@ server {
 
     location / {
         try_files $uri $uri/ /index.html;
+        # Nginx location blocks with add_header do not inherit server-level add_header directives.
+        include /etc/nginx/snippets/fastquiz-csp.conf;
         add_header Cache-Control "no-cache";
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 }
 ```

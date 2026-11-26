@@ -7,8 +7,14 @@ public static class CredentialStamp
 {
     public const string ClaimType = "credential_version";
 
+    private static byte[] DeriveSubKey(string signingKey) => HKDF.DeriveKey(
+        HashAlgorithmName.SHA256,
+        Encoding.UTF8.GetBytes(signingKey),
+        outputLength: 32,
+        info: "FastQuiz.CredentialStamp"u8.ToArray());
+
     public static string Create(string passwordHash, string signingKey) => Convert.ToBase64String(
-        HMACSHA256.HashData(Encoding.UTF8.GetBytes(signingKey), Encoding.UTF8.GetBytes(passwordHash)));
+        HMACSHA256.HashData(DeriveSubKey(signingKey), Encoding.UTF8.GetBytes(passwordHash)));
 
     public static bool Matches(string? claim, string passwordHash, string signingKey)
     {

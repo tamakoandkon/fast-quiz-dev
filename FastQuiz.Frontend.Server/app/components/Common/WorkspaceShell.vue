@@ -57,7 +57,7 @@ const username = computed(() => userStore.user?.username || '我的账号');
 const avatar = computed(() => username.value.charAt(0).toUpperCase());
 const logout = () => { userStore.logout(); router.push('/'); };
 watch(() => route.path, () => { mobileOpen.value = false; });
-watch(tenantId, loadPermissions);
+watch([tenantId, () => userStore.token], loadPermissions);
 watch(mobileOpen, async (open) => {
   document.body.style.overflow = open ? 'hidden' : '';
   await nextTick();

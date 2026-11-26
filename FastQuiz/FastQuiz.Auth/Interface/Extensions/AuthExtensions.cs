@@ -108,6 +108,8 @@ public static class AuthExtensions
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwtSettings.Issuer,
                     ValidAudience = jwtSettings.Audience,
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                    ClockSkew = TimeSpan.FromMinutes(1),
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtSettings.Key)
                     ),

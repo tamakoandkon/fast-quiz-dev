@@ -47,7 +47,13 @@ public class UserApplicationService(
             .GetUserIdsByOrganizationIdAsync(organizationId)
             .ConfigureAwait(false);
 
-        var result = await _userRepository.GetUsersByIdsAsync(maps).ConfigureAwait(false);
+        var tenantMemberIds = (await _tenantRepository
+            .GetUserIdsByTenantIdAsync(org.TenantId)
+            .ConfigureAwait(false))
+            .ToHashSet(StringComparer.Ordinal);
+        var scopedUserIds = maps.Where(tenantMemberIds.Contains).ToList();
+
+        var result = await _userRepository.GetUsersByIdsAsync(scopedUserIds).ConfigureAwait(false);
 
         return [.. result.Select(x => new UserDto(x.Id, x.Username, x.Email, x.CreatedAt))];
     }
@@ -92,6 +98,9 @@ public class UserApplicationService(
         return [.. result.Select(x => new UserDto(x.Id, x.Username, x.Email, x.CreatedAt))];
     }
 
+    private static readonly Lazy<string> DummyPasswordHash = new(() =>
+        BCrypt.Net.BCrypt.HashPassword("fastquiz-timing-guard-placeholder"));
+
     public async Task<AuthResult> LoginAsync(UserLoginCommand command)
     {
         _userLoginCommandValidator.ValidateAndThrowArgumentException(command);
@@ -100,7 +109,13 @@ public class UserApplicationService(
             .FindByUsernameAsync(command.Username)
             .ConfigureAwait(false);
 
-        if (user == null || !_passwordHasher.Verify(command.Password, user.PasswordHash))
+        if (user == null)
+        {
+            _ = _passwordHasher.Verify(command.Password, DummyPasswordHash.Value);
+            return new AuthResult() { IsAuthentication = false };
+        }
+
+        if (!_passwordHasher.Verify(command.Password, user.PasswordHash))
         {
             return new AuthResult() { IsAuthentication = false };
         }
@@ -126,10 +141,17 @@ public class UserApplicationService(
             throw new UserAlreadyExistsException("用户名已经存在");
         }
 
+        var normalizedEmail = string.IsNullOrWhiteSpace(command.Email) ? null : command.Email.Trim();
+        if (normalizedEmail != null
+            && await _userRepository.FindByEmailAsync(normalizedEmail).ConfigureAwait(false) != null)
+        {
+            throw new UserAlreadyExistsException("邮箱已被注册");
+        }
+
         var newUser = new User(
             _idGenerator.GenerateUlId(),
             command.Username,
-            string.IsNullOrWhiteSpace(command.Email) ? null : command.Email,
+            normalizedEmail,
             _passwordHasher.Hash(command.Password)
         );
 
@@ -174,6 +196,10 @@ public class UserApplicationService(
     )
     {
         await EnsureCanManageUserAsync(myId, tenantId, userId, true).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(command.Password) && (myId == userId || userId == User.DefaultAdminId))
+        {
+            throw new EntityArgumentException("修改本人或默认系统管理员密码请使用密码修改接口并验证当前密码");
+        }
         var user = await EnsureAndGetUserAsync(userId).ConfigureAwait(false);
 
         ApplyUpdate(user, command);

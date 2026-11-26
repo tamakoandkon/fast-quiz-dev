@@ -19,7 +19,8 @@ public class QuestionGroupService(
     IPermissionService _permissionService,
     IValidator<CreateQuestionGroupCommand> _createQuestionGroupCommandValidator,
     IValidator<UpdateQuestionGroupCommand> _updateQuestionGroupCommandValidator,
-    IValidator<GetAllQuestionGroupQuery> _getAllQuestoinGroupQueryValidator
+    IValidator<GetAllQuestionGroupQuery> _getAllQuestoinGroupQueryValidator,
+    IValidator<DeleteQuestionGroupCommand> _deleteQuestionGroupCommandValidator
 ) : IQuestionGroupService
 {
     /// <summary>
@@ -125,6 +126,10 @@ public class QuestionGroupService(
         {
             throw new PermissionException();
         }
+
+        _deleteQuestionGroupCommandValidator.ValidateAndThrowArgumentException(
+            new DeleteQuestionGroupCommand(idList)
+        );
 
         var groups = await _questionGroupRepository.FindByIdAsync(idList).ConfigureAwait(false);
 

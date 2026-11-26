@@ -43,6 +43,7 @@ public class ProductionConfigurationTests
         config.GetProperty("BootstrapAdmin").TryGetProperty("Password", out _).ShouldBeFalse();
         config.GetProperty("Migrations").GetProperty("RunMigrationsOnStartup").GetBoolean().ShouldBeFalse();
         config.GetProperty("Hangfire").GetProperty("Type").GetString().ShouldBe("sqlite");
+        config.GetProperty("Cors").GetProperty("AllowedOrigins").GetArrayLength().ShouldBe(0);
     }
 
     [TestCase(null)]

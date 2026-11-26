@@ -208,10 +208,18 @@ public class QuizReviewService(
             var score = FindRuleScore(rules, item.Question);
 
             // 未作答(填空题无答案)按答错处理，避免越界/误判
-            var isCorrect = item.Question.Type != QuestionType.FillIn
-                || item.Record.AnswerRecords.Count > 0
-                    ? _questionGradingDecider.Decide(item.Question, item.Record)
-                    : false;
+            bool isCorrect;
+            try
+            {
+                isCorrect = item.Question.Type != QuestionType.FillIn
+                    || item.Record.AnswerRecords.Count > 0
+                        ? _questionGradingDecider.Decide(item.Question, item.Record)
+                        : false;
+            }
+            catch (BusinessException)
+            {
+                isCorrect = false;
+            }
 
             item.Record.IsCorrect = isCorrect;
 

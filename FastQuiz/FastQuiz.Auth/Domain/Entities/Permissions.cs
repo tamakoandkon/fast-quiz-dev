@@ -28,4 +28,16 @@ public static class Permissions
             QuizSnapshot,
             QuizAttempt,
         ];
+
+    public static IReadOnlyList<string> TenantPermissions() =>
+        [
+            Tenant,
+            Organization,
+            Role,
+            User,
+            Question,
+            QuizTemplate,
+            QuizSnapshot,
+            QuizAttempt,
+        ];
 }

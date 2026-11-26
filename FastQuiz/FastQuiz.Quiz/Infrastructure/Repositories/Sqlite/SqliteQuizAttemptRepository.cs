@@ -105,10 +105,18 @@ public class SqliteQuizAttemptRepository(SqliteQuizDbContext _dbContext) : IQuiz
     public async Task<IReadOnlyList<QuizAttempt>> GetAllByUserIdAsync(
         string userId,
         string? cursor,
-        int count
+        int count,
+        string? tenantId = null
     )
     {
         var query = QuizAttempts.AsNoTracking().Where(x => x.AssignId == userId);
+
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            query = query.Where(x =>
+                _dbContext.QuizTemplates.Any(t => t.Id == x.QuizTemplateId && t.OwnerId == tenantId)
+            );
+        }
 
         if (!string.IsNullOrWhiteSpace(cursor))
         {

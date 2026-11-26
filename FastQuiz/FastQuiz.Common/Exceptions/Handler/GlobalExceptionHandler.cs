@@ -13,12 +13,22 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
         CancellationToken cancellationToken
     )
     {
-        logger.LogError(exception, "系统发生未处理异常: {Message}", exception.Message);
+        if (httpContext.Response.HasStarted)
+        {
+            return false;
+        }
+
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            httpContext.Response.StatusCode = 499;
+            return true;
+        }
 
         // 2. 根据异常类型决定返回逻辑
         var (statusCode, title) = exception switch
         {
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "请先登录"),
+            BadHttpRequestException badRequest => (badRequest.StatusCode, "请求参数格式错误"),
             BusinessException => (StatusCodes.Status400BadRequest, exception.Message),
             ResourceNotFoundException => (StatusCodes.Status404NotFound, exception.Message),
             PermissionException => (StatusCodes.Status403Forbidden, exception.Message),
@@ -28,6 +38,15 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
             ),
             _ => (StatusCodes.Status500InternalServerError, "服务器内部错误"),
         };
+
+        if (statusCode >= 500)
+        {
+            logger.LogError(exception, "系统发生未处理异常: {Message}", exception.Message);
+        }
+        else
+        {
+            logger.LogInformation("请求处理异常 ({StatusCode}): {Message}", statusCode, exception.Message);
+        }
 
         // 3. 设置响应内容
         httpContext.Response.StatusCode = statusCode;

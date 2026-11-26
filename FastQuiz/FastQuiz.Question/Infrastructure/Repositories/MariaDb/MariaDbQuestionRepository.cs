@@ -204,7 +204,7 @@ public class MariaDbQuestionRepository(MariaDbQuestionDbContext _dbContext) : IQ
         catch (Exception ex)
         {
             await transaction.RollbackAsync().ConfigureAwait(false);
-            throw new UpdateQuestionException($"Update question fail: {ex.Message}", ex);
+            throw new UpdateQuestionException("更新题目失败", ex);
         }
     }
 }

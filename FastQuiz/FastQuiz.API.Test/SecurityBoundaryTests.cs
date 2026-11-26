@@ -159,4 +159,103 @@ internal class SecurityBoundaryTests : ApiTestBase
         (await outside.PutAsJsonAsync("/auth/me",new UpdateUserCommand("renamed","newpass123",null))).StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
         (await anonymous.PutAsJsonAsync("/auth/me",new UpdateUserCommand("renamed","newpass123",null))).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+
+    [Test]
+    public async Task OrganizationEnrollment_RejectsCrossTenantUsers()
+    {
+        var orgA = "org-a-" + Guid.NewGuid().ToString("N")[..8];
+        auth.Add(new Organization(orgA, a, null, "Org A"));
+        await auth.SaveChangesAsync();
+
+        var addResp = await adminA.PostAsync($"/tenant/organization/{orgA}/user/{victim}", null);
+        addResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        auth.OrganizationUserMaps.AsNoTracking().Any(x => x.OrganizationId == orgA && x.UserId == victim).ShouldBeFalse();
+    }
+
+    [Test]
+    public async Task RoleEscalationAndSystemRoleProtection_AreEnforced()
+    {
+        var invalidPermResp = await adminA.PostAsync($"/tenant/role/{questionRole}/permission/invalid_perm", null);
+        invalidPermResp.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+
+        var sysPermResp = await adminA.PostAsync($"/tenant/role/{questionRole}/permission/{Permissions.SystemAdmin}", null);
+        sysPermResp.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var createSysRole = await adminA.PostAsJsonAsync($"/tenant/{a}/role",
+            new CreateRoleCommand("escalate", "", true, true, [Permissions.SystemAdmin]));
+        createSysRole.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        using var sysAdmin = Sut.CreateClient(User.DefaultAdminId);
+        (await sysAdmin.DeleteAsync($"/tenant/{Tenant.DefaultTenantId}")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await sysAdmin.DeleteAsync($"/tenant/role/{Role.DefaultAdminRoleId}")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await sysAdmin.PutAsJsonAsync($"/tenant/role/{Role.DefaultAdminRoleId}",
+            new UpdateRoleCommand("system admin", "", true, false, [.. Permissions.AllPermissions()]))).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Local tenant admin with Permissions.AllPermissions() equivalent cannot evict default_admin via /user-map
+        auth.Add(new TenantUserMap(a, User.DefaultAdminId));
+        var localSysRole = "lsys-" + Guid.NewGuid().ToString("N")[..8];
+        auth.Add(new Role(localSysRole, a, "local-sys", "", false, true));
+        auth.Add(new RolePermission(Permissions.SystemAdmin, localSysRole, DateTimeOffset.UtcNow));
+        auth.Add(new UserRole(manager, localSysRole, a));
+        await auth.SaveChangesAsync();
+        (await adminA.DeleteAsync($"/tenant/{a}/user-map/{User.DefaultAdminId}")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Test]
+    public async Task MyQuizAttempts_AreScopedToCurrentTenant()
+    {
+        auth.Add(new TenantUserMap(a, victim));
+        await auth.SaveChangesAsync();
+
+        using var victimClient = Sut.CreateClient(victim);
+        var resp = await victimClient.GetAsync($"/tenant/{a}/quiz-template/quiz-attempt/me?Count=20");
+        resp.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await resp.Content.ReadAsStringAsync()).ShouldNotContain("attempt-");
+    }
+
+    [Test]
+    public async Task DraftTemplateAndRemarkAndAnswerKeys_AreProtectedFromCandidates()
+    {
+        var draftId = "draft-" + Guid.NewGuid().ToString("N")[..8];
+        var expiredAttemptId = "exp-attempt-" + Guid.NewGuid().ToString("N")[..8];
+        using (var quizScope = Sut.Services.CreateScope())
+        {
+            var quiz = quizScope.ServiceProvider.GetRequiredService<SqliteQuizDbContext>();
+            quiz.Add(new QuizTemplate(draftId, "Draft B", "desc", "secret teacher remark", b, 1, false,
+                DateTimeOffset.UtcNow.AddHours(-2), DateTimeOffset.UtcNow.AddHours(-1), 60, null) { IsPublished = false });
+            quiz.Add(new QuizAttempt
+            {
+                Id = expiredAttemptId,
+                QuizTemplateId = draftId,
+                QuizSnapshotId = snapshot,
+                AssignId = victim,
+                Status = QuizAttemptStatus.Pending,
+            });
+            await quiz.SaveChangesAsync();
+        }
+
+        using var candidateB = Sut.CreateClient(victim);
+        (await candidateB.GetAsync($"/tenant/{b}/quiz-template/{draftId}")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        var publishedDetail = await candidateB.GetStringAsync($"/tenant/{b}/quiz-template/{template}");
+        publishedDetail.ShouldNotContain("private remark");
+        var publishedList = await candidateB.GetStringAsync($"/tenant/{b}/quiz-template/published?Count=10");
+        publishedList.ShouldNotContain("private remark");
+
+        // Candidate cannot view graded answers while template EndTime is still in the future or attempts remain
+        var attemptId = "attempt-" + template["template-".Length..];
+        (await candidateB.GetAsync($"/tenant/{b}/quiz-template/quiz-attempt/{attemptId}/question/with-answer"))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Candidate cannot start a Pending attempt once template is unpublished/expired
+        (await candidateB.PutAsJsonAsync($"/tenant/{b}/quiz-template/quiz-attempt/{expiredAttemptId}?status=InProgress", new { }))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        // Admin cannot unpublish a template that already has quiz attempts
+        using var sysAdmin = Sut.CreateClient(User.DefaultAdminId);
+        auth.Add(new TenantUserMap(b, User.DefaultAdminId));
+        await auth.SaveChangesAsync();
+        (await sysAdmin.PutAsJsonAsync($"/tenant/{b}/quiz-template/{template}/published",
+            new FastQuiz.Quiz.UseCase.Commands.UpdateQuizTemplatePublishedCommand(false)))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
 }

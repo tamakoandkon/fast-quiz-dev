@@ -134,26 +134,31 @@ public sealed class QuizAttemptQueryService(
         }
 
         var attempts = await _quizAttemptRepository
-            .GetAllByUserIdAsync(userId, query.Cursor, query.Count)
+            .GetAllByUserIdAsync(userId, query.Cursor, query.Count, tenantId)
             .ConfigureAwait(false);
 
         var templates = await _quizTemplateRepository.FindByIdAsync(
             [.. attempts.Select(x => x.QuizTemplateId)]
         );
+        var tenantTemplates = templates
+            .Where(t => t.OwnerId == tenantId)
+            .ToDictionary(t => t.Id);
 
         return
         [
-            .. attempts.Select(x => new QuizAttempDto(
-                x.Id,
-                x.AssignId!,
-                x.QuizTemplateId,
-                templates.Where(t => t.Id == x.QuizTemplateId).First().Name,
-                x.QuizSnapshotId,
-                x.StartTime,
-                x.SubmitTime,
-                x.Score,
-                x.Status
-            )),
+            .. attempts
+                .Where(x => tenantTemplates.ContainsKey(x.QuizTemplateId))
+                .Select(x => new QuizAttempDto(
+                    x.Id,
+                    x.AssignId!,
+                    x.QuizTemplateId,
+                    tenantTemplates[x.QuizTemplateId].Name,
+                    x.QuizSnapshotId,
+                    x.StartTime,
+                    x.SubmitTime,
+                    x.Score,
+                    x.Status
+                )),
         ];
     }
 

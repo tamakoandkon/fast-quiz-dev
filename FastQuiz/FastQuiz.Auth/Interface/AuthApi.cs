@@ -8,6 +8,7 @@ using FastQuiz.Common.Utils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 
 namespace FastQuiz.Auth.Interface;
 
@@ -17,10 +18,16 @@ public static class AuthApi
     {
         var group = app.MapGroup("/auth").WithTags("Auth").WithStandardErrorMetadata();
 
-        group.MapPost("/register", RegisterUserAsync).Produces<AuthDto>(StatusCodes.Status200OK);
+        group
+            .MapPost("/register", RegisterUserAsync)
+            .RequireRateLimiting("auth")
+            .AddEndpointFilter(NoStoreFilter)
+            .Produces<AuthDto>(StatusCodes.Status200OK);
 
         group
             .MapPost("/login", LoginAsync)
+            .RequireRateLimiting("auth")
+            .AddEndpointFilter(NoStoreFilter)
             .Produces<AuthDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -31,7 +38,12 @@ public static class AuthApi
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPut("/me", PutMeAsync).RequireAuthorization().Produces(StatusCodes.Status204NoContent);
-        group.MapPut("/me/password", ChangePasswordAsync).RequireAuthorization().Produces<AuthDto>();
+        group
+            .MapPut("/me/password", ChangePasswordAsync)
+            .RequireAuthorization()
+            .RequireRateLimiting("auth")
+            .AddEndpointFilter(NoStoreFilter)
+            .Produces<AuthDto>();
 
         var userGroup = app.MapGroup("/tenant")
             .RequireAuthorization()
@@ -67,11 +79,27 @@ public static class AuthApi
             .Produces<UserDto>(StatusCodes.Status200OK);
     }
 
-    private static async Task<IResult> RegisterUserAsync(
-        UserRegisterCommand command,
-        IUserApplicationService service
+    private static async ValueTask<object?> NoStoreFilter(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next
     )
     {
+        context.HttpContext.Response.Headers.CacheControl = "no-store";
+        context.HttpContext.Response.Headers.Pragma = "no-cache";
+        return await next(context);
+    }
+
+    private static async Task<IResult> RegisterUserAsync(
+        UserRegisterCommand command,
+        IUserApplicationService service,
+        IConfiguration configuration
+    )
+    {
+        if (configuration.GetValue<bool?>("Auth:AllowPublicRegistration") == false)
+        {
+            throw new FastQuiz.Common.Exceptions.PermissionException("当前环境已关闭公开注册");
+        }
+
         return Results.Ok(await service.RegisterAsync(command));
     }
 

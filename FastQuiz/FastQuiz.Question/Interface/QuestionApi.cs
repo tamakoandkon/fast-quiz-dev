@@ -1,6 +1,5 @@
 ﻿using FastQuiz.Common.Exceptions.Extensions;
 using FastQuiz.Common.Utils;
-using FastQuiz.Question.Infrastructure.Repositories.Sqlite;
 using FastQuiz.Question.UseCase.Command;
 using FastQuiz.Question.UseCase.Dto;
 using FastQuiz.Question.UseCase.Query;
@@ -158,7 +157,6 @@ public static class QuestionApi
     private static async Task<IResult> GetAllQuestionGroupAsync(
         string tenantId,
         [AsParameters] GetAllQuestionGroupQuery query,
-        SqliteQuestionDbContext db,
         IQuestionGroupService service,
         IClaimsManager claimsManager
     )
@@ -274,7 +272,6 @@ public static class QuestionApi
     private static async Task<IResult> DeleteQuestionAsync(
         string tenantId,
         string questionId,
-        SqliteQuestionDbContext db,
         IQuestionService service,
         IClaimsManager claimsManager
     )

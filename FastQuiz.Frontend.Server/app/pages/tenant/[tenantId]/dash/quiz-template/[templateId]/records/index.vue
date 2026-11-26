@@ -268,15 +268,11 @@ const fetchAllRecords = async (best: boolean): Promise<QuizAttempDto[]> => {
   return all;
 };
 
-/** 生成 CSV 文本（RFC4180 转义）。 */
+/** 生成 CSV 文本（防止公式注入并做 RFC4180 转义）。 */
 const buildCsv = (rows: QuizAttempDto[]): string => {
   const header = ["考生", "考试", "状态", "开始时间", "交卷时间", "得分"];
-  const escape = (v: unknown): string => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
 
-  const lines = [header.map(escape).join(",")];
+  const lines = [header.map(escapeCsvCell).join(",")];
   for (const r of rows) {
     lines.push(
       [
@@ -287,7 +283,7 @@ const buildCsv = (rows: QuizAttempDto[]): string => {
         r.submitTime ? formatDateTime(r.submitTime) : "",
         r.score ?? "",
       ]
-        .map(escape)
+        .map(escapeCsvCell)
         .join(","),
     );
   }
@@ -322,9 +318,11 @@ const handleExport = async (filter: ExportRecordsFilter) => {
 
     const csv = buildCsv(rows);
     const suffix = filter.onlyBest ? "最好成绩" : "全部记录";
-    const name = `${template.value.name || "考试"}-${suffix}-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
+    const name = sanitizeFilename(
+      `${template.value.name || "考试"}-${suffix}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`,
+    );
     downloadCsv(csv, name);
 
     toast.add({ title: `已导出 ${rows.length} 条记录` });

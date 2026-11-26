@@ -22,6 +22,7 @@ public class QuizTemplateService(
     IIdGenerator _idGenerator,
     IPermissionService _permissinService,
     IQuizSnapshotRepository _quizSnapshotRepository,
+    IQuizAttemptRepository _quizAttemptRepository,
     IOrganizationService _organizationService,
     ITenantService _tenantService,
     IValidator<CreateQuizTemplateCommand> _createQuizTemplateCommandValidator,
@@ -63,10 +64,13 @@ public class QuizTemplateService(
 
         if (command.UserGroupId != null)
         {
-            // Ensure organization is existed
-            await _organizationService
+            var org = await _organizationService
                 .GetByIdAsync(userId, command.UserGroupId)
                 .ConfigureAwait(false);
+            if (org.TenantId != tenantId)
+            {
+                throw new PermissionException("不能绑定其他租户的组织");
+            }
         }
 
         var template = new QuizTemplate(
@@ -125,11 +129,74 @@ public class QuizTemplateService(
             throw new PermissionException("无法查看不属于当前租户的试卷模板");
         }
 
+        var canManage = await _permissinService
+            .HasPermissionAsync(tenantId, userId, Permissions.QuizTemplate)
+            .ConfigureAwait(false);
+
         return new QuizTemplateDto(
             template.Id,
             template.Name,
             template.Description,
-            template.Remark,
+            canManage ? template.Remark : string.Empty,
+            template.AttemptLimit,
+            template.IsUnlimitedTime,
+            template.BeginTime,
+            template.EndTime,
+            template.DurationMinutes,
+            template.IsPublished,
+            template.OwnerId,
+            template.CreatedAt,
+            template.UpdatedAt,
+            template.UserGroupId
+        );
+    }
+
+    public async Task<QuizTemplateDto> GetQuizTemplateDetailAsync(
+        string userId,
+        string tenantId,
+        string templateId
+    )
+    {
+        var isInTenant = await _tenantService
+            .GetUserInTenantAsync(tenantId, userId)
+            .ConfigureAwait(false);
+
+        if (!isInTenant)
+        {
+            throw new PermissionException();
+        }
+
+        var template = await EnsureAndGetQuizTemplateAsync(templateId).ConfigureAwait(false);
+
+        if (template.OwnerId != tenantId)
+        {
+            throw new PermissionException("无法查看不属于当前租户的试卷模板");
+        }
+
+        var canManageTemplate = await _permissinService
+            .HasPermissionAsync(tenantId, userId, Permissions.QuizTemplate)
+            .ConfigureAwait(false);
+        if (!template.IsPublished)
+        {
+            var canReadDraft =
+                canManageTemplate
+                || await _permissinService
+                    .HasPermissionAsync(tenantId, userId, Permissions.QuizSnapshot)
+                    .ConfigureAwait(false)
+                || await _permissinService
+                    .HasPermissionAsync(tenantId, userId, Permissions.QuizAttempt)
+                    .ConfigureAwait(false);
+            if (!canReadDraft)
+            {
+                throw new PermissionException("无法查看未发布的试卷模板");
+            }
+        }
+
+        return new QuizTemplateDto(
+            template.Id,
+            template.Name,
+            template.Description,
+            canManageTemplate ? template.Remark : string.Empty,
             template.AttemptLimit,
             template.IsUnlimitedTime,
             template.BeginTime,
@@ -191,6 +258,10 @@ public class QuizTemplateService(
             throw new PermissionException();
         _getPublishedQuizTemplateQueryValidator.ValidateAndThrowArgumentException(query);
 
+        var canManage = await _permissinService
+            .HasPermissionAsync(tenantId, userId, Permissions.QuizTemplate)
+            .ConfigureAwait(false);
+
         var result = await _quizTemplateRepository
             .GetAllAsync(tenantId, query.Cursor, query.Count, false, null, true)
             .ConfigureAwait(false);
@@ -201,7 +272,7 @@ public class QuizTemplateService(
                 x.Id,
                 x.Name,
                 x.Description,
-                x.Remark,
+                canManage ? x.Remark : string.Empty,
                 x.AttemptLimit,
                 x.IsUnlimitedTime,
                 x.BeginTime,
@@ -254,10 +325,22 @@ public class QuizTemplateService(
             throw new QuizTemplateUpdateException("修改后的时间不合法");
         }
 
+        if (command.UserGroupId != null)
+        {
+            var org = await _organizationService
+                .GetByIdAsync(userId, command.UserGroupId)
+                .ConfigureAwait(false);
+            if (org.TenantId != tenantId)
+            {
+                throw new PermissionException("不能绑定其他租户的组织");
+            }
+        }
+
         template.Name = command.Name;
         template.Description = command.Description;
         template.Remark = command.Remark;
         template.AttemptLimit = command.AttemptLimit;
+        template.IsUnlimitedTime = command.IsUnlimitedTime;
         template.BeginTime = command.BeginTime;
         template.EndTime = command.EndTime;
         template.DurationMinutes = command.DurationMinutes;
@@ -293,7 +376,17 @@ public class QuizTemplateService(
             return;
         }
 
-        if (command.IsPublished == true)
+        if (command.IsPublished == false)
+        {
+            var existingAttempts = await _quizAttemptRepository
+                .GetAllByTemplateIdAsync(templateId, null, 1)
+                .ConfigureAwait(false);
+            if (existingAttempts.Count > 0)
+            {
+                throw new QuizTemplateUpdateException("已有考试试卷记录，不可取消发布");
+            }
+        }
+        else
         {
             if (!template.IsUnlimitedTime && template.BeginTime < DateTimeOffset.UtcNow)
             {
@@ -569,6 +662,10 @@ public class QuizTemplateService(
         {
             throw new QuizTemplateUpdateException("已发布的试卷模板不可修改");
         }
+
+        await _questionGroupService
+            .GetQuestionGroupByIdAsync(userId, tenantId, command.GroupId)
+            .ConfigureAwait(false);
 
         var exitedRule = await _questionSelectionRuleRepository
             .GetByTemplateIdAndConditionAsync(

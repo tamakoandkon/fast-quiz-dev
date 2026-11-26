@@ -114,7 +114,7 @@ public static class QuizTemplateApi
     )
     {
         var userId = claimsManager.EnsureAndGetUserId();
-        return Results.Ok(await service.GetQuizTemplateAsync(userId, tenantId, quizTemplateId));
+        return Results.Ok(await service.GetQuizTemplateDetailAsync(userId, tenantId, quizTemplateId));
     }
 
     private static async Task<IResult> PutQuizTemplateByIdAsync(

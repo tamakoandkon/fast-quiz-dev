@@ -82,7 +82,7 @@ const items = ref<ContextMenuItem[][]>([
       label: "查看详情",
       icon: "i-lucide-star",
       onSelect: () => {
-        router.push(`/tenant/${tenantId}/dash/user/${currentId.value}`);
+        router.push(`/tenant/${tenantId.value}/dash/user/${currentId.value}`);
       },
     },
     {
@@ -270,7 +270,7 @@ const handleUserFileImport = async (event: Event) => {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length < 3) {
-        console.warn(`第 ${i + 1} 行格式错误，跳过`, row);
+        console.warn(`第 ${i + 1} 行格式错误，跳过`);
         continue;
       }
 
@@ -285,7 +285,7 @@ const handleUserFileImport = async (event: Event) => {
           password,
         });
       } else {
-        console.warn(`第 ${i + 1} 行数据不完整，跳过`, row);
+        console.warn(`第 ${i + 1} 行数据不完整，跳过`);
       }
     }
 
@@ -305,7 +305,7 @@ const handleUserFileImport = async (event: Event) => {
         successCount++;
       } catch (e) {
         failCount++;
-        console.error("导入用户失败:", e, user);
+        console.error("导入用户失败:", user.username, e);
       }
     }
 

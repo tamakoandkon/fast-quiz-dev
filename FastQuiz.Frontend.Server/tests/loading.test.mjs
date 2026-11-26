@@ -137,7 +137,7 @@ test('current profile failure clears session and permits a new login', async () 
   assert.equal(store.user.id, 'b');
 });
 
-function apiPlugin(fetch) {
+function apiPlugin(fetch, sharedCookie = { value: 'test-token' }) {
   let intercept;
   let rejectResponse;
   let redirects = 0;
@@ -149,11 +149,12 @@ function apiPlugin(fetch) {
   }
   const plugin = load('plugins/api.ts', {
     defineNuxtPlugin: (fn) => fn, fetch, AbortSignal,
-    useCookie: () => ({ value: 'test-token' }), navigateTo() { redirects++; },
+    useCookie: () => sharedCookie, navigateTo() { redirects++; },
   }, { '~/utils/backEnd': { Api } }).default;
   return {
     result: plugin(), intercept: (config = {}) => intercept(config),
     rejectResponse: (error) => rejectResponse(error), redirects: () => redirects,
+    cookie: sharedCookie,
   };
 }
 
@@ -194,11 +195,19 @@ test('old unauthorized request cannot redirect the current session', async () =>
   assert.equal(api.redirects(), 0);
 });
 
-test('current unauthorized request redirects and still rejects for caller cleanup', async () => {
+test('current unauthorized request clears token, redirects, and still rejects for caller cleanup', async () => {
   const api = apiPlugin(async () => ({ ok: true, json: async () => ({}) }));
   const error = { response: { status: 401 }, config: { headers: { Authorization: 'Bearer test-token' } } };
   await assert.rejects(api.rejectResponse(error), value => value === error);
   assert.equal(api.redirects(), 1);
+  assert.equal(api.cookie.value, null);
+});
+
+test('unsafe apiBaseUrl overrides fall back to /api', async () => {
+  for (const unsafe of ['//evil.example/api', 'http://evil.example/api', 'javascript:alert(1)']) {
+    const api = apiPlugin(async () => ({ ok: true, json: async () => ({ apiBaseUrl: unsafe }) }));
+    assert.equal((await api.intercept({ headers: {} })).baseURL, '/api');
+  }
 });
 
 test('permissions from a previous token are discarded', async () => {
