@@ -22,17 +22,38 @@ public sealed class QuizAttemptCreationService(
     IQuizUnitOfWork unitOfWork
 ) : IQuizAttemptCreationService
 {
-    public async Task<QuizAttempDto> CreateQuizAttemptAsync(
+    public Task<QuizAttempDto> CreateQuizAttemptAsync(
         string userId, string tenantId, string quizTemplateId)
+        => AllocateQuizAttemptAsync(userId, tenantId, quizTemplateId, join: false);
+
+    public Task<QuizAttempDto> JoinQuizAttemptAsync(string userId, string tenantId, string templateId)
+        => AllocateQuizAttemptAsync(userId, tenantId, templateId, join: true);
+
+    private async Task<QuizAttempDto> AllocateQuizAttemptAsync(
+        string userId, string tenantId, string templateId, bool join)
     {
         // Validate tenant ownership before taking the database lock.
-        await templates.GetQuizTemplateAsync(userId, tenantId, quizTemplateId);
+        await templates.GetQuizTemplateAsync(userId, tenantId, templateId);
         QuizAttempDto? result = null;
-        await unitOfWork.ExecuteForTemplateAsync(quizTemplateId, async _ =>
+        await unitOfWork.ExecuteForTemplateAsync(templateId, async _ =>
         {
-            var template = await EnsureEligibleAsync(userId, tenantId, quizTemplateId);
-            var snapshot = await snapshots.GetQuizSnapshotOfMinAttemptCountByQuizTemplateIdAsync(quizTemplateId);
-            var attempt = await CreateFromSnapshotAsync(userId, tenantId, template.Id, snapshot.Id, userId);
+            var template = await GetOpenTemplateAsync(userId, tenantId, templateId);
+            var unfinished = await attempts.FindLastUnfinishedByTemplateIdAndUserIdAsync(userId, templateId);
+            if (join && unfinished is not null)
+            {
+                result = ToDto(unfinished, template.Name);
+                return;
+            }
+
+            await EnsureCanAllocateAsync(userId, template, unfinished);
+            var attempt = join ? await FindPrebuiltAsync(templateId) : null;
+            if (attempt is not null)
+                await BindAsync(attempt, userId);
+            else
+            {
+                var snapshot = await snapshots.GetQuizSnapshotOfMinAttemptCountByQuizTemplateIdAsync(templateId);
+                attempt = await CreateFromSnapshotAsync(userId, tenantId, template.Id, snapshot.Id, userId);
+            }
             result = ToDto(attempt, template.Name);
         });
         return result!;
@@ -82,13 +103,18 @@ public sealed class QuizAttemptCreationService(
         await unitOfWork.ExecuteForTemplateAsync(templateId, async _ =>
         {
             var template = await EnsureEligibleAsync(userId, tenantId, templateId);
-            var pool = await attempts.GetUnassignedByTemplateIdAsync(templateId, null, 1);
-            var attempt = pool.FirstOrDefault()
+            var attempt = await FindPrebuiltAsync(templateId)
                 ?? throw new BusinessException("暂无可领取的预生成试卷，请联系管理员");
             await BindAsync(attempt, userId);
             result = ToDto(attempt, template.Name);
         });
         return result!;
+    }
+
+    private async Task<QuizAttempt?> FindPrebuiltAsync(string templateId)
+    {
+        var pool = await attempts.GetUnassignedByTemplateIdAsync(templateId, null, 1);
+        return pool.FirstOrDefault();
     }
 
     public async Task AssignQuizAttemptAsync(string userId, string tenantId, string quizAttemptId)
@@ -122,6 +148,15 @@ public sealed class QuizAttemptCreationService(
     private async Task<QuizTemplateDto> EnsureEligibleAsync(
         string userId, string tenantId, string templateId)
     {
+        var template = await GetOpenTemplateAsync(userId, tenantId, templateId);
+        var unfinished = await attempts.FindLastUnfinishedByTemplateIdAndUserIdAsync(userId, templateId);
+        await EnsureCanAllocateAsync(userId, template, unfinished);
+        return template;
+    }
+
+    private async Task<QuizTemplateDto> GetOpenTemplateAsync(
+        string userId, string tenantId, string templateId)
+    {
         var template = await templates.GetQuizTemplateAsync(userId, tenantId, templateId);
         if (!template.IsPublished)
             throw new QuizAttemptCreateException("无法参加未发布的考试");
@@ -131,12 +166,16 @@ public sealed class QuizAttemptCreationService(
         if (template.UserGroupId is not null
             && !await organizations.GetUserInOrganizationAsync(template.UserGroupId, userId))
             throw new PermissionException("不属于本场考试的指定组织");
-        if (await attempts.FindLastUnfinishedByTemplateIdAndUserIdAsync(userId, templateId) is not null)
+        return template;
+    }
+
+    private async Task EnsureCanAllocateAsync(string userId, QuizTemplateDto template, QuizAttempt? unfinished)
+    {
+        if (unfinished is not null)
             throw new QuizAttemptCreateException("还有未结束的考试，请从我的考试继续");
-        var count = await attempts.GetAttemptCountAsync(userId, templateId);
+        var count = await attempts.GetAttemptCountAsync(userId, template.Id);
         if (template.AttemptLimit >= 0 && count >= template.AttemptLimit)
             throw new QuizAttemptCreateException("考试次数已经达到上限");
-        return template;
     }
 
     private async Task EnsureManagerAsync(string userId, string tenantId, string templateId)

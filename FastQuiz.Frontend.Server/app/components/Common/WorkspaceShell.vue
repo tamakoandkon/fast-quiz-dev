@@ -15,44 +15,16 @@ const showProfile = ref(false);
 const isSystemAdmin = computed(() => userStore.user?.id === 'default_admin');
 const base = computed(() => '/tenant/' + tenantId.value);
 
+const location = computed(() => workspaceLocation(route.path));
 const sections = computed(() => {
-  if (props.tenantOnly) {
-    return [{
-      label: '工作空间',
-      items: [
-        { label: '我的租户', to: '/tenant', icon: 'i-lucide-grid-2x2' },
-        ...(isSystemAdmin.value ? [{ label: '租户管理', to: '/tenant/manage', icon: 'i-lucide-building-2' }] : []),
-      ],
-    }];
-  }
-  return [
-    { label: '工作空间', items: [
-      { label: '概览', to: base.value, icon: 'i-lucide-house' },
-      { label: '考试中心', to: base.value + '/quiz-attempt', icon: 'i-lucide-graduation-cap' },
-      { label: '我的考试', to: base.value + '/my-quiz-attempt', icon: 'i-lucide-chart-no-axes-column-increasing' },
-    ] },
-    { label: '内容管理', items: [
-      { label: '试卷管理', to: base.value + '/dash/quiz-template', icon: 'i-lucide-file-text', permission: 'quiz-template' },
-      { label: '题库管理', to: base.value + '/dash/question-group', icon: 'i-lucide-library', permission: 'question' },
-    ].filter(item => can(item.permission)) },
-    { label: '团队与设置', items: [
-      { label: '组织管理', to: base.value + '/dash/organization', icon: 'i-lucide-building-2', permission: 'organization' },
-      { label: '用户管理', to: base.value + '/dash/user', icon: 'i-lucide-users', permission: 'user' },
-      { label: '角色管理', to: base.value + '/dash/role', icon: 'i-lucide-shield-check', permission: 'role' },
-      { label: '租户管理', to: '/tenant/manage', icon: 'i-lucide-settings-2', permission: 'tenant' },
-    ].filter(item => can(item.permission)) },
-    { label: '切换空间', items: [{ label: '我的租户', to: '/tenant', icon: 'i-lucide-grid-2x2' }] },
-  ].filter(section => section.items.length);
+  const items = workspaceNavigation(base.value, !!props.tenantOnly, isSystemAdmin.value || location.value.root.to === "/tenant/manage")
+    .filter(item => props.tenantOnly || can(item.permission));
+  return [...new Set(items.map(item => item.section))].map(label => ({
+    label,
+    items: items.filter(item => item.section === label),
+  }));
 });
-
-const isActive = (to: string) => {
-  if (to === base.value || to === '/tenant') return route.path === to;
-  return route.path === to || route.path.startsWith(to + '/');
-};
-const pageTitle = computed(() => {
-  const items = sections.value.flatMap(section => section.items);
-  return items.filter(item => isActive(item.to)).sort((a, b) => b.to.length - a.to.length)[0]?.label || '工作空间';
-});
+const isActive = (to: string) => location.value.root.to === to;
 const username = computed(() => userStore.user?.username || '我的账号');
 const avatar = computed(() => username.value.charAt(0).toUpperCase());
 const logout = () => { userStore.logout(); router.push('/'); };
@@ -88,7 +60,7 @@ onMounted(async () => {
       <nav class="workspace-navigation">
         <section v-for="section in sections" :key="section.label">
           <p class="nav-section">{{ section.label }}</p>
-          <NuxtLink v-for="item in section.items" :key="item.to" :to="item.to" class="workspace-link" :class="{ 'is-active': isActive(item.to) }" :aria-current="isActive(item.to) ? 'page' : undefined">
+          <NuxtLink v-for="item in section.items" :key="item.to" :to="item.to" class="workspace-link" :class="{ 'is-active': isActive(item.to) }" :aria-current="isActive(item.to) ? (location.parents.length ? 'location' : 'page') : undefined">
             <UIcon :name="item.icon" /><span>{{ item.label }}</span>
           </NuxtLink>
         </section>
@@ -106,11 +78,21 @@ onMounted(async () => {
     </aside>
     <div class="workspace-main" :inert="isMobile && mobileOpen">
       <header class="workspace-topbar">
-        <div class="workspace-context">
-          <UButton class="mobile-menu-toggle" color="neutral" variant="ghost" icon="i-lucide-menu" aria-label="打开导航" aria-controls="workspace-navigation" :aria-expanded="mobileOpen" @click="mobileOpen = true" />
-          <strong>{{ pageTitle }}</strong>
+        <div class="workspace-topbar-inner">
+          <div class="workspace-context">
+            <UButton class="mobile-menu-toggle" color="neutral" variant="ghost" icon="i-lucide-menu" aria-label="打开导航" aria-controls="workspace-navigation" :aria-expanded="mobileOpen" @click="mobileOpen = true" />
+            <nav v-if="location.parents.length" class="workspace-crumbs" aria-label="当前位置">
+              <template v-for="(crumb, index) in location.parents" :key="crumb.to">
+                <UIcon v-if="index" name="i-lucide-chevron-right" aria-hidden="true" />
+                <NuxtLink :to="crumb.to">{{ crumb.label }}</NuxtLink>
+              </template>
+              <UIcon name="i-lucide-chevron-right" aria-hidden="true" />
+              <span aria-current="page">{{ location.title }}</span>
+            </nav>
+            <strong v-else>{{ location.root.section }}</strong>
+          </div>
+          <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-circle-user-round" aria-label="账户设置" @click="showProfile = true"><span class="hidden sm:inline">{{ username }}</span></UButton>
         </div>
-        <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-circle-user-round" aria-label="账户设置" @click="showProfile = true"><span class="hidden sm:inline">{{ username }}</span></UButton>
       </header>
       <main class="workspace-content"><slot /></main>
     </div>

@@ -1,8 +1,5 @@
 <template>
-  <CommonManagePageContainer>
-    <header class="workspace-hero">
-      <h1 class="workspace-title">我的租户</h1>
-    </header>
+  <CommonPageLayout>
     <div class="workspace-grid">
       <NuxtLink v-for="tenant in tenants" :key="tenant.id || ''" :to="`/tenant/${tenant.id}`" class="workspace-card tenant-card">
         <h2>{{ tenant.name || "未命名租户" }}</h2>
@@ -20,7 +17,7 @@
       @click="() => fetchList(false, pageSize, false)"
       :disabled="!haveMore"
     />
-  </CommonManagePageContainer>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">

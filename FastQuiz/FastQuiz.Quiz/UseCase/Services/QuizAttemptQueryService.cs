@@ -1,4 +1,5 @@
 using FastQuiz.Auth.Domain.Entities;
+using FastQuiz.Auth.Domain.Repositories;
 using FastQuiz.Auth.UseCase.Services;
 using FastQuiz.Common.Exceptions;
 using FastQuiz.Quiz.Domain.Repositories;
@@ -12,7 +13,8 @@ public sealed class QuizAttemptQueryService(
     IQuizTemplateRepository _quizTemplateRepository,
     IQuizTemplateService _quizTemplateService,
     IPermissionService _permissionService,
-    ITenantService _tenantService
+    ITenantService _tenantService,
+    IUserRepository _userRepository
 ) : IQuizAttemptQueryService
 {
     public async Task<IReadOnlyList<QuizAttempDto>> GetAllQuizAttemptAsync(
@@ -47,7 +49,7 @@ public sealed class QuizAttemptQueryService(
             [.. attempts.Select(x => x.QuizTemplateId)]
         );
 
-        return attempts
+        var records = attempts
             .Where(x => x.AssignId != null)
             .Select(quizAttempt => new QuizAttempDto(
                 quizAttempt.Id,
@@ -61,6 +63,7 @@ public sealed class QuizAttemptQueryService(
                 quizAttempt.Status
             ))
             .ToList();
+        return await AddCandidateNamesAsync(records).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<QuizAttempDto>> GetAllRecordsByTemplateIdAsync(
@@ -100,8 +103,7 @@ public sealed class QuizAttemptQueryService(
             [.. attempts.Select(x => x.QuizTemplateId)]
         );
 
-        return
-        [
+        return await AddCandidateNamesAsync([
             .. attempts
                 .Where(x => x.AssignId != null)
                 .Select(x => new QuizAttempDto(
@@ -115,7 +117,7 @@ public sealed class QuizAttemptQueryService(
                     x.Score,
                     x.Status
                 )),
-        ];
+        ]).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<QuizAttempDto>> GetMyQuizAttemptAsync(
@@ -201,7 +203,7 @@ public sealed class QuizAttemptQueryService(
                 x.AssignId!,
                 x.QuizTemplateId,
                 templates.FirstOrDefault(t => t.Id == x.QuizTemplateId)?.Name
-                    ?? x.QuizTemplateId,
+                    ?? "未命名试卷",
                 x.QuizSnapshotId,
                 x.StartTime,
                 x.SubmitTime,
@@ -259,8 +261,7 @@ public sealed class QuizAttemptQueryService(
         );
 
         var tenantTemplates = templates.Where(x => x.OwnerId == tenantId).ToDictionary(x => x.Id);
-        return
-        [
+        return await AddCandidateNamesAsync([
             .. attempts.Where(x => tenantTemplates.ContainsKey(x.QuizTemplateId)).Select(x => new QuizAttempDto(
                 x.Id,
                 x.AssignId!,
@@ -272,7 +273,7 @@ public sealed class QuizAttemptQueryService(
                 x.Score,
                 x.Status
             )),
-        ];
+        ]).ConfigureAwait(false);
     }
 
     public async Task<QuizAttempDto> GetQuizAttemptByIdAsync(
@@ -312,6 +313,10 @@ public sealed class QuizAttemptQueryService(
             quizAttempt.QuizTemplateId
         );
 
+        var candidate = quizAttempt.AssignId is { } assignId
+            ? await _userRepository.FindByIdAsync(assignId).ConfigureAwait(false)
+            : null;
+
         return new QuizAttempDto(
             quizAttempt.Id,
             quizAttempt.AssignId!,
@@ -322,6 +327,24 @@ public sealed class QuizAttemptQueryService(
             quizAttempt.SubmitTime,
             quizAttempt.Score,
             quizAttempt.Status
-        );
+        ) { AssignUsername = candidate?.Username };
+    }
+
+    private async Task<IReadOnlyList<QuizAttempDto>> AddCandidateNamesAsync(
+        IReadOnlyList<QuizAttempDto> records)
+    {
+        var ids = records.Select(record => record.AssignId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct()
+            .ToArray();
+        if (ids.Length == 0)
+            return records;
+
+        var users = await _userRepository.GetUsersByIdsAsync(ids).ConfigureAwait(false);
+        var names = users.ToDictionary(user => user.Id, user => user.Username);
+        return records.Select(record => record with
+        {
+            AssignUsername = record.AssignId is { } id ? names.GetValueOrDefault(id) : null,
+        }).ToList();
     }
 }

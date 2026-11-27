@@ -20,6 +20,8 @@
         }
         header @document Cache-Control "no-cache"
         try_files {path} /index.html
-        file_server
+        file_server {
+            precompressed br gzip
+        }
     }
 }

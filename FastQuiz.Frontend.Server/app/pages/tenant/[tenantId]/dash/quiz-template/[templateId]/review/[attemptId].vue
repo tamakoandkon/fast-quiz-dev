@@ -1,40 +1,18 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" class="py-2" />
+  <CommonPageLayout :description="[template.name, attempt.assignUsername].filter(Boolean).join(' · ')">
+    <template #actions>
+      <UBadge v-if="loaded" :color="getReviewBadgeColor(attempt.status)" variant="soft">
+        {{ getAttemptStatusText(attempt.status) }}
+      </UBadge>
+      <UButton :to="reviewListTo" color="neutral" variant="outline" icon="i-lucide-arrow-left">
+        返回批改列表
+      </UButton>
     </template>
 
-    <!-- 阅卷头部：试卷信息 + 批改状态 -->
-    <div class="bg-white rounded-lg shadow p-5 mb-5">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="min-w-0">
-          <h1 class="text-2xl font-bold text-gray-800 truncate">
-            {{ template.name || "未命名试卷" }}
-          </h1>
-          <p class="text-sm text-gray-500 mt-1 flex items-center gap-2">
-            <span>作答 ID：{{ attemptId }}</span>
-            <UBadge :color="getReviewBadgeColor(attempt.status)" size="sm">
-              {{ getAttemptStatusText(attempt.status) }}
-            </UBadge>
-          </p>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <UButton
-            :to="reviewListTo"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-arrow-left"
-          >
-            返回批改列表
-          </UButton>
-        </div>
-      </div>
-
+    <div v-if="loaded && !isReviewable">
       <!-- 状态提示 -->
       <div
-        v-if="!isReviewable"
-        class="mt-4 rounded-lg px-4 py-3 text-sm"
+        class="rounded-xl px-4 py-3 text-sm"
         :class="
           attempt.status === QuizAttemptStatus.Graded
             ? 'bg-green-50 text-green-700 border border-green-200'
@@ -42,14 +20,14 @@
         "
       >
         <template v-if="attempt.status === QuizAttemptStatus.Graded">
-          本卷已完成批改（Graded），当前为只读查看。
+          本卷已批改完成，可以查看阅卷结果。
         </template>
         <template v-else-if="attempt.status === QuizAttemptStatus.Submitted">
-          考试尚未结束，暂不能开始批改。请到考试结束后再回来阅卷（#2）。
+          本场考试结束后开放阅卷。
         </template>
         <template v-else>
           该作答当前状态为「{{ getAttemptStatusText(attempt.status) }}」，
-          尚不符合可批改条件（仅 ended 后的已提交卷可阅）。
+          交卷且开放阅卷后即可批改。
         </template>
       </div>
     </div>
@@ -81,7 +59,7 @@
       >
         <div class="text-sm text-gray-600 flex items-center gap-1">
           <span>判定方式：</span>
-          <span class="text-gray-500">点击每题右侧 ✔️（对）/ ❌（错）切换（#5 手动判定）。</span>
+          <span class="text-gray-500">用每题右侧的按钮标记正确或错误。</span>
         </div>
         <UButton
           color="success"
@@ -92,7 +70,7 @@
         >
           {{
             manualQuestions.length
-              ? "完成阅卷并自动进行下一份（#6）"
+              ? "完成阅卷并打开下一份"
               : "本卷无人工题，直接标记完成"
           }}
         </UButton>
@@ -110,7 +88,7 @@
       <!-- 空状态：没有需要人工判定的主观题 -->
       <div
         v-if="manualQuestions.length === 0"
-        class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
+        class="workspace-panel p-10 text-center text-muted"
       >
         本卷全部为客观题（选择 / 自动匹配填空），无需人工批改。
         <div v-if="isReviewable" class="mt-4">
@@ -124,7 +102,6 @@
 </template>
 
 <script setup lang="ts">
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const { $api } = useNuxtApp();
 const toast = useToast();
@@ -140,7 +117,6 @@ const template = ref<QuizTemplateDto>({});
 const allQuestionRecords = ref<QuestionRecordWithAnswerDto[]>([]);
 
 const loaded = ref(false);
-const links = ref<BreadcrumbItem[]>([]);
 
 const reviewListTo = computed(() => {
   if (!templateId.value) return "#";
@@ -309,21 +285,5 @@ onMounted(async () => {
     loaded.value = true;
   }
 
-  links.value.push({
-    label: "试卷管理",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
-  links.value.push({
-    label: template.value.name ?? templateId.value,
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
-  links.value.push({
-    label: "批改试卷",
-    to: reviewListTo.value,
-  });
-  links.value.push({
-    label: attemptId.value.slice(0, 8),
-  });
 });
 </script>

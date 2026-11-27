@@ -1,15 +1,12 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" class="py-2" />
-    </template>
-
-    <div class="flex justify-between items-center mb-4">
-      <div class="flex gap-2">
+  <CommonPageLayout :title="template.name || '试卷详情'" :description="template.name ? '试卷详情' : undefined">
+    <template #actions>
+      <div class="flex flex-wrap gap-2">
         <!-- 主要操作 - 发布 -->
         <UButton
           @click="changePublishedStatus"
-          :color="template.isPublished ? 'error' : 'primary'"
+          :color="template.isPublished ? 'neutral' : 'primary'"
+          :variant="template.isPublished ? 'outline' : 'solid'"
           size="md"
         >
           {{ template.isPublished ? "取消发布" : "发布考试" }}
@@ -45,28 +42,12 @@
         </UButton>
       </div>
 
-      <!-- 右侧：创建抽题规则 -->
-      <CommonButtonsContainer>
-        <QuizTemplateCreateQuestionSelectionRuleModal
-          v-model="showCreateModal"
-          @create="createQuestionselectionRuleAsync"
-          :tenant-id="tenantId"
-        />
-      </CommonButtonsContainer>
-    </div>
+    </template>
 
     <UCard class="w-full">
       <div class="space-y-4">
         <!-- 基础信息 -->
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <p class="text-sm text-gray-500">模板ID</p>
-            <p class="font-mono text-sm">{{ template.id }}</p>
-          </div>
-          <div>
-            <p class="text-sm text-gray-500">模板名称</p>
-            <p class="font-medium">{{ template.name }}</p>
-          </div>
           <div class="col-span-2">
             <p class="text-sm text-gray-500">描述</p>
             <CommonMarkUpViewer
@@ -125,10 +106,6 @@
             <p class="text-sm text-gray-500">是否发布</p>
             <p>{{ template.isPublished ? "已发布" : "未发布" }}</p>
           </div>
-          <div>
-            <p class="text-sm text-gray-500">所有者ID</p>
-            <p>{{ template.ownerId }}</p>
-          </div>
         </div>
       </div>
     </UCard>
@@ -143,9 +120,20 @@
       @update="updateQuestionSelectionRuleAsync"
       :id="currentRuleId"
       :tenant-id="tenantId"
+      :groups="questionGroups"
     />
 
     <USeparator class="my-2"><span>抽题规则</span></USeparator>
+      <!-- 创建抽题规则 -->
+      <CommonButtonsContainer>
+        <QuizTemplateCreateQuestionSelectionRuleModal
+          v-model="showCreateModal"
+          @create="createQuestionselectionRuleAsync"
+          :tenant-id="tenantId"
+          :groups="questionGroups"
+        />
+      </CommonButtonsContainer>
+
     <UContextMenu :items="items">
       <CommonDataTable
         :columns="cols"
@@ -155,17 +143,8 @@
         @row-dbl-click="handleRowDblClick"
         @row-right-click="switchCurrentId"
       >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-          </CommonTruncateText>
-        </template>
         <template #groupId="{ row }">
-          <CommonTruncateText
-            :text="`${row.groupId}`"
-            width="10rem"
-            direction="rtl"
-          >
-          </CommonTruncateText>
+          {{ row.groupId ? groupNames.get(row.groupId) || "题库不可用" : "未设置题库" }}
         </template>
         <template #questionType="{ row }">
           <CommonTruncateText
@@ -190,7 +169,6 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 import type { ContextMenuItem } from "@nuxt/ui";
 
 const toast = useToast();
@@ -201,26 +179,13 @@ const tenantId = ref("");
 
 const template = ref<QuizTemplateDto>({});
 
-const links = ref<BreadcrumbItem[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
   templateId.value = route.params.templateId as string;
 
-  await fetchQuizTemplate();
+  await Promise.all([fetchQuizTemplate(), fetchList(false, 10), loadQuestionGroups()]);
 
-  await fetchList(false, 10);
-
-  links.value.push({
-    label: "试卷管理",
-    icon: "iconoir:atom",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
-  links.value.push({
-    label: template.value.name as string,
-    icon: "iconoir:atom",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
 });
 
 const fetchQuizTemplate = async () => {
@@ -239,6 +204,33 @@ const fetchQuizTemplate = async () => {
   template.value = result.data;
 };
 
+const questionGroups = ref<QuestionGroupDto[]>([]);
+const groupNames = computed(() => new Map(questionGroups.value.map(
+  group => [group.id, group.name || "未命名题库"],
+)));
+
+const loadQuestionGroups = async () => {
+  const groups: QuestionGroupDto[] = [];
+  const size = 200;
+  let cursor: string | undefined;
+  try {
+    for (;;) {
+      const { data } = await $api.tenant.questionGroupList(tenantId.value, {
+        Cursor: cursor,
+        Count: size,
+        IsPrevious: false,
+      });
+      groups.push(...data);
+      const next = data.at(-1)?.id || undefined;
+      if (data.length < size || !next || next === cursor) break;
+      cursor = next;
+    }
+  } catch {
+    // Exam management can be available without permission to browse question banks.
+  }
+  questionGroups.value = groups;
+};
+
 const rules = ref<QuestionSelectionRuleDto[]>([]);
 const selected = ref<QuestionSelectionRuleDto[]>([]);
 
@@ -247,8 +239,7 @@ const pageSize = ref(10);
 const haveMore = ref(true);
 
 const cols = [
-  { key: "id", label: "ID", width: "16px" },
-  { key: "groupId", label: "题库", width: "16px" },
+  { key: "groupId", label: "题库" },
   { key: "questionType", label: "题目类型" },
   { key: "level", label: "题目难度" },
   { key: "count", label: "数量" },
@@ -381,8 +372,7 @@ const showConfiemModal = ref(false);
 
 const handleRuleDelete = async () => {
   if (!currentRuleId.value || currentRuleId.value.trim().length == 0) {
-    toast.add({ title: "ID参数异常" });
-    console.log(currentRuleId.value);
+    toast.add({ title: "请选择要删除的抽题规则" });
     return;
   }
   try {

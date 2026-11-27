@@ -1,46 +1,50 @@
 <template>
-  <CommonManagePageContainer>
-    <CommonButtonsContainer>
+  <CommonPageLayout>
+    <template #actions>
       <TenantCreateTenantModal
         v-model="showCreateModal"
         @create="handleCreateTenant"
       />
-    </CommonButtonsContainer>
-    <UContextMenu :items="items">
-      <CommonDataTable
-        :columns="cols"
-        :data="tenants"
-        :selectable="true"
-        v-model="selected"
-        @row-right-click="(row) => switchCurrentId(row)"
+    </template>
+    <section class="workspace-panel workspace-table-panel">
+      <UContextMenu :items="items">
+        <CommonDataTable
+          :columns="cols"
+          :data="tenants"
+          :selectable="true"
+          v-model="selected"
+          @row-right-click="(row) => switchCurrentId(row)"
+        >
+          <template #name="{ row }">
+            <span class="font-medium" :title="row.name || undefined">
+              {{ row.name || "未命名租户" }}
+            </span>
+          </template>
+          <template #createdAt="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+          <template #updatedAt="{ row }">
+            {{ formatDate(row.updatedAt) }}
+          </template>
+          <template #actions="{ row }">
+            <div class="inline-flex items-center gap-1">
+              <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-user-plus"
+                @click="addMember(row)">添加已有账号</UButton>
+              <UDropdownMenu v-if="row.id" :items="tenantActions(row)" :content="{ align: 'end' }">
+                <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm"
+                  :aria-label="'管理 ' + (row.name || '未命名租户')" />
+              </UDropdownMenu>
+            </div>
+          </template>
+        </CommonDataTable>
+      </UContextMenu>
+      <CommonCursorPageManager
+        @change="fectchList"
+        v-model="pageSize"
+        :current-size="tenants.length"
       >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-            {{ row.id }}
-          </CommonTruncateText>
-        </template>
-
-        <template #name="{ row }">
-          <CommonTruncateText :text="row.name || ''" width="10rem">
-          </CommonTruncateText>
-        </template>
-        <template #createdAt="{ row }">
-          {{ formatDate(row.createdAt) }}
-        </template>
-        <template #updatedAt="{ row }">
-          {{ formatDate(row.updatedAt) }}
-        </template>
-        <template #actions="{ row }">
-          <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-user-plus"
-            @click="addMember(row)">添加已有账号</UButton>
-        </template>
-      </CommonDataTable>
-    </UContextMenu>
-    <CommonCursorPageManager
-      @change="fectchList"
-      :current-size="tenants.length"
-    >
-    </CommonCursorPageManager>
+      </CommonCursorPageManager>
+    </section>
     <TenantAddExistingMemberModal v-model="showAddMember" :tenant-id="memberTenant?.id || ''"
       :tenant-name="memberTenant?.name || ''" />
     <TenantUpdateTenantModal
@@ -54,31 +58,36 @@
       v-model="showConfirDelete"
       @action="handleDelete"
     ></CommonConfirmModal>
-  </CommonManagePageContainer>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: "tenant" });
 const { $api } = useNuxtApp();
-import type { ContextMenuItem } from "@nuxt/ui";
+import type { DropdownMenuItem } from "@nuxt/ui";
 
-const items = ref<ContextMenuItem[][]>([
+const tenantActions = (row?: TenantDto): DropdownMenuItem[][] => [
   [
     {
       label: "编辑",
       icon: "i-lucide-edit",
-      onSelect: () => handleEdit(),
+      onSelect: () => {
+        if (row) switchCurrentId(row);
+        handleEdit();
+      },
     },
     {
       label: "删除",
       color: "error",
       icon: "i-lucide-trash",
       onSelect: () => {
+        if (row) switchCurrentId(row);
         showConfirDelete.value = true;
       },
     },
   ],
-]);
+];
+const items = tenantActions();
 const toast = useToast();
 
 const tenants = ref<TenantDto[]>([]);
@@ -98,9 +107,8 @@ onMounted(async () => {
 
 // 3. 配置列 (TableColumn<UserDto>)
 const cols = [
-  { key: "id", label: "ID", width: "16px" },
-  { key: "name", label: "名称" },
-  { key: "description", label: "详情" },
+  { key: "name", label: "租户名称" },
+  { key: "description", label: "说明" },
   { key: "createdAt", label: "创建时间" },
   { key: "updatedAt", label: "更新时间" },
   { key: "actions", label: "成员管理" },
@@ -126,7 +134,7 @@ const handleCreateTenant = async (command: CreateTenantCommand) => {
 
 const currentId = ref("");
 const currentItem = computed(
-  () => tenants.value.filter((x) => x.id === currentId.value)[0],
+  () => tenants.value.find((tenant) => tenant.id === currentId.value),
 );
 
 const switchCurrentId = (row: TenantDto) => {
@@ -195,7 +203,7 @@ const handleUpdate = async (command: UpdateTenantCommand) => {
 const showConfirDelete = ref(false);
 const deleteDescription = computed(
   () =>
-    `是否删除ID: ${currentId.value}, 名称: ${currentItem.value?.name || "-"} 的租户？`,
+    `是否删除租户「${currentItem.value?.name || "未命名租户"}」？`,
 );
 
 const handleDelete = async () => {

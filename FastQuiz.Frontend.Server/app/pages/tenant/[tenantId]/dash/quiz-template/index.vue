@@ -30,12 +30,12 @@
       v-model="showConfiemModal"
       @action="handleDelete"
       title="是否删除试卷模板"
-      descript="删除后无法恢复，已有答卷不受影响。"
+      descript="删除后无法恢复。"
     >
     </CommonConfirmModal>
 
     <section
-      class="data-list"
+      class="data-list exam-template-list"
       :class="{ 'is-busy': refreshing }"
       :aria-busy="refreshing"
     >
@@ -55,7 +55,6 @@
             <span class="skeleton-line is-short"></span>
             <span class="skeleton-line is-short is-small"></span>
           </div>
-          <span class="data-list-aside skeleton-line is-short"></span>
           <span class="data-list-actions skeleton-line is-short"></span>
         </div>
       </div>
@@ -89,7 +88,6 @@
             <span role="columnheader">试卷</span>
             <span role="columnheader">状态</span>
             <span role="columnheader">考试安排</span>
-            <span role="columnheader">所有者</span>
             <span role="columnheader">操作</span>
           </div>
 
@@ -102,9 +100,8 @@
             >
               <div class="data-list-main" role="cell">
                 <NuxtLink
-                  :to="`/tenant/${tenantId}/dash/quiz-template/${row.id}`"
+                  :to="templatePath(row)"
                   class="data-list-title"
-                  :title="row.id ? `ID：${row.id}` : undefined"
                 >
                   {{ row.name || "未命名试卷" }}
                 </NuxtLink>
@@ -134,17 +131,20 @@
                 </span>
               </div>
 
-              <span
-                class="data-list-aside"
-                role="cell"
-                :title="row.ownerId || '未记录所有者'"
-              >
-                <span class="data-list-aside-label">所有者</span>
-                <span class="data-list-aside-value">{{ row.ownerId || "—" }}</span>
-              </span>
-
               <div class="data-list-actions" role="cell">
                 <UButton
+                  v-if="row.isPublished"
+                  :to="templatePath(row)"
+                  class="data-list-edit"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-eye"
+                >
+                  查看
+                </UButton>
+                <UButton
+                  v-else
                   class="data-list-edit"
                   color="neutral"
                   variant="ghost"
@@ -196,7 +196,6 @@ import type { DropdownMenuItem } from "@nuxt/ui";
 const { $api } = useNuxtApp();
 
 const toast = useToast();
-const router = useRouter();
 const route = useRoute();
 
 const tenantId = ref("");
@@ -331,11 +330,8 @@ const attemptLabel = (row: QuizTemplateDto) =>
     ? `${row.attemptLimit} 次`
     : "不限次数";
 
-const openTemplate = (row: QuizTemplateDto) => {
-  if (row.id) {
-    router.push(`/tenant/${tenantId.value}/dash/quiz-template/${row.id}`);
-  }
-};
+const templatePath = (row: QuizTemplateDto) =>
+  `/tenant/${tenantId.value}/dash/quiz-template/${row.id}`;
 
 const handleEdit = (row: QuizTemplateDto) => {
   currentId.value = row.id || "";
@@ -347,43 +343,24 @@ const confirmDelete = (row: QuizTemplateDto) => {
   showConfiemModal.value = true;
 };
 
-const copyId = async (row: QuizTemplateDto) => {
-  if (!row.id) return;
-  try {
-    await navigator.clipboard.writeText(row.id);
-    toast.add({ title: "试卷 ID 已复制" });
-  } catch {
-    toast.add({ title: "复制失败，请到详情页手动复制", color: "error" });
+const rowMenu = (row: QuizTemplateDto): DropdownMenuItem[][] => {
+  const path = templatePath(row);
+  if (row.isPublished) {
+    return [[
+      { label: "查看成绩", icon: "i-lucide-chart-no-axes-column", to: `${path}/records` },
+      { label: "批改试卷", icon: "i-lucide-clipboard-check", to: `${path}/review` },
+    ]];
   }
-};
-
-const rowMenu = (row: QuizTemplateDto): DropdownMenuItem[][] => [
-  [
-    {
-      label: "查看详情",
-      icon: "i-lucide-arrow-up-right",
-      onSelect: () => openTemplate(row),
-    },
-    {
-      label: "编辑",
-      icon: "i-lucide-pen-line",
-      onSelect: () => handleEdit(row),
-    },
-    {
-      label: "复制 ID",
-      icon: "i-lucide-copy",
-      onSelect: () => copyId(row),
-    },
-  ],
-  [
-    {
+  return [
+    [{ label: "查看详情", icon: "i-lucide-arrow-up-right", to: path }],
+    [{
       label: "删除",
       color: "error",
       icon: "i-lucide-trash-2",
       onSelect: () => confirmDelete(row),
-    },
-  ],
-];
+    }],
+  ];
+};
 
 const showCreateModal = ref(false);
 const showQuickPublishModal = ref(false);
@@ -464,7 +441,7 @@ const updateQuizTemplateAsync = async (command: UpdateQuizTemplateCommand) => {
 
 const handleDelete = async () => {
   if (!currentId.value || currentId.value.trim().length === 0) {
-    toast.add({ title: "ID 参数异常", color: "error" });
+    toast.add({ title: "请选择要删除的试卷", color: "error" });
     return;
   }
 
@@ -482,4 +459,17 @@ const handleDelete = async () => {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.exam-template-list {
+  --list-cols: minmax(0, 1.65fr) 88px minmax(0, 1.15fr) 124px;
+}
+
+@media (max-width: 1260px) {
+  .data-list-row,
+  .data-list-skeleton-row {
+    grid-template-areas:
+      "main status"
+      "schedule actions";
+  }
+}
+</style>

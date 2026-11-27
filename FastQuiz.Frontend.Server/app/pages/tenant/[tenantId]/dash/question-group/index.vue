@@ -54,7 +54,6 @@
           </div>
           <span class="skeleton-line is-short"></span>
           <span class="skeleton-line is-short"></span>
-          <span class="skeleton-line is-short"></span>
         </div>
       </div>
 
@@ -90,7 +89,6 @@
               <span>题库</span>
             </span>
             <span role="columnheader">题目数</span>
-            <span role="columnheader">创建者</span>
             <span role="columnheader">操作</span>
           </div>
 
@@ -129,15 +127,6 @@
                   {{ group.count ?? 0 }}<small>题</small>
                 </span>
               </div>
-
-              <span
-                class="data-list-aside"
-                role="cell"
-                :title="group.ownerId || '未记录创建者'"
-              >
-                <span class="data-list-aside-label">创建者</span>
-                <span class="data-list-aside-value">{{ group.ownerId || "—" }}</span>
-              </span>
 
               <div class="data-list-actions" role="cell">
                 <UButton
@@ -368,7 +357,7 @@ const confirmDelete = (row: QuestionGroupDto) => {
 
 const handleDelete = async () => {
   if (!currentId.value || currentId.value.trim().length == 0) {
-    toast.add({ title: "ID 参数异常", color: "error" });
+    toast.add({ title: "请先选择要删除的题库", color: "error" });
     return;
   }
   try {
@@ -414,16 +403,6 @@ const handleBatchDeleteGroup = async () => {
 
 // ---------------- 行操作 ----------------
 
-const copyId = async (row: QuestionGroupDto) => {
-  if (!row.id) return;
-  try {
-    await navigator.clipboard.writeText(row.id);
-    toast.add({ title: "题库 ID 已复制" });
-  } catch {
-    toast.add({ title: "复制失败，请到详情页手动复制", color: "error" });
-  }
-};
-
 const rowMenu = (row: QuestionGroupDto): DropdownMenuItem[][] => [
   [
     {
@@ -431,16 +410,6 @@ const rowMenu = (row: QuestionGroupDto): DropdownMenuItem[][] => [
       icon: "i-lucide-arrow-up-right",
       onSelect: () =>
         router.push(`/tenant/${tenantId.value}/dash/question-group/${row.id}`),
-    },
-    {
-      label: "编辑",
-      icon: "i-lucide-pen-line",
-      onSelect: () => openEdit(row),
-    },
-    {
-      label: "复制 ID",
-      icon: "i-lucide-copy",
-      onSelect: () => copyId(row),
     },
   ],
   [

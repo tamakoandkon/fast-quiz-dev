@@ -37,7 +37,8 @@
                   <span>{{ template.name }}</span>
                   <UIcon
                     class="exam-title-chevron"
-                    :name="isExpanded(template) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                    name="i-lucide-chevron-right"
+                    aria-hidden="true"
                   />
                 </button>
               </h2>
@@ -59,7 +60,9 @@
                 color="warning"
                 variant="soft"
                 size="sm"
-                @click="resumeAttempt(ongoingAttemptOf(template)!)"
+                :disabled="!!enteringTemplateId"
+                :loading="enteringTemplateId === template.id"
+                @click="enterExam(template.id, ongoingAttemptOf(template) ?? undefined)"
               >
                 继续考试
               </UButton>
@@ -67,126 +70,113 @@
                 v-else
                 color="primary"
                 size="sm"
-                :disabled="!isExamAvailable(template)"
-                @click="startAnswer(template.id || '')"
+                :disabled="!!examUnavailableReason(template) || !!enteringTemplateId"
+                :loading="enteringTemplateId === template.id"
+                @click="enterExam(template.id)"
               >
-                {{ getExamStatusText(template) }}
+                {{ examUnavailableReason(template) || "开始考试" }}
               </UButton>
             </div>
           </article>
 
           <!-- 展开区：该考试下的考试记录（独立分页） -->
-          <div v-if="isExpanded(template)" class="exam-records">
-            <div
-              v-if="recordState(template).loading && !recordsOf(template).length"
-              class="exam-records-empty"
-              role="status"
-            >
-              正在加载考试记录…
-            </div>
-            <CommonDataTable
-              v-else-if="recordsOf(template).length"
-              :columns="recordCols"
-              :data="recordsOf(template)"
-              :selectable="false"
-            >
-              <template #status="{ row }">
-                <UBadge
-                  :color="getStatusColor(row.status)"
-                  size="sm"
-                  variant="subtle"
+          <Transition name="workspace-disclosure">
+            <div v-if="isExpanded(template)" class="workspace-disclosure">
+              <div class="exam-records min-h-0 overflow-hidden">
+                <div
+                  v-if="recordState(template).loading && !recordsOf(template).length"
+                  class="exam-records-empty"
+                  role="status"
                 >
-                  {{ getStatusText(row.status) }}
-                </UBadge>
-              </template>
-
-              <template #startTime="{ row }">
-                {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
-              </template>
-
-              <template #submitTime="{ row }">
-                {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
-              </template>
-
-              <template #score="{ row }">
-                <span
-                  :class="
-                    row.status === QuizAttemptStatus.Graded
-                      ? 'text-green-600 font-medium'
-                      : ''
-                  "
+                  正在加载考试记录…
+                </div>
+                <CommonDataTable
+                  v-else-if="recordsOf(template).length"
+                  :columns="recordCols"
+                  :data="recordsOf(template)"
+                  :selectable="false"
                 >
-                  {{ row.status === QuizAttemptStatus.Graded ? (row.score ?? "--") : "--" }}
-                </span>
-              </template>
+                  <template #status="{ row }">
+                    <UBadge
+                      :color="getStatusColor(row.status)"
+                      size="sm"
+                      variant="subtle"
+                    >
+                      {{ getStatusText(row.status) }}
+                    </UBadge>
+                  </template>
 
-              <template #actions="{ row }">
-                <UButton
-                  v-if="
-                    row.status === QuizAttemptStatus.InProgress ||
-                    row.status === QuizAttemptStatus.Pending
-                  "
-                  color="warning"
-                  variant="outline"
-                  size="xs"
-                  @click="resumeAttempt(row)"
-                >
-                  继续考试
-                </UButton>
-                <UButton
-                  v-else-if="row.status === QuizAttemptStatus.Graded"
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                  icon="i-lucide-eye"
-                  :to="`/tenant/${tenantId}/quiz-attempt/${row.id}/result`"
-                >
-                  查看答案
-                </UButton>
-                <span v-else class="text-xs text-gray-400">—</span>
-              </template>
-            </CommonDataTable>
+                  <template #startTime="{ row }">
+                    {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
+                  </template>
 
-            <!-- 该模板无记录 -->
-            <div
-              v-if="!recordState(template).loading && recordsOf(template).length === 0"
-              class="exam-records-empty"
-            >
-              该考试暂无你的考试记录。
-            </div>
+                  <template #submitTime="{ row }">
+                    {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
+                  </template>
 
-            <!-- 记录分页（上一页 / 下一页，各自独立） -->
-            <div
-              v-if="recordsOf(template).length > 0 || recordState(template).page > 0"
-              class="exam-records-footer"
-            >
-              <span class="text-xs">
-                第 {{ recordState(template).page + 1 }} 页 · 每页 {{ recordPageSize }} 条
-              </span>
-              <div class="flex items-center gap-2">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                  icon="i-lucide-chevron-left"
-                  :disabled="recordState(template).page === 0 || recordState(template).loading"
-                  @click="fetchRecords(template, true)"
+                  <template #score="{ row }">
+                    <span
+                      :class="
+                        row.status === QuizAttemptStatus.Graded
+                          ? 'text-green-600 font-medium'
+                          : ''
+                      "
+                    >
+                      {{ row.status === QuizAttemptStatus.Graded ? (row.score ?? "--") : "--" }}
+                    </span>
+                  </template>
+
+                  <template #actions="{ row }">
+                    <UButton
+                      v-if="
+                        row.status === QuizAttemptStatus.InProgress ||
+                        row.status === QuizAttemptStatus.Pending
+                      "
+                      color="warning"
+                      variant="outline"
+                      size="xs"
+                      :disabled="!!enteringTemplateId || (row.status === QuizAttemptStatus.Pending && !!examUnavailableReason(template))"
+                      :loading="enteringTemplateId === template.id"
+                      @click="enterExam(template.id, row)"
+                    >
+                      {{ row.status === QuizAttemptStatus.Pending ? "开始考试" : "继续考试" }}
+                    </UButton>
+                    <UButton
+                      v-else-if="row.status === QuizAttemptStatus.Graded"
+                      color="neutral"
+                      variant="outline"
+                      size="xs"
+                      icon="i-lucide-eye"
+                      :to="`/tenant/${tenantId}/quiz-attempt/${row.id}/result`"
+                    >
+                      查看答案
+                    </UButton>
+                    <span v-else class="text-xs text-gray-400">—</span>
+                  </template>
+                </CommonDataTable>
+
+                <!-- 该模板无记录 -->
+                <div
+                  v-if="!recordState(template).loading && recordsOf(template).length === 0"
+                  class="exam-records-empty"
                 >
-                  上一页
-                </UButton>
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                  trailing-icon="i-lucide-chevron-right"
-                  :disabled="!recordState(template).haveMore || recordState(template).loading"
-                  @click="fetchRecords(template, false)"
-                >
-                  下一页
-                </UButton>
+                  该考试暂无你的考试记录。
+                </div>
+
+                <LazyCommonListFooter
+                  v-if="recordsOf(template).length || recordState(template).page > 0"
+                  :page-index="recordState(template).page"
+                  :item-count="recordsOf(template).length"
+                  :can-prev="recordState(template).page > 0"
+                  :can-next="recordState(template).haveMore"
+                  :busy="recordState(template).loading"
+                  :show-page-size="false"
+                  @prev="fetchRecords(template, true)"
+                  @next="fetchRecords(template, false)"
+                />
               </div>
             </div>
-          </div>
+          </Transition>
         </template>
 
         <div v-if="loaded && templates.length === 0" class="exam-empty" role="status">当前没有可参加的考试。</div>
@@ -207,12 +197,11 @@
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 
-const router = useRouter();
 const route = useRoute();
 const toast = useToast();
-const userStore = useUserStore();
 
 const tenantId = ref("");
+const { enterExam, enteringTemplateId } = useExamEntry(tenantId);
 const pageSize = ref(10);
 const recordPageSize = 5;
 
@@ -456,53 +445,6 @@ const probeOngoing = async (template: QuizTemplateDto) => {
   }
 };
 
-/** 继续答题。 */
-const resumeAttempt = async (attempt: QuizAttempDto) => {
-  // Pending 需要先切到 InProgress 才能读题
-  if (attempt.status === QuizAttemptStatus.Pending) {
-    try {
-      await $api.tenant.quizTemplateQuizAttemptUpdate(
-        tenantId.value,
-        attempt.id as string,
-        { status: QuizAttemptStatus.InProgress },
-      );
-    } catch (e: any) {
-      const title = e?.response?.data?.title ?? "继续考试失败";
-      toast.add({ title: `继续考试失败：${title}`, color: "error" });
-      return;
-    }
-  }
-  router.push(`/tenant/${tenantId.value}/quiz-attempt/${attempt.id}/answer`);
-};
-
-// ---------------- 开始新的考试 ----------------
-
-const isExamAvailable = (template: QuizTemplateDto) => {
-  if (template.isUnlimitedTime) return true;
-
-  const now = new Date();
-  const beginTime = template.beginTime ? new Date(template.beginTime) : null;
-  const endTime = template.endTime ? new Date(template.endTime) : null;
-
-  if (beginTime && now < beginTime) return false;
-  if (endTime && now > endTime) return false;
-
-  return true;
-};
-
-const getExamStatusText = (template: QuizTemplateDto) => {
-  if (template.isUnlimitedTime) return "开始考试";
-
-  const now = new Date();
-  const beginTime = template.beginTime ? new Date(template.beginTime) : null;
-  const endTime = template.endTime ? new Date(template.endTime) : null;
-
-  if (beginTime && now < beginTime) return "考试未开始";
-  if (endTime && now > endTime) return "考试已结束";
-
-  return "开始考试";
-};
-
 const viewId = ref("");
 const showDetail = ref(false);
 const handleView = (template: QuizTemplateDto) => {
@@ -510,32 +452,9 @@ const handleView = (template: QuizTemplateDto) => {
   showDetail.value = true;
 };
 
-const startAnswer = async (templateId: string) => {
-  let result;
-  try {
-    result = await $api.tenant.quizTemplateQuizAttemptCreate(
-      tenantId.value,
-      templateId,
-    );
-
-    await $api.tenant.quizTemplateQuizAttemptUpdate(
-      tenantId.value,
-      result.data.id as string,
-      { status: QuizAttemptStatus.InProgress },
-    );
-  } catch (e: any) {
-    const title = e?.response?.data?.title ?? "参加考试失败";
-    toast.add({ title: `参加考试失败：${title}`, color: "error" });
-    return;
-  }
-
-  router.push(`/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`);
-};
-
 // ---------------- 记录表列与格式化 ----------------
 
 const recordCols = [
-  { key: "id", label: "考试ID", width: "260px" },
   { key: "status", label: "状态", width: "110px" },
   { key: "startTime", label: "开始时间" },
   { key: "submitTime", label: "交卷时间" },

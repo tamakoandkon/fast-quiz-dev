@@ -12,4 +12,7 @@ public record QuizAttempDto(
     DateTimeOffset? SubmitTime,
     int Score,
     QuizAttemptStatus Status
-);
+)
+{
+    public string? AssignUsername { get; init; }
+}

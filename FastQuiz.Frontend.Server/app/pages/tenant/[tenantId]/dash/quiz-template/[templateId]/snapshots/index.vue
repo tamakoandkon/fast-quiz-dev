@@ -1,16 +1,12 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" class="py-2" />
-    </template>
-
-    <CommonButtonsContainer>
+  <CommonPageLayout :description="template.name || undefined">
+    <template #actions>
       <QuizSnapshotCreateQuizSnapshotModal
         v-model="showCreateQuizSnapshot"
         @create="createQuizSnapshot"
         :quiz-template-id="templateId"
       />
-    </CommonButtonsContainer>
+    </template>
 
     <QuizAttemptCreateQuizAttemptModal
       class="mx-2"
@@ -32,15 +28,13 @@
           )
       "
     >
-      <template #id="{ row }">
-        <CommonTruncateText :text="row.id || ''" direction="rtl">
-          <NuxtLink
-            :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/snapshots/${row.id}`"
-            class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer"
-          >
-            {{ row.id }}
-          </NuxtLink>
-        </CommonTruncateText>
+      <template #sample="{ row }">
+        <NuxtLink
+          :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/snapshots/${row.id}`"
+          class="text-primary-600 hover:underline"
+        >
+          {{ sampleLabels.get(row.id) || "试卷样本" }}
+        </NuxtLink>
       </template>
       <template #actions="{ row }">
         <div class="flex justify-center gap-3">
@@ -77,7 +71,18 @@
         <UButton color="neutral" variant="soft" :loading="poolBusy" @click="fetchPool(true)">刷新</UButton>
       </div>
       <p v-if="poolError" role="alert" class="text-sm text-error">{{ poolError }}</p>
-      <CommonDataTable :columns="poolColumns" :data="pool" />
+      <CommonDataTable v-if="poolRows.length" :columns="poolColumns" :data="poolRows">
+        <template #source="{ row }">
+          <NuxtLink
+            v-if="row.snapshotId"
+            :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/snapshots/${row.snapshotId}`"
+            class="text-primary-600 hover:underline"
+          >
+            {{ sampleLabels.get(row.snapshotId) || "试卷样本" }}
+          </NuxtLink>
+          <span v-else>来源未记录</span>
+        </template>
+      </CommonDataTable>
       <p v-if="!poolBusy && !poolError && pool.length === 0" class="text-sm text-muted">暂无待领取试卷，请从上方样本批量生成。</p>
       <UButton v-if="poolHasMore" color="neutral" variant="ghost" :loading="poolBusy" @click="fetchPool(false)">加载更多待领取试卷</UButton>
     </section>
@@ -86,7 +91,6 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const toast = useToast();
 const route = useRoute();
@@ -97,7 +101,6 @@ const tenantId = ref<string>("");
 
 const template = ref<QuizTemplateDto>({});
 
-const links = ref<BreadcrumbItem[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
@@ -108,23 +111,8 @@ onMounted(async () => {
   await fetchList(pageSize.value, true);
   await fetchPool(true);
 
-  links.value.push({
-    label: "试卷模板",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
 
-  links.value.push({
-    label: template.value.name as string,
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
 
-  links.value.push({
-    label: "试卷样本列表",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}/snapshots`,
-  });
 });
 
 const fetchQuizTemplate = async () => {
@@ -142,9 +130,13 @@ const pageSize = ref(50);
 
 const haveMore = ref(true);
 
+const sampleLabels = computed(() => new Map(snapshots.value.map(
+  (sample, index) => [sample.id, `样卷 ${index + 1}`],
+)));
+
 const cols = [
-  { key: "id", label: "ID", width: "16px" },
-  { key: "totalScore", label: "总分数", width: "16px" },
+  { key: "sample", label: "样卷" },
+  { key: "totalScore", label: "总分" },
   { key: "actions", label: "操作", width: "150px" },
 ];
 
@@ -199,7 +191,15 @@ const pool = ref<PrebuiltQuizAttemptDto[]>([]);
 const poolBusy = ref(false);
 const poolError = ref("");
 const poolHasMore = ref(false);
-const poolColumns = [{ key: "id", label: "试卷 ID" }, { key: "quizSnapshotId", label: "来源样本" }];
+const poolRows = computed(() => {
+  const counts = new Map<string | undefined, number>();
+  for (const paper of pool.value) {
+    const id = paper.quizSnapshotId || undefined;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return [...counts].map(([snapshotId, count]) => ({ snapshotId, count }));
+});
+const poolColumns = [{ key: "source", label: "来源样卷" }, { key: "count", label: "待领取份数" }];
 const fetchPool = async (refresh: boolean) => {
   if (poolBusy.value) return;
   poolBusy.value = true;

@@ -113,7 +113,7 @@ public class TenantService(
             _idGenerator.GenerateUlId(),
             tenantId,
             Role.TenantAdminRoleName,
-            $"租户 {tenantId} 的租户级管理员",
+            "管理此租户的用户、组织、角色、题库和考试。",
             true,
             true
         );

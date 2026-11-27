@@ -1,13 +1,10 @@
 <template>
-  <CommonPageLayout v-if="loaded">
+  <CommonPageLayout v-if="loaded" :title="template.name || '正在答题'">
     <div class="attempt-shell">
       <header class="attempt-header">
-        <div class="attempt-title-row">
-          <h1>{{ template.name }}</h1>
-          <span class="attempt-progress">已答 {{ getAnsweredCount() }} / {{ questionRecords.length }}</span>
-        </div>
         <div class="attempt-toolbar">
           <div class="attempt-timing">
+            <span class="attempt-progress">已答 {{ getAnsweredCount() }} / {{ questionRecords.length }}</span>
             <CommonCountDown
               v-if="!template.isUnlimitedTime && (template.durationMinutes ?? 0) > 0"
               :minutes="template.durationMinutes ?? 0"

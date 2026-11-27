@@ -1,15 +1,6 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" />
-    </template>
-
-    <QuestionGroupHeroCard
-      :name="group.name as string"
-      :remark="group.remark || ''"
-      :count="group.count"
-    />
-    <CommonButtonsContainer>
+  <CommonPageLayout :title="group.name || '题库详情'" :description="[group.remark, group.count != null ? group.count + ' 道题' : ''].filter(Boolean).join(' · ')">
+    <template #actions>
       <QuestionCreateQuestionModal
         v-model="showNewModel"
         @create="createQuestion"
@@ -42,7 +33,7 @@
         class="hidden"
         @change="handleFileImport"
       />
-    </CommonButtonsContainer>
+    </template>
 
     <QuestionGroupStatistics
       ref="statisticsRef"
@@ -51,54 +42,47 @@
       :group-id="id"
     />
 
-    <UContextMenu :items="items">
-      <CommonDataTable
-        :columns="cols"
-        :data="questions"
-        :selectable="true"
-        @row-right-click="switchCurrentId"
-      >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-            <div>{{ row.id }}</div>
-          </CommonTruncateText>
-        </template>
-        <template #markUpContent="{ row }">
-          <CommonTruncateText :text="row.markupContent || ''">
-          </CommonTruncateText>
-        </template>
-        <template #remark="{ row }">
-          <CommonTruncateText :text="row.remark || ''"> </CommonTruncateText>
-        </template>
-        <template #type="{ row }">
-          {{ getQuestionTypeName(row.type as QuestionType) }}
-        </template>
-      </CommonDataTable>
-    </UContextMenu>
+    <section class="workspace-panel workspace-table-panel">
+      <UContextMenu :items="items">
+        <CommonDataTable
+          :columns="cols"
+          :data="questions"
+          :selectable="true"
+          @row-right-click="switchCurrentId"
+        >
+          <template #markUpContent="{ row }">
+            <CommonTruncateText :text="row.markupContent || '未填写题干'" width="min(28rem, 52vw)" />
+          </template>
+          <template #remark="{ row }">
+            <CommonTruncateText :text="row.remark || ''"> </CommonTruncateText>
+          </template>
+          <template #type="{ row }">
+            {{ getQuestionTypeName(row.type as QuestionType) }}
+          </template>
+        </CommonDataTable>
+      </UContextMenu>
 
-    <CommonCursorPageManager
-      v-model="pageSize"
-      @change="fectchList"
-      :current-size="questions.length"
-    ></CommonCursorPageManager>
+      <CommonCursorPageManager
+        v-model="pageSize"
+        @change="fectchList"
+        :current-size="questions.length"
+      ></CommonCursorPageManager>
+    </section>
   </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 const route = useRoute();
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 import type { ContextMenuItem } from "@nuxt/ui";
 import Papa from "papaparse";
 
-const links = ref<BreadcrumbItem[]>([]);
 
 const toast = useToast();
 
 const pageSize = ref(10);
 
 const cols = [
-  { key: "id", label: "ID", width: "80px" },
   { key: "markUpContent", label: "题干" },
   { key: "type", label: "题型" },
   { key: "level", label: "难度" },
@@ -159,11 +143,6 @@ onMounted(async () => {
   id.value = route.params.qgId as string;
   tenantId.value = route.params.tenantId as string;
 
-  links.value.push({
-    label: "题库列表",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/question-group`,
-  });
 
   let result;
   try {
@@ -176,11 +155,6 @@ onMounted(async () => {
   }
   group.value = result.data;
 
-  links.value.push({
-    label: group.value.name as string,
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/question-group/${group.value.id}`,
-  });
 
   await fectchList(false, 10, true);
 });
@@ -231,8 +205,7 @@ const getCursor = (isPre: boolean) => {
 
 const handleDelete = async () => {
   if (!currentId.value || currentId.value.trim().length == 0) {
-    toast.add({ title: "ID参数异常" });
-    console.log(currentId.value);
+    toast.add({ title: "请先选择要删除的题目", color: "error" });
     return;
   }
   try {

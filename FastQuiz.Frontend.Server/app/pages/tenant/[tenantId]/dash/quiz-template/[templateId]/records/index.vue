@@ -1,11 +1,16 @@
 <template>
-  <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
-
-    <!-- 标题与筛选 -->
-    <div v-if="loaded" class="mb-4 flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold">{{ template.name || "未命名试卷" }}</h2>
+  <CommonPageLayout :description="template.name || undefined">
+    <template #actions>
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-download"
+        @click="showExportModal = true"
+      >
+        导出 CSV
+      </UButton>
+    </template>
+    <div v-if="loaded" class="workspace-panel workspace-toolbar">
       <UBadge v-if="!template.isUnlimitedTime" color="info" size="sm">
         限时：{{ formatDateTime(template.beginTime) }} ~
         {{ formatDateTime(template.endTime) }}
@@ -15,70 +20,63 @@
       <div class="ml-auto flex items-center gap-3">
         <!-- 列表筛选：是否只取最好的一次成绩 -->
         <div class="flex items-center gap-2">
-          <USwitch v-model="onlyBest" color="primary" size="md" />
-          <span class="text-sm text-gray-500">只取最好的一次成绩</span>
+          <USwitch v-model="onlyBest" label="只看最佳成绩" size="md" />
         </div>
 
-        <UButton
-          color="neutral"
-          variant="outline"
-          icon="i-lucide-download"
-          @click="showExportModal = true"
-        >
-          导出 CSV
-        </UButton>
       </div>
     </div>
 
-    <CommonDataTable :columns="cols" :data="records" :selectable="false">
-      <template #assignId="{ row }">
-        {{ row.assignId || "--" }}
-      </template>
+    <section class="workspace-panel workspace-table-panel">
+      <CommonDataTable :columns="cols" :data="records" :selectable="false">
+        <template #assignUsername="{ row }">
+          {{ row.assignUsername || "未知考生" }}
+        </template>
 
-      <template #status="{ row }">
-        <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
-          {{ getStatusText(row.status) }}
-        </UBadge>
-      </template>
+        <template #status="{ row }">
+          <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
+            {{ getStatusText(row.status) }}
+          </UBadge>
+        </template>
 
-      <template #startTime="{ row }">
-        {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
-      </template>
+        <template #startTime="{ row }">
+          {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
+        </template>
 
-      <template #submitTime="{ row }">
-        {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
-      </template>
+        <template #submitTime="{ row }">
+          {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
+        </template>
 
-      <template #score="{ row }">
-        <span
-          :class="
-            row.status === QuizAttemptStatus.Graded
-              ? 'text-green-600 font-medium'
-              : ''
-          "
-        >
-          {{ row.score ?? "--" }}
-        </span>
-      </template>
+        <template #score="{ row }">
+          <span
+            :class="
+              row.status === QuizAttemptStatus.Graded
+                ? 'text-green-600 font-medium'
+                : ''
+            "
+          >
+            {{ row.score ?? "--" }}
+          </span>
+        </template>
 
-      <template #actions="{ row }">
-        <UButton
-          :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
-          color="neutral"
-          variant="outline"
-          size="xs"
-          icon="i-lucide-eye"
-        >
-          查看
-        </UButton>
-      </template>
-    </CommonDataTable>
+        <template #actions="{ row }">
+          <UButton
+            :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
+            color="neutral"
+            variant="outline"
+            size="xs"
+            icon="i-lucide-eye"
+          >
+            查看
+          </UButton>
+        </template>
+      </CommonDataTable>
 
-    <CommonCursorPageManager
-      @change="fetchList"
-      :current-size="records.length"
-      v-model="pageSize"
-    />
+      <CommonCursorPageManager
+        @change="fetchList"
+        :current-size="records.length"
+        v-model="pageSize"
+      />
+    </section>
 
     <!-- 空状态 -->
     <div
@@ -93,11 +91,10 @@
       v-model:loading="exporting"
       @export="handleExport"
     />
-  </CommonManagePageContainer>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const { $api } = useNuxtApp();
 const route = useRoute();
@@ -106,7 +103,6 @@ const toast = useToast();
 const tenantId = ref("");
 const templateId = ref("");
 
-const links = ref<BreadcrumbItem[]>([]);
 const template = ref<QuizTemplateDto>({});
 const records = ref<QuizAttempDto[]>([]);
 const loaded = ref(false);
@@ -117,7 +113,7 @@ const onlyBest = ref(false);
 const pageSize = ref(10);
 
 const cols = [
-  { key: "assignId", label: "考生", width: "180px" },
+  { key: "assignUsername", label: "考生", width: "180px" },
   { key: "status", label: "状态" },
   { key: "startTime", label: "开始时间" },
   { key: "submitTime", label: "交卷时间" },
@@ -140,16 +136,6 @@ onMounted(async () => {
     toast.add({ title: `获取试卷失败：${title}`, color: "error" });
   }
 
-  links.value.push({
-    label: "试卷管理",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
-  links.value.push({
-    label: template.value.name ?? templateId.value,
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
-  links.value.push({ label: "查看成绩" });
 
   await fetchList(false, pageSize.value, true);
   loaded.value = true;
@@ -276,7 +262,7 @@ const buildCsv = (rows: QuizAttempDto[]): string => {
   for (const r of rows) {
     lines.push(
       [
-        r.assignId ?? "",
+        r.assignUsername || "未知考生",
         r.quizTemplateNema ?? "",
         getStatusText(r.status),
         r.startTime ? formatDateTime(r.startTime) : "",

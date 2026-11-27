@@ -1,8 +1,6 @@
 <template>
-  <div
-    class="data-table w-full"
-  >
-    <table class="min-w-full divide-y divide-gray-200 table-fixed">
+  <div class="data-table w-full">
+    <table>
       <colgroup>
         <col v-if="selectable" style="width: 48px" />
         <col
@@ -11,11 +9,12 @@
           :style="{ width: col.width }"
         />
       </colgroup>
-      <thead class="bg-gray-50">
+      <thead>
         <tr>
-          <th v-if="selectable" class="w-12 px-6 py-3 border-b text-center">
+          <th v-if="selectable" scope="col" class="data-table-selection">
             <input
               type="checkbox"
+              aria-label="选择本页所有记录"
               :checked="isAllSelected"
               :indeterminate="isIndeterminate"
               @change="toggleAll"
@@ -26,31 +25,26 @@
           <th
             v-for="(col, index) in columns"
             :key="col.key || index"
-            :style="{ textAlign: 'center' }"
-            :class="[
-              'px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider border-b',
-              col.headerClass,
-            ]"
+            scope="col"
+            :class="[col.key === 'actions' && 'data-table-action', col.headerClass]"
           >
             {{ col.label }}
           </th>
         </tr>
       </thead>
 
-      <tbody class="divide-y divide-gray-200">
+      <tbody>
         <tr
           v-for="(row, rowIndex) in data"
           :key="rowIndex"
-          :class="[
-            'hover:bg-gray-50 transition-colors',
-            isSelected(row) ? 'bg-blue-50/30' : '',
-          ]"
+          :class="{ 'bg-primary/5': isSelected(row) }"
           @dblclick="handleRowDblClick(row, rowIndex)"
           @contextmenu="() => handleRowRightClick(row, rowIndex)"
         >
-          <td v-if="selectable" class="px-6 py-4 text-center">
+          <td v-if="selectable" class="data-table-selection">
             <input
               type="checkbox"
+              :aria-label="'选择第 ' + (rowIndex + 1) + ' 条记录'"
               :checked="isSelected(row)"
               @change="toggleRow(row)"
               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -60,9 +54,13 @@
           <td
             v-for="(col, colIndex) in columns"
             :key="col.key || colIndex"
-            class="px-6 py-4 text-sm text-gray-600 text-center whitespace-nowrap"
+            :class="{
+              'data-table-primary': colIndex === 0,
+              'data-table-action': col.key === 'actions',
+              'data-table-numeric': ['score', 'totalScore', 'startTime', 'submitTime', 'createdAt', 'updatedAt'].includes(col.key ?? ''),
+            }"
           >
-            <div class="flex justify-center items-center">
+            <div class="min-w-0">
               <slot :name="col.key" :row="row" :index="rowIndex">
                 <template v-if="col.getValue">
                   {{ col.getValue(row) }}

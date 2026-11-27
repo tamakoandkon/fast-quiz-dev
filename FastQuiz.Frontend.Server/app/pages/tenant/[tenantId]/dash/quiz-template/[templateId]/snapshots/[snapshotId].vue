@@ -1,8 +1,9 @@
 <template>
-  <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
-    <div class="flex flex-col gap-5 p-4">
+  <CommonPageLayout :description="template.name || undefined">
+    <p v-if="quizSnapshot.totalScore != null" class="workspace-panel workspace-toolbar text-sm text-muted">
+      样卷总分 {{ quizSnapshot.totalScore }} 分
+    </p>
+    <div class="flex flex-col gap-4">
       <QuestionRecordViewCard
         v-for="(item, index) in questions"
         :key="item.id || index"
@@ -10,13 +11,12 @@
         :index="index + 1"
       />
     </div>
-  </CommonManagePageContainer>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 //TODO 增加展示评分规则的文本方法
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const toast = useToast();
 const route = useRoute();
@@ -30,7 +30,6 @@ const tenantId = ref<string>("");
 
 const quizSnapshot = ref<QuizSnapshotDto>({});
 
-const links = ref<BreadcrumbItem[]>([]);
 
 onMounted(async () => {
   templateId.value = route.params.templateId as string;
@@ -42,29 +41,9 @@ onMounted(async () => {
 
   await fetchList(200, false);
 
-  links.value.push({
-    label: "试卷模板",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
 
-  links.value.push({
-    label: template.value.name as string,
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
 
-  links.value.push({
-    label: "试卷样本列表",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}/snapshots`,
-  });
 
-  links.value.push({
-    label: quizSnapshot.value.id as string,
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}/snapshots/${quizSnapshotId.value}`,
-  });
 });
 
 const fetchQuizTemplate = async () => {

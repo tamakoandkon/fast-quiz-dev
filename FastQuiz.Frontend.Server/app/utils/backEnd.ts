@@ -292,6 +292,7 @@ export interface QuestionTypeCountDto {
 export interface QuizAttempDto {
   id?: string | null;
   assignId?: string | null;
+  assignUsername?: string | null;
   quizTemplateId?: string | null;
   quizTemplateNema?: string | null;
   quizSampleId?: string | null;
@@ -1099,6 +1100,23 @@ export namespace Tenant {
     export type RequestBody = never;
     export type RequestHeaders = {};
     export type ResponseBody = void;
+  }
+
+  /**
+   * No description
+   * @tags QuizAttempt
+   * @name QuizTemplateQuizAttemptJoinCreate
+   * @request POST:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/join
+   */
+  export namespace QuizTemplateQuizAttemptJoinCreate {
+    export type RequestParams = {
+      tenantId: string;
+      quizTemplateId: string;
+    };
+    export type RequestQuery = {};
+    export type RequestBody = never;
+    export type RequestHeaders = {};
+    export type ResponseBody = QuizAttempDto;
   }
 
   /**
@@ -2928,6 +2946,25 @@ export class Api<
         path: `/tenant/${tenantId}/quiz-template/quiz-attempt/${quizAttemptId}`,
         method: "PUT",
         query: query,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags QuizAttempt
+     * @name QuizTemplateQuizAttemptJoinCreate
+     * @request POST:/tenant/{tenantId}/quiz-template/{quizTemplateId}/quiz-attempt/join
+     */
+    quizTemplateQuizAttemptJoinCreate: (
+      tenantId: string,
+      quizTemplateId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<QuizAttempDto, ProblemDetails>({
+        path: `/tenant/${tenantId}/quiz-template/${quizTemplateId}/quiz-attempt/join`,
+        method: "POST",
+        format: "json",
         ...params,
       }),
 
