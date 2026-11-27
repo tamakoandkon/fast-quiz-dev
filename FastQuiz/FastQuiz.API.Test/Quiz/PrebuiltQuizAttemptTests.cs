@@ -40,6 +40,43 @@ internal partial class QuizAttemptTests
             new[] { new CreateQuizAttemptCommand(snapshot, count) });
 
     [Test]
+    public async Task JoinUsesPrebuiltThenFallsBackToCreationAndReusesUnfinishedAttempts()
+    {
+        var (template, snapshot) = await SeedPrebuiltAsync(1);
+        (await GenerateAsync(template, snapshot, 1)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        var url = PrebuiltUrl(template);
+        var pool = await Sut.CreateClient(User.DefaultAdminId)
+            .GetFromJsonAsync<List<PrebuiltQuizAttemptDto>>(url + "/prebuilt");
+        var prebuiltId = pool!.Single().Id;
+
+        var user = await CreateMemberAsync(false);
+        var client = Sut.CreateClient(user);
+        async Task<QuizAttempDto> JoinAsync(HttpClient candidate)
+        {
+            using var response = await candidate.PostAsync(url + "/join", null);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            return (await response.ReadFromJsonWithEnumAsync<QuizAttempDto>())!;
+        }
+
+        var attempts = await Task.WhenAll(JoinAsync(client), JoinAsync(client));
+        attempts.ShouldAllBe(x => x.Id == prebuiltId && x.AssignId == user && x.Status == QuizAttemptStatus.Pending);
+        await Sut.UpdateQuizAttemptStatusAsync(user, prebuiltId, QuizAttemptStatus.InProgress);
+        var resumed = await JoinAsync(client);
+        resumed.Id.ShouldBe(prebuiltId);
+        resumed.Status.ShouldBe(QuizAttemptStatus.InProgress);
+        resumed.StartTime.ShouldNotBeNull();
+
+        var otherUser = await CreateMemberAsync(false);
+        var generated = await JoinAsync(Sut.CreateClient(otherUser));
+        generated.Id.ShouldNotBe(prebuiltId);
+        generated.AssignId.ShouldBe(otherUser);
+        generated.Status.ShouldBe(QuizAttemptStatus.Pending);
+
+        await Sut.UpdateQuizAttemptStatusAsync(user, prebuiltId, QuizAttemptStatus.Submitted);
+        (await client.PostAsync(url + "/join", null)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Test]
     public async Task BatchCreatesEveryRequestedCopyAndMemberCanClaimStartAndAnswer()
     {
         var (template, snapshot) = await SeedPrebuiltAsync();

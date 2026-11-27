@@ -59,7 +59,9 @@
                 color="warning"
                 variant="soft"
                 size="sm"
-                @click="resumeAttempt(ongoingAttemptOf(template)!)"
+                :disabled="!!enteringTemplateId"
+                :loading="enteringTemplateId === template.id"
+                @click="enterExam(template.id, ongoingAttemptOf(template) ?? undefined)"
               >
                 继续考试
               </UButton>
@@ -67,10 +69,11 @@
                 v-else
                 color="primary"
                 size="sm"
-                :disabled="!isExamAvailable(template)"
-                @click="startAnswer(template.id || '')"
+                :disabled="!!examUnavailableReason(template) || !!enteringTemplateId"
+                :loading="enteringTemplateId === template.id"
+                @click="enterExam(template.id)"
               >
-                {{ getExamStatusText(template) }}
+                {{ examUnavailableReason(template) || "开始考试" }}
               </UButton>
             </div>
           </article>
@@ -129,9 +132,11 @@
                   color="warning"
                   variant="outline"
                   size="xs"
-                  @click="resumeAttempt(row)"
+                  :disabled="!!enteringTemplateId || (row.status === QuizAttemptStatus.Pending && !!examUnavailableReason(template))"
+                  :loading="enteringTemplateId === template.id"
+                  @click="enterExam(template.id, row)"
                 >
-                  继续考试
+                  {{ row.status === QuizAttemptStatus.Pending ? "开始考试" : "继续考试" }}
                 </UButton>
                 <UButton
                   v-else-if="row.status === QuizAttemptStatus.Graded"
@@ -207,12 +212,11 @@
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 
-const router = useRouter();
 const route = useRoute();
 const toast = useToast();
-const userStore = useUserStore();
 
 const tenantId = ref("");
+const { enterExam, enteringTemplateId } = useExamEntry(tenantId);
 const pageSize = ref(10);
 const recordPageSize = 5;
 
@@ -456,80 +460,11 @@ const probeOngoing = async (template: QuizTemplateDto) => {
   }
 };
 
-/** 继续答题。 */
-const resumeAttempt = async (attempt: QuizAttempDto) => {
-  // Pending 需要先切到 InProgress 才能读题
-  if (attempt.status === QuizAttemptStatus.Pending) {
-    try {
-      await $api.tenant.quizTemplateQuizAttemptUpdate(
-        tenantId.value,
-        attempt.id as string,
-        { status: QuizAttemptStatus.InProgress },
-      );
-    } catch (e: any) {
-      const title = e?.response?.data?.title ?? "继续考试失败";
-      toast.add({ title: `继续考试失败：${title}`, color: "error" });
-      return;
-    }
-  }
-  router.push(`/tenant/${tenantId.value}/quiz-attempt/${attempt.id}/answer`);
-};
-
-// ---------------- 开始新的考试 ----------------
-
-const isExamAvailable = (template: QuizTemplateDto) => {
-  if (template.isUnlimitedTime) return true;
-
-  const now = new Date();
-  const beginTime = template.beginTime ? new Date(template.beginTime) : null;
-  const endTime = template.endTime ? new Date(template.endTime) : null;
-
-  if (beginTime && now < beginTime) return false;
-  if (endTime && now > endTime) return false;
-
-  return true;
-};
-
-const getExamStatusText = (template: QuizTemplateDto) => {
-  if (template.isUnlimitedTime) return "开始考试";
-
-  const now = new Date();
-  const beginTime = template.beginTime ? new Date(template.beginTime) : null;
-  const endTime = template.endTime ? new Date(template.endTime) : null;
-
-  if (beginTime && now < beginTime) return "考试未开始";
-  if (endTime && now > endTime) return "考试已结束";
-
-  return "开始考试";
-};
-
 const viewId = ref("");
 const showDetail = ref(false);
 const handleView = (template: QuizTemplateDto) => {
   viewId.value = template.id ?? "";
   showDetail.value = true;
-};
-
-const startAnswer = async (templateId: string) => {
-  let result;
-  try {
-    result = await $api.tenant.quizTemplateQuizAttemptCreate(
-      tenantId.value,
-      templateId,
-    );
-
-    await $api.tenant.quizTemplateQuizAttemptUpdate(
-      tenantId.value,
-      result.data.id as string,
-      { status: QuizAttemptStatus.InProgress },
-    );
-  } catch (e: any) {
-    const title = e?.response?.data?.title ?? "参加考试失败";
-    toast.add({ title: `参加考试失败：${title}`, color: "error" });
-    return;
-  }
-
-  router.push(`/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`);
 };
 
 // ---------------- 记录表列与格式化 ----------------

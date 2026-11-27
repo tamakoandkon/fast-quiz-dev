@@ -61,6 +61,10 @@ public static class QuizAttemptApi
             .Produces(StatusCodes.Status204NoContent);
 
         group
+            .MapPost("{quizTemplateId}/quiz-attempt/join", JoinQuizAttemptAsync)
+            .Produces<QuizAttempDto>(StatusCodes.Status200OK);
+
+        group
             .MapPost("{quizTemplateId}/quiz-attempt/claim", ClaimAvailableAsync)
             .Produces<QuizAttempDto>(StatusCodes.Status200OK);
 
@@ -110,6 +114,11 @@ public static class QuizAttemptApi
         await service.AssignQuizAttemptAsync(claims.EnsureAndGetUserId(), tenantId, quizAttemptId);
         return Results.NoContent();
     }
+
+    public static async Task<IResult> JoinQuizAttemptAsync(
+        string tenantId, string quizTemplateId, IQuizAttemptCreationService service, IClaimsManager claims)
+        => Results.Ok(await service.JoinQuizAttemptAsync(
+            claims.EnsureAndGetUserId(), tenantId, quizTemplateId));
 
     public static async Task<IResult> ClaimAvailableAsync(
         string tenantId, string quizTemplateId, IQuizAttemptCreationService service, IClaimsManager claims)

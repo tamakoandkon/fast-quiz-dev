@@ -1,7 +1,5 @@
 <template>
   <UModal v-model:open="show" :title="username ? '管理角色 · ' + username : '管理用户角色'">
-    <UButton label="管理用户角色" color="neutral" variant="outline" :disabled="!id" />
-
     <template #body>
       <div class="space-y-4 p-2">
         <!-- 加载状态 -->

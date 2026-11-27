@@ -1,17 +1,6 @@
 <template>
-  <CommonManagePageContainer>
-    <CommonButtonsContainer>
-      <UserCreateUserModal
-        v-model="showCreateModal"
-        @create="handleCreateUser"
-      />
-      <RoleManageUserRoleModal
-        v-model="showManageUserRoleModal"
-        :id="currentId"
-        :tenant-id="tenantId"
-        :username="currentUsername"
-      />
-      <!-- 新增：批量导入用户按钮 -->
+  <CommonPageLayout class="max-w-3xl">
+    <template #actions>
       <UButton
         color="neutral"
         variant="outline"
@@ -21,6 +10,7 @@
       >
         批量导入用户
       </UButton>
+      <UserCreateUserModal v-model="showCreateModal" @create="handleCreateUser" />
       <input
         ref="userFileInputRef"
         type="file"
@@ -28,45 +18,101 @@
         class="hidden"
         @change="handleUserFileImport"
       />
-    </CommonButtonsContainer>
-    <UContextMenu :items="items">
-      <CommonDataTable
-        :columns="cols"
-        :data="users"
-        @row-right-click="selectUser"
-      >
-        <template #username="{ row }">
-          <NuxtLink
-            v-if="row.id"
-            :to="`/tenant/${tenantId}/dash/user/${row.id}`"
-            class="font-medium text-primary-600 hover:underline"
-          >{{ row.username || "未命名用户" }}</NuxtLink>
-          <span v-else>{{ row.username || "未命名用户" }}</span>
-        </template>
-        <template #actions="{ row }">
-          <UDropdownMenu v-if="row.id" :items="userActions(row)">
-            <UButton
-              icon="i-lucide-ellipsis"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :aria-label="`管理 ${row.username || '未命名用户'}`"
-            />
-          </UDropdownMenu>
-        </template>
-      </CommonDataTable>
-    </UContextMenu>
-    <CommonCursorPageManager @change="fetchList" :current-size="users.length">
-    </CommonCursorPageManager>
+    </template>
 
-    <UserUpdateUserModal
-      v-model="showEditModal"
-      @update="handleUpdate"
+    <section class="data-list user-list" aria-label="用户列表" :aria-busy="loading">
+      <div v-if="loading && !loaded" role="status" aria-label="正在加载用户">
+        <div v-for="n in 3" :key="n" class="user-list-row" aria-hidden="true">
+          <div class="data-list-skeleton-main max-w-44">
+            <span class="skeleton-line"></span>
+            <span class="skeleton-line is-short is-small"></span>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="loadError && !users.length" class="data-list-state" role="status">
+        <p>用户列表暂时无法加载。</p>
+        <UButton color="neutral" variant="outline" size="sm" @click="fetchUsers">重新加载</UButton>
+      </div>
+      <div v-else-if="!users.length" class="data-list-state" role="status">
+        <p>当前没有用户。</p>
+      </div>
+      <template v-else>
+        <UContextMenu :items="items">
+          <ul class="divide-y divide-[var(--line-hair)]">
+            <li
+              v-for="(user, index) in visibleUsers"
+              :key="user.id || index"
+              class="user-list-row"
+              @contextmenu="selectUser(user)"
+            >
+              <div class="min-w-0">
+                <NuxtLink
+                  v-if="user.id"
+                  :to="`/tenant/${tenantId}/dash/user/${user.id}`"
+                  class="data-list-title"
+                >
+                  {{ user.username || "未命名用户" }}
+                </NuxtLink>
+                <span v-else class="data-list-title">{{ user.username || "未命名用户" }}</span>
+                <p v-if="user.email" class="data-list-note" :title="user.email">
+                  {{ user.email }}
+                </p>
+              </div>
+              <div v-if="user.id" class="flex shrink-0 items-center gap-1">
+                <UButton
+                  :to="recordsPath(user.id)"
+                  :aria-label="`查看 ${user.username || '该用户'} 的成绩`"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                >
+                  查看成绩
+                </UButton>
+                <UDropdownMenu :items="userActions(user)" :content="{ align: 'end' }">
+                  <UButton
+                    icon="i-lucide-ellipsis"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    :aria-label="`管理 ${user.username || '该用户'}`"
+                  />
+                </UDropdownMenu>
+              </div>
+            </li>
+          </ul>
+        </UContextMenu>
+
+        <CommonListFooter
+          v-if="users.length > 10"
+          :page-index="pageIndex"
+          :page-size="pageSize"
+          :item-count="visibleUsers.length"
+          :can-prev="pageIndex > 0"
+          :can-next="(pageIndex + 1) * pageSize < users.length"
+          :busy="loading"
+          :size-options="[10, 20, 50, 100]"
+          unit="人"
+          @prev="pageIndex--"
+          @next="pageIndex++"
+          @update:page-size="setPageSize"
+        />
+        <footer v-else class="user-list-count">共 {{ users.length }} 位用户</footer>
+      </template>
+    </section>
+
+    <RoleManageUserRoleModal
+      v-model="showManageUserRoleModal"
       :id="currentId"
       :tenant-id="tenantId"
+      :username="currentUsername"
     />
-
-  </CommonManagePageContainer>
+    <UserUpdateUserModal
+      v-model="showEditModal"
+      :id="currentId"
+      :tenant-id="tenantId"
+      @update="handleUpdate"
+    />
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
@@ -76,7 +122,8 @@ import Papa from "papaparse"; // 导入 papaparse
 
 const route = useRoute();
 
-const tenantId = ref("");
+const tenantId = computed(() => route.params.tenantId as string);
+const recordsPath = (id: string) => `/tenant/${tenantId.value}/dash/user-records/${id}`;
 
 const userActions = (user: UserDto) => {
   const id = user.id;
@@ -90,11 +137,6 @@ const userActions = (user: UserDto) => {
           selectUser(user);
           showManageUserRoleModal.value = true;
         },
-      },
-      {
-        label: "查看考试成绩",
-        icon: "i-lucide-clipboard-list",
-        to: `/tenant/${tenantId.value}/dash/user-records/${id}`,
       },
       {
         label: "编辑用户资料",
@@ -119,18 +161,22 @@ const userActions = (user: UserDto) => {
 const toast = useToast();
 
 const users = ref<UserDto[]>([]);
+const pageIndex = ref(0);
 const pageSize = ref(10);
-
-onMounted(async () => {
-  tenantId.value = route.params.tenantId as string;
-  await fetchList(false, pageSize.value, true);
+const loading = ref(false);
+const loaded = ref(false);
+const loadError = ref(false);
+const visibleUsers = computed(() => {
+  const start = pageIndex.value * pageSize.value;
+  return users.value.slice(start, start + pageSize.value);
 });
 
-// 3. 配置列 (TableColumn<UserDto>)
-const cols = [
-  { key: "username", label: "用户名" },
-  { key: "actions", label: "操作", width: "7rem" },
-];
+const setPageSize = (size: number) => {
+  pageSize.value = size;
+  pageIndex.value = 0;
+};
+
+onMounted(fetchUsers);
 
 const showCreateModal = ref(false);
 
@@ -147,7 +193,7 @@ const handleCreateUser = async (command: UserRegisterCommand) => {
 
   toast.add({ title: "新增用户成功" });
   showCreateModal.value = false;
-  await fetchList(false, pageSize.value, true);
+  await fetchUsers();
 };
 
 const currentUser = ref<UserDto>();
@@ -159,42 +205,23 @@ const selectUser = (row: UserDto) => {
   currentUser.value = row;
 };
 
-const fetchList = async (
-  isPre: boolean,
-  pageSize: number,
-  refresh: boolean = false,
-) => {
-  let cusor = getCursor(isPre);
-  if (refresh) {
-    cusor = undefined;
-  }
-  let result;
+async function fetchUsers() {
+  if (loading.value) return;
+  loading.value = true;
+  loadError.value = false;
   try {
-    result = await $api.tenant.userList(tenantId.value, {
-      Cursor: cusor,
-      Count: pageSize,
-      IsPrevious: isPre,
-    });
-  } catch (e) {
-    const error = e as any;
-    const title = error.response.data.title;
-    toast.add({ title: "获用户列表失败：" + title });
-    return;
+    // The tenant user endpoint returns the complete list.
+    const result = await $api.tenant.userList(tenantId.value, { Count: 100, IsPrevious: false });
+    users.value = result.data ?? [];
+    pageIndex.value = Math.min(pageIndex.value, Math.max(0, Math.ceil(users.value.length / pageSize.value) - 1));
+  } catch {
+    loadError.value = true;
+    if (users.value.length) toast.add({ title: "刷新用户列表失败", color: "error" });
+  } finally {
+    loaded.value = true;
+    loading.value = false;
   }
-
-  users.value = result.data;
-};
-
-const getCursor = (isPre: boolean) => {
-  if (users.value.length == 0) {
-    return undefined;
-  }
-  if (isPre) {
-    return users.value[0]?.id as string;
-  } else {
-    return users.value[users.value.length - 1]?.id as string;
-  }
-};
+}
 
 const showEditModal = ref(false);
 
@@ -215,7 +242,7 @@ const handleUpdate = async (command: UpdateUserCommand) => {
 
   toast.add({ title: "修改用户成功" });
   showEditModal.value = false;
-  await fetchList(false, pageSize.value, true);
+  await fetchUsers();
 };
 
 const removeMember = async (userId: string) => {
@@ -228,7 +255,7 @@ const removeMember = async (userId: string) => {
   }
 
   toast.add({ title: "已移出租户" });
-  await fetchList(false, pageSize.value, true);
+  await fetchUsers();
 };
 
 const showManageUserRoleModal = ref(false);
@@ -312,7 +339,7 @@ const handleUserFileImport = async (event: Event) => {
 
     if (successCount > 0) {
       toast.add({ title: `成功导入 ${successCount} 个用户`, color: "success" });
-      await fetchList(false, pageSize.value, true); // 刷新列表
+      await fetchUsers(); // 刷新列表
     }
     if (failCount > 0) {
       toast.add({
@@ -326,3 +353,37 @@ const handleUserFileImport = async (event: Event) => {
   }
 };
 </script>
+
+<style scoped>
+.user-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 16px;
+}
+
+.user-list-row:hover,
+.user-list-row:focus-within {
+  background: var(--tone-soft);
+}
+
+.user-list-row .data-list-title {
+  overflow-wrap: anywhere;
+}
+
+.user-list-count {
+  padding: 10px 16px;
+  border-top: 1px solid var(--line-hair);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+@media (min-width: 640px) {
+  .user-list-row,
+  .user-list-count {
+    padding-inline: 20px;
+  }
+}
+</style>

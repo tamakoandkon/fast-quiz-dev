@@ -44,8 +44,15 @@
             </div>
             <div class="exam-actions">
               <UButton color="neutral" variant="ghost" size="sm" @click="handleView(template)">详情</UButton>
-              <UButton color="neutral" variant="ghost" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && claiming" @click="startAnswer(template.id || '', true)">领取试卷</UButton>
-              <UButton color="primary" size="sm" :disabled="!isExamAvailable(template) || starting" :loading="startingId === template.id && !claiming" @click="startAnswer(template.id || '')">{{ getExamStatusText(template) }}</UButton>
+              <UButton
+                color="primary"
+                size="sm"
+                :disabled="!!examUnavailableReason(template) || !!enteringTemplateId"
+                :loading="enteringTemplateId === template.id"
+                @click="enterExam(template.id)"
+              >
+                {{ examUnavailableReason(template) || "进入考试" }}
+              </UButton>
             </div>
           </article>
         </template>
@@ -74,9 +81,9 @@
 const { $api } = useNuxtApp();
 const toast = useToast();
 
-const router = useRouter();
 const route = useRoute();
 const tenantId = ref("");
+const { enterExam, enteringTemplateId } = useExamEntry(tenantId);
 
 const pageSize = ref(10);
 
@@ -146,75 +153,12 @@ const loadMore = async () => {
   }
 };
 
-// 新增：检查考试是否可开始
-const isExamAvailable = (template: QuizTemplateDto) => {
-  const now = new Date();
-  const beginTime = template.beginTime ? new Date(template.beginTime) : null;
-  const endTime = template.endTime ? new Date(template.endTime) : null;
-
-  // 如果有开始时间且当前时间小于开始时间，不可开始
-  if (beginTime && now < beginTime) return false;
-
-  // 如果有结束时间且当前时间大于结束时间，不可开始
-  if (endTime && now > endTime) return false;
-
-  return true;
-};
-
-// 新增：获取考试状态文本
-const getExamStatusText = (template: QuizTemplateDto) => {
-  const now = new Date();
-  const beginTime = template.beginTime ? new Date(template.beginTime) : null;
-  const endTime = template.endTime ? new Date(template.endTime) : null;
-
-  if (beginTime && now < beginTime) {
-    return "考试未开始";
-  }
-
-  if (endTime && now > endTime) {
-    return "考试已结束";
-  }
-
-  return "开始考试";
-};
-
 const viewId = ref("");
 const showDetail = ref(false);
 // 查看详情处理函数
 const handleView = (template: QuizTemplateDto) => {
   viewId.value = template.id ?? "";
   showDetail.value = true;
-};
-
-const starting = ref(false);
-const startingId = ref("");
-const claiming = ref(false);
-const startAnswer = async (templateId: string, claim = false) => {
-  if (starting.value) return;
-  starting.value = true;
-  startingId.value = templateId;
-  claiming.value = claim;
-  let result;
-  try {
-    result = claim
-      ? await $api.tenant.quizTemplateQuizAttemptClaimCreate(tenantId.value, templateId)
-      : await $api.tenant.quizTemplateQuizAttemptCreate(tenantId.value, templateId);
-
-    await $api.tenant.quizTemplateQuizAttemptUpdate(
-      tenantId.value,
-      result.data.id as string,
-      { status: QuizAttemptStatus.InProgress },
-    );
-  } catch (e: any) {
-    const title = e?.response?.data?.title ?? "参加考试失败";
-    toast.add({ title: `参加考试失败：${title}`, color: "error" });
-    return;
-  } finally {
-    starting.value = false;
-    startingId.value = "";
-  }
-
-  router.push(`/tenant/${tenantId.value}/quiz-attempt/${result.data.id}/answer`);
 };
 
 /** 时间只到分钟，避免秒与斜杠把一行元信息撑得很技术化。 */
