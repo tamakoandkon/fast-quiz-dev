@@ -1,148 +1,79 @@
 <template>
-  <CommonManagePageContainer>
+  <CommonPageLayout>
+    <template #actions>
+      <OrganizationCreateOrganizationModal v-model="showCreateModal" @create="handleCreateOrg" />
+    </template>
 
-    <CommonButtonsContainer>
-      <OrganizationCreateOrganizationModal
-        v-model="showCreateModal"
-        @create="handleCreateOrg"
-      />
-    </CommonButtonsContainer>
-
-    <!-- 组织列表 -->
-    <div class="space-y-2">
-      <div
-        v-for="org in orgs"
-        :key="org.id || ''"
-        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
-      >
-        <!-- 父组织行 -->
-        <div
-          class="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-          @click="toggleExpand(org.id!)"
-        >
-          <div class="flex items-center gap-3 flex-1 min-w-0">
-            <UIcon
-              :name="
-                isExpanded(org.id!)
-                  ? 'i-lucide-chevron-down'
-                  : 'i-lucide-chevron-right'
-              "
-              class="w-4 h-4 text-gray-400 transition-transform flex-shrink-0"
-            />
-            <UIcon
-              name="iconoir:city"
-              class="w-4 h-4 text-primary-500 flex-shrink-0"
-            />
-            <NuxtLink
-              :to="`/tenant/${tenantId}/dash/organization/${org.id}`"
-              class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer truncate"
-              @click.stop
-            >
-              {{ org.name || "未命名组织" }}
-            </NuxtLink>
-            <UBadge
-              v-if="getChildrenCount(org.id!) > 0"
-              :label="getChildrenCount(org.id!).toString()"
-              color="info"
-              size="xs"
-              variant="subtle"
-              class="flex-shrink-0"
-            />
-          </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <span class="text-xs text-gray-400">{{
-              formatDate(org.createdAt)
-            }}</span>
-            <UDropdownMenu v-if="org.id" :items="organizationActions(org.id)">
+    <section class="data-list" aria-label="组织列表">
+      <div v-if="!orgs.length" class="data-list-state">
+        <UIcon name="i-lucide-building-2" aria-hidden="true" />
+        <p>暂无组织。</p>
+      </div>
+      <div v-else class="data-list-body">
+        <article v-for="(org, index) in orgs" :key="org.id ?? index" class="organization-entry">
+          <div class="organization-row">
+            <div class="flex items-center gap-2 min-w-0">
               <UButton
-                icon="i-lucide-ellipsis"
+                v-if="org.id"
+                class="organization-expand shrink-0"
                 color="neutral"
                 variant="ghost"
                 size="sm"
-                :aria-label="`管理 ${org.name || '未命名组织'}`"
-                @click.stop
+                icon="i-lucide-chevron-right"
+                :aria-label="'子组织 · ' + (org.name || '未命名组织')"
+                :aria-expanded="isExpanded(org.id)"
+                @click="toggleExpand(org.id)"
               />
-            </UDropdownMenu>
-          </div>
-        </div>
-
-        <!-- 子组织列表 -->
-        <div
-          v-if="isExpanded(org.id!)"
-          class="border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30"
-        >
-          <!-- 加载中 -->
-          <div v-if="isLoading(org.id!)" class="flex justify-center py-6">
-            <USpinner class="w-5 h-5" />
-          </div>
-
-          <!-- 空状态 -->
-          <div
-            v-else-if="getChildren(org.id!).length === 0"
-            class="text-sm text-gray-400 italic px-6 py-4"
-          >
-            暂无子组织
-          </div>
-
-          <!-- 子组织列表 -->
-          <div
-            v-else
-            class="divide-y divide-gray-200/50 dark:divide-gray-700/50"
-          >
-            <div
-              v-for="child in getChildren(org.id!)"
-              :key="child.id || ''"
-              class="flex items-center justify-between px-6 py-2.5 hover:bg-gray-100/50 dark:hover:bg-gray-700/30 transition-colors"
-            >
-              <div class="flex items-center gap-3 flex-1 min-w-0">
-                <UIcon
-                  name="iconoir:city"
-                  class="w-4 h-4 text-gray-400 flex-shrink-0"
-                />
-                <NuxtLink
-                  :to="`/tenant/${tenantId}/dash/organization/${child.id}`"
-                  class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer truncate"
-                  @click.stop
-                >
-                  {{ child.name || "未命名组织" }}
+              <div class="min-w-0">
+                <NuxtLink v-if="org.id" :to="organizationPath(org.id)" class="data-list-title">
+                  {{ org.name || "未命名组织" }}
                 </NuxtLink>
-              </div>
-              <div class="flex items-center gap-2 flex-shrink-0">
-                <span class="text-xs text-gray-400">{{
-                  formatDate(child.createdAt)
-                }}</span>
-                <UDropdownMenu v-if="child.id" :items="organizationActions(child.id)">
-                  <UButton
-                    icon="i-lucide-ellipsis"
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    :aria-label="`管理 ${child.name || '未命名组织'}`"
-                  />
-                </UDropdownMenu>
+                <span v-else class="data-list-title">{{ org.name || "未命名组织" }}</span>
+                <p v-if="org.id && getChildrenCount(org.id)" class="data-list-note">
+                  {{ getChildrenCount(org.id) }} 个子组织
+                </p>
               </div>
             </div>
+
+            <div v-if="org.id" class="data-list-actions">
+              <UButton :to="organizationPath(org.id)" color="neutral" variant="ghost" size="sm">查看成员</UButton>
+              <UDropdownMenu :items="organizationActions(org.id)" :content="{ align: 'end' }">
+                <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm"
+                  :aria-label="'管理 ' + (org.name || '未命名组织')" />
+              </UDropdownMenu>
+            </div>
           </div>
-        </div>
+
+          <Transition name="workspace-disclosure">
+            <div v-if="org.id && isExpanded(org.id)" class="workspace-disclosure">
+              <div class="organization-children min-h-0 overflow-hidden">
+                <div v-if="isLoading(org.id)" class="organization-child-note" role="status">正在加载子组织…</div>
+                <div v-else-if="!getChildren(org.id).length" class="organization-child-note">暂无子组织。</div>
+                <template v-else>
+                  <div v-for="(child, index) in getChildren(org.id)" :key="child.id ?? index" class="organization-row">
+                    <NuxtLink v-if="child.id" :to="organizationPath(child.id)" class="data-list-title">
+                      {{ child.name || "未命名组织" }}
+                    </NuxtLink>
+                    <span v-else class="data-list-title">{{ child.name || "未命名组织" }}</span>
+                    <div v-if="child.id" class="data-list-actions">
+                      <UButton :to="organizationPath(child.id)" color="neutral" variant="ghost" size="sm">查看成员</UButton>
+                      <UDropdownMenu :items="organizationActions(child.id)" :content="{ align: 'end' }">
+                        <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm"
+                          :aria-label="'管理 ' + (child.name || '未命名组织')" />
+                      </UDropdownMenu>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </Transition>
+        </article>
       </div>
-    </div>
+      <CommonCursorPageManager v-model="pageSize" @change="fetchList" :current-size="orgs.length" />
+    </section>
 
-    <!-- 空状态 -->
-    <div v-if="orgs.length === 0" class="text-center py-12">
-      <UIcon name="iconoir:city" class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-      <p class="text-gray-500">暂无组织</p>
-    </div>
-
-    <CommonCursorPageManager @change="fetchList" :current-size="orgs.length">
-    </CommonCursorPageManager>
-
-    <!-- 模态框 -->
-    <OrganizationUpdateOrganizationModal
-      v-model="showEditModal"
-      @update="handleUpdate"
-      :id="currentId"
-    />
-  </CommonManagePageContainer>
+    <OrganizationUpdateOrganizationModal v-model="showEditModal" @update="handleUpdate" :id="currentId" />
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
@@ -152,6 +83,7 @@ import type { DropdownMenuItem } from "@nuxt/ui";
 const route = useRoute();
 
 const tenantId = ref("");
+const organizationPath = (id: string) => "/tenant/" + tenantId.value + "/dash/organization/" + id;
 const orgs = ref<OrganizationDto[]>([]);
 const pageSize = ref(10);
 const currentId = ref("");

@@ -1,15 +1,12 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" class="py-2" />
-    </template>
-
-    <div class="flex justify-between items-center mb-4">
-      <div class="flex gap-2">
+  <CommonPageLayout :title="template.name || '试卷详情'" :description="template.name ? '试卷详情' : undefined">
+    <template #actions>
+      <div class="flex flex-wrap gap-2">
         <!-- 主要操作 - 发布 -->
         <UButton
           @click="changePublishedStatus"
-          :color="template.isPublished ? 'error' : 'primary'"
+          :color="template.isPublished ? 'neutral' : 'primary'"
+          :variant="template.isPublished ? 'outline' : 'solid'"
           size="md"
         >
           {{ template.isPublished ? "取消发布" : "发布考试" }}
@@ -45,25 +42,12 @@
         </UButton>
       </div>
 
-      <!-- 右侧：创建抽题规则 -->
-      <CommonButtonsContainer>
-        <QuizTemplateCreateQuestionSelectionRuleModal
-          v-model="showCreateModal"
-          @create="createQuestionselectionRuleAsync"
-          :tenant-id="tenantId"
-          :groups="questionGroups"
-        />
-      </CommonButtonsContainer>
-    </div>
+    </template>
 
     <UCard class="w-full">
       <div class="space-y-4">
         <!-- 基础信息 -->
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <p class="text-sm text-gray-500">模板名称</p>
-            <p class="font-medium">{{ template.name }}</p>
-          </div>
           <div class="col-span-2">
             <p class="text-sm text-gray-500">描述</p>
             <CommonMarkUpViewer
@@ -140,6 +124,16 @@
     />
 
     <USeparator class="my-2"><span>抽题规则</span></USeparator>
+      <!-- 创建抽题规则 -->
+      <CommonButtonsContainer>
+        <QuizTemplateCreateQuestionSelectionRuleModal
+          v-model="showCreateModal"
+          @create="createQuestionselectionRuleAsync"
+          :tenant-id="tenantId"
+          :groups="questionGroups"
+        />
+      </CommonButtonsContainer>
+
     <UContextMenu :items="items">
       <CommonDataTable
         :columns="cols"
@@ -175,7 +169,6 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 import type { ContextMenuItem } from "@nuxt/ui";
 
 const toast = useToast();
@@ -186,7 +179,6 @@ const tenantId = ref("");
 
 const template = ref<QuizTemplateDto>({});
 
-const links = ref<BreadcrumbItem[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
@@ -194,16 +186,6 @@ onMounted(async () => {
 
   await Promise.all([fetchQuizTemplate(), fetchList(false, 10), loadQuestionGroups()]);
 
-  links.value.push({
-    label: "试卷管理",
-    icon: "iconoir:atom",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
-  links.value.push({
-    label: template.value.name || "未命名试卷",
-    icon: "iconoir:atom",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
 });
 
 const fetchQuizTemplate = async () => {

@@ -1,14 +1,18 @@
 <template>
-  <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
+  <CommonPageLayout :description="candidateName ? '考生 ' + candidateName : undefined">
+    <template #actions>
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-download"
+        @click="showExportModal = true"
+      >
+        导出 CSV
+      </UButton>
+    </template>
+    <div class="workspace-panel workspace-toolbar">
 
-    <!-- 标题与筛选 -->
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold">考试成绩记录</h2>
-      <span class="text-sm text-gray-500">考生 {{ candidateName || "未知考生" }}</span>
-
-      <div class="ml-auto flex flex-wrap items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <!-- 列表筛选：考试模板（仅列出该考生参加过的考试） -->
         <div class="flex items-center gap-2">
           <USelect
@@ -16,78 +20,72 @@
             :items="templateOptions"
             value-key="id"
             placeholder="全部考试"
+            aria-label="筛选考试"
             icon="i-lucide-search"
             size="md"
-            class="w-64"
+            class="w-56 max-w-full"
           />
         </div>
 
         <!-- 列表筛选：是否只取最好的一次成绩 -->
         <div class="flex items-center gap-2">
-          <USwitch v-model="onlyBest" color="primary" size="md" />
-          <span class="text-sm text-gray-500">只取最好的一次成绩</span>
+          <USwitch v-model="onlyBest" label="只看最佳成绩" size="md" />
         </div>
 
-        <UButton
-          color="neutral"
-          variant="outline"
-          icon="i-lucide-download"
-          @click="showExportModal = true"
-        >
-          导出 CSV
-        </UButton>
       </div>
     </div>
 
-    <CommonDataTable :columns="cols" :data="records" :selectable="false">
-      <template #quizTemplateNema="{ row }">
-        {{ row.quizTemplateNema || "--" }}
-      </template>
+    <section class="workspace-panel workspace-table-panel">
+      <CommonDataTable :columns="cols" :data="records" :selectable="false">
+        <template #quizTemplateNema="{ row }">
+          {{ row.quizTemplateNema || "--" }}
+        </template>
 
-      <template #status="{ row }">
-        <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
-          {{ getStatusText(row.status) }}
-        </UBadge>
-      </template>
+        <template #status="{ row }">
+          <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
+            {{ getStatusText(row.status) }}
+          </UBadge>
+        </template>
 
-      <template #startTime="{ row }">
-        {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
-      </template>
+        <template #startTime="{ row }">
+          {{ row.startTime ? formatDateTime(row.startTime) : "--" }}
+        </template>
 
-      <template #submitTime="{ row }">
-        {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
-      </template>
+        <template #submitTime="{ row }">
+          {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
+        </template>
 
-      <template #score="{ row }">
-        <span
-          :class="
-            row.status === QuizAttemptStatus.Graded
-              ? 'text-green-600 font-medium'
-              : ''
-          "
-        >
-          {{ row.score ?? "--" }}
-        </span>
-      </template>
+        <template #score="{ row }">
+          <span
+            :class="
+              row.status === QuizAttemptStatus.Graded
+                ? 'text-green-600 font-medium'
+                : ''
+            "
+          >
+            {{ row.score ?? "--" }}
+          </span>
+        </template>
 
-      <template #actions="{ row }">
-        <UButton
-          :to="`/tenant/${tenantId}/dash/quiz-template/${row.quizTemplateId}/review/${row.id}`"
-          color="neutral"
-          variant="outline"
-          size="xs"
-          icon="i-lucide-eye"
-        >
-          查看
-        </UButton>
-      </template>
-    </CommonDataTable>
+        <template #actions="{ row }">
+          <UButton
+            :to="`/tenant/${tenantId}/dash/quiz-template/${row.quizTemplateId}/review/${row.id}`"
+            color="neutral"
+            variant="outline"
+            size="xs"
+            icon="i-lucide-eye"
+          >
+            查看
+          </UButton>
+        </template>
+      </CommonDataTable>
 
-    <CommonCursorPageManager
-      @change="fetchList"
-      :current-size="records.length"
-      v-model="pageSize"
-    />
+      <CommonCursorPageManager
+        @change="fetchList"
+        :current-size="records.length"
+        v-model="pageSize"
+      />
+    </section>
 
     <!-- 空状态 -->
     <div
@@ -103,11 +101,10 @@
       :templates="attendedTemplates"
       @export="handleExport"
     />
-  </CommonManagePageContainer>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const { $api } = useNuxtApp();
 const route = useRoute();
@@ -117,7 +114,6 @@ const tenantId = ref("");
 const userId = ref("");
 const candidateName = ref("");
 
-const links = ref<BreadcrumbItem[]>([]);
 const records = ref<QuizAttempDto[]>([]);
 const loaded = ref(false);
 
@@ -149,12 +145,6 @@ onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
   userId.value = route.params.userId as string;
 
-  links.value.push({
-    label: "用户管理",
-    icon: "iconoir:user",
-    to: `/tenant/${tenantId.value}/dash/user`,
-  });
-  links.value.push({ label: `考试成绩记录` });
 
   await Promise.all([
     fetchList(false, pageSize.value, true),

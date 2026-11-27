@@ -1,5 +1,5 @@
 <template>
-  <CommonPageLayout class="max-w-3xl">
+  <CommonPageLayout>
     <template #actions>
       <UButton
         color="neutral"
@@ -83,7 +83,6 @@
         </UContextMenu>
 
         <CommonListFooter
-          v-if="users.length > 10"
           :page-index="pageIndex"
           :page-size="pageSize"
           :item-count="visibleUsers.length"
@@ -96,7 +95,6 @@
           @next="pageIndex++"
           @update:page-size="setPageSize"
         />
-        <footer v-else class="user-list-count">共 {{ users.length }} 位用户</footer>
       </template>
     </section>
 
@@ -373,16 +371,8 @@ const handleUserFileImport = async (event: Event) => {
   overflow-wrap: anywhere;
 }
 
-.user-list-count {
-  padding: 10px 16px;
-  border-top: 1px solid var(--line-hair);
-  color: var(--ink-muted);
-  font-size: 12px;
-}
-
 @media (min-width: 640px) {
-  .user-list-row,
-  .user-list-count {
+  .user-list-row {
     padding-inline: 20px;
   }
 }

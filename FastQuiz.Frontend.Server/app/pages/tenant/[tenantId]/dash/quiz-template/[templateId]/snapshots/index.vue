@@ -1,16 +1,12 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" class="py-2" />
-    </template>
-
-    <CommonButtonsContainer>
+  <CommonPageLayout :description="template.name || undefined">
+    <template #actions>
       <QuizSnapshotCreateQuizSnapshotModal
         v-model="showCreateQuizSnapshot"
         @create="createQuizSnapshot"
         :quiz-template-id="templateId"
       />
-    </CommonButtonsContainer>
+    </template>
 
     <QuizAttemptCreateQuizAttemptModal
       class="mx-2"
@@ -95,7 +91,6 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const toast = useToast();
 const route = useRoute();
@@ -106,7 +101,6 @@ const tenantId = ref<string>("");
 
 const template = ref<QuizTemplateDto>({});
 
-const links = ref<BreadcrumbItem[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
@@ -117,23 +111,8 @@ onMounted(async () => {
   await fetchList(pageSize.value, true);
   await fetchPool(true);
 
-  links.value.push({
-    label: "试卷模板",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
 
-  links.value.push({
-    label: template.value.name || "未命名试卷",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
 
-  links.value.push({
-    label: "试卷样本列表",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}/snapshots`,
-  });
 });
 
 const fetchQuizTemplate = async () => {

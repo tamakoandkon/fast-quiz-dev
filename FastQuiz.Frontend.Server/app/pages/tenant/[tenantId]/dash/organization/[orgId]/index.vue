@@ -1,8 +1,6 @@
 <template>
-  <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
-    <CommonButtonsContainer>
+  <CommonPageLayout :title="org.name || '组织成员'" :description="org.name ? '组织成员' : undefined">
+    <template #actions>
       <OrganizationAddUserToOrgModal
         v-model="showCreateModal"
         @add="handleAddUser"
@@ -14,42 +12,42 @@
         @create="handleCreateOrg"
         :parent-id="orgId"
       />
-    </CommonButtonsContainer>
-    <CommonDataTable :columns="cols" :data="users">
-      <template #username="{ row }">
-        <NuxtLink
-          v-if="row.id"
-          :to="`/tenant/${tenantId}/dash/user/${row.id}`"
-          class="font-medium text-primary-600 hover:underline"
-        >{{ row.username || "未命名用户" }}</NuxtLink>
-        <span v-else>{{ row.username || "未命名用户" }}</span>
-      </template>
-      <template #actions="{ row }">
-        <UButton
-          v-if="row.id"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-user-minus"
-          size="sm"
-          :aria-label="`将 ${row.username || '未命名用户'} 移出组织`"
-          @click="removeMember(row)"
-        >移出组织</UButton>
-      </template>
-    </CommonDataTable>
-    <CommonCursorPageManager @change="fetchList" :current-size="users.length">
-    </CommonCursorPageManager>
-  </CommonManagePageContainer>
+    </template>
+    <section class="workspace-panel workspace-table-panel">
+      <CommonDataTable :columns="cols" :data="users">
+        <template #username="{ row }">
+          <NuxtLink
+            v-if="row.id"
+            :to="`/tenant/${tenantId}/dash/user/${row.id}`"
+            class="font-medium text-primary-600 hover:underline"
+          >{{ row.username || "未命名用户" }}</NuxtLink>
+          <span v-else>{{ row.username || "未命名用户" }}</span>
+        </template>
+        <template #actions="{ row }">
+          <UButton
+            v-if="row.id"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-user-minus"
+            size="sm"
+            :aria-label="`将 ${row.username || '未命名用户'} 移出组织`"
+            @click="removeMember(row)"
+          >移出组织</UButton>
+        </template>
+      </CommonDataTable>
+      <CommonCursorPageManager v-model="pageSize" @change="fetchList" :current-size="users.length">
+      </CommonCursorPageManager>
+    </section>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 const route = useRoute();
 
 const tenantId = ref("");
 const orgId = ref("");
 
-const links = ref<BreadcrumbItem[]>([]);
 
 const toast = useToast();
 
@@ -62,17 +60,7 @@ onMounted(async () => {
 
   await fetchOrgAsync(orgId.value);
 
-  links.value.push({
-    label: "组织管理",
-    icon: "iconoir:city",
-    to: `/tenant/${tenantId.value}/dash/organization`,
-  });
 
-  links.value.push({
-    label: org.value.name ?? "未知组织",
-    icon: "iconoir:city",
-    to: `/tenant/${tenantId.value}/dash/organization/${org.value.id}`,
-  });
   await fetchList(false, pageSize.value, true);
   await fetchUsersList(false, pageSize.value, true);
 });

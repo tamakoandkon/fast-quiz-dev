@@ -1,13 +1,10 @@
 <template>
-  <CommonPageLayout>
-    <div class="max-w-6xl mx-auto">
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 text-center">
-          {{ template.name }}
-        </h1>
-      </div>
+  <CommonPageLayout :title="template.name || '答卷详情'">
 
+    <template #actions>
       <UButton @click="completedReview">完成阅卷</UButton>
+    </template>
+    <div>
 
       <!-- 题目列表 -->
       <div class="space-y-4">

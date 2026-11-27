@@ -1,40 +1,18 @@
 <template>
-  <CommonPageLayout>
-    <template #breadcrumb>
-      <UBreadcrumb :items="links" class="py-2" />
+  <CommonPageLayout :description="[template.name, attempt.assignUsername].filter(Boolean).join(' · ')">
+    <template #actions>
+      <UBadge v-if="loaded" :color="getReviewBadgeColor(attempt.status)" variant="soft">
+        {{ getAttemptStatusText(attempt.status) }}
+      </UBadge>
+      <UButton :to="reviewListTo" color="neutral" variant="outline" icon="i-lucide-arrow-left">
+        返回批改列表
+      </UButton>
     </template>
 
-    <!-- 阅卷头部：试卷信息 + 批改状态 -->
-    <div class="bg-white rounded-lg shadow p-5 mb-5">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="min-w-0">
-          <h1 class="text-2xl font-bold text-gray-800 truncate">
-            {{ template.name || "未命名试卷" }}
-          </h1>
-          <p class="text-sm text-gray-500 mt-1 flex items-center gap-2">
-            <span>{{ attempt.assignUsername || "未知考生" }}</span>
-            <UBadge :color="getReviewBadgeColor(attempt.status)" size="sm">
-              {{ getAttemptStatusText(attempt.status) }}
-            </UBadge>
-          </p>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <UButton
-            :to="reviewListTo"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-arrow-left"
-          >
-            返回批改列表
-          </UButton>
-        </div>
-      </div>
-
+    <div v-if="loaded && !isReviewable">
       <!-- 状态提示 -->
       <div
-        v-if="!isReviewable"
-        class="mt-4 rounded-lg px-4 py-3 text-sm"
+        class="rounded-xl px-4 py-3 text-sm"
         :class="
           attempt.status === QuizAttemptStatus.Graded
             ? 'bg-green-50 text-green-700 border border-green-200'
@@ -110,7 +88,7 @@
       <!-- 空状态：没有需要人工判定的主观题 -->
       <div
         v-if="manualQuestions.length === 0"
-        class="bg-white rounded-lg shadow p-12 text-center text-gray-500"
+        class="workspace-panel p-10 text-center text-muted"
       >
         本卷全部为客观题（选择 / 自动匹配填空），无需人工批改。
         <div v-if="isReviewable" class="mt-4">
@@ -124,7 +102,6 @@
 </template>
 
 <script setup lang="ts">
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const { $api } = useNuxtApp();
 const toast = useToast();
@@ -140,7 +117,6 @@ const template = ref<QuizTemplateDto>({});
 const allQuestionRecords = ref<QuestionRecordWithAnswerDto[]>([]);
 
 const loaded = ref(false);
-const links = ref<BreadcrumbItem[]>([]);
 
 const reviewListTo = computed(() => {
   if (!templateId.value) return "#";
@@ -309,21 +285,5 @@ onMounted(async () => {
     loaded.value = true;
   }
 
-  links.value.push({
-    label: "试卷管理",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
-  links.value.push({
-    label: template.value.name || "未命名试卷",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
-  links.value.push({
-    label: "批改试卷",
-    to: reviewListTo.value,
-  });
-  links.value.push({
-    label: attempt.value.assignUsername || "答卷详情",
-  });
 });
 </script>

@@ -1,43 +1,31 @@
 <template>
-  <div>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
-    <!-- 用户信息卡片 -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <UAvatar :text="user?.username?.charAt(0) ?? '?'" size="lg" />
-            <div>
-              <h2 class="text-lg font-semibold">
-                {{ user?.username || "未命名用户" }}
-              </h2>
-            </div>
-          </div>
-          <UBadge color="primary">正常</UBadge>
+  <CommonPageLayout :title="user?.username || '用户资料'" :description="user?.username ? '用户资料' : undefined">
+    <template #actions>
+      <UButton
+        v-if="user?.id"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-clipboard-list"
+        :to="'/tenant/' + tenantId + '/dash/user-records/' + user.id"
+      >查看成绩</UButton>
+    </template>
+    <section v-if="user" class="workspace-panel p-5" aria-label="账户信息">
+      <dl class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <dt class="text-sm text-muted">邮箱</dt>
+          <dd class="mt-1 text-sm break-all">{{ user.email || "未填写邮箱" }}</dd>
         </div>
-      </template>
-
-      <!-- 信息列表 -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-500">邮箱</span>
-          <span class="text-sm">{{ user?.email || "未填写邮箱" }}</span>
+        <div>
+          <dt class="text-sm text-muted">创建时间</dt>
+          <dd class="mt-1 text-sm">{{ user.createdAt ? formatDate(user.createdAt) : "—" }}</dd>
         </div>
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-500">创建时间</span>
-          <span class="text-sm">{{
-            user?.createdAt ? formatDate(user.createdAt) : "-"
-          }}</span>
-        </div>
-      </div>
-    </UCard>
-  </div>
+      </dl>
+    </section>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { BreadcrumbItem } from "@nuxt/ui";
 const route = useRoute();
 
 const tenantId = ref("");
@@ -45,7 +33,6 @@ const uId = ref("");
 
 const user = ref<UserDto>();
 
-const links = ref<BreadcrumbItem[]>([]);
 
 const toast = useToast();
 
@@ -55,17 +42,7 @@ onMounted(async () => {
 
   await fetchUserAsync(uId.value);
 
-  links.value.push({
-    label: "用户管理",
-    icon: "iconoir:user",
-    to: `/tenant/${tenantId.value}/dash/user`,
-  });
 
-  links.value.push({
-    label: user.value?.username || "未命名用户",
-    icon: "iconoir:user",
-    to: `/tenant/${tenantId.value}/dash/user/${uId.value}`,
-  });
 });
 
 const fetchUserAsync = async (id: string) => {

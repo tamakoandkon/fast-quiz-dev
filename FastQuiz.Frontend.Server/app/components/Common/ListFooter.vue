@@ -1,17 +1,18 @@
 <template>
   <footer class="data-list-footer">
     <p class="data-list-page-note">
-      第 {{ pageIndex + 1 }} 页 · 本页 {{ itemCount }} {{ unit }}
+      <template v-if="hasControls">第 {{ pageIndex + 1 }} 页 · 本页 {{ itemCount }} {{ unit }}</template>
+      <template v-else>共 {{ itemCount }} {{ unit }}</template>
     </p>
-    <div class="data-list-page-controls">
-      <label class="data-list-size">
+    <div v-if="hasControls" class="data-list-page-controls">
+      <label v-if="showPageSize" class="data-list-size">
         <span>每页</span>
         <USelect
           :model-value="pageSize"
           :items="sizeOptions"
           size="sm"
           class="w-20"
-          :aria-label="`每页显示${unit}数`"
+          aria-label="每页显示数量"
           @update:model-value="onSizeChange"
         />
         <span>{{ unit }}</span>
@@ -52,8 +53,13 @@ const props = defineProps({
   canPrev: { type: Boolean, default: false },
   canNext: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
+  showPageSize: { type: Boolean, default: true },
   sizeOptions: { type: Array as () => number[], default: () => [10, 20, 50] },
 });
+
+const hasControls = computed(() => props.canPrev || props.canNext || (
+  props.showPageSize && props.itemCount >= Math.min(...props.sizeOptions)
+));
 
 const emit = defineEmits<{
   (e: "prev"): void;

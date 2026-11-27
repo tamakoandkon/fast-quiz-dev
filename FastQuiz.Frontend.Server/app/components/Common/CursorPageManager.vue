@@ -1,62 +1,42 @@
-<template>
-  <div class="flex items-center gap-4 p-4 w-full justify-center">
-    <UButton
-      @click="handlePrevPage"
-      :disabled="!nextAble"
-      color="neutral"
-      variant="outline"
-      icon="i-lucide-chevron-left"
-    >
-      上一页
-    </UButton>
-
-    <UButton
-      @click="handleNextPage"
-      :disabled="!preAble"
-      color="neutral"
-      variant="outline"
-      trailing-icon="i-lucide-chevron-right"
-    >
-      下一页
-    </UButton>
-
-    <USelect
-      v-model="pageSize"
-      :items="pageSizeOptions"
-      @change="handlePageSizeChange"
-      aria-label="每页显示数量"
-    />
-  </div>
-</template>
-
 <script setup lang="ts">
-const props = defineProps({
-  total: { default: 0, type: Number },
-  pageSizeOptions: { default: [10, 20, 50, 100] },
-  currentSize: { default: 0, type: Number },
+const props = withDefaults(defineProps<{
+  pageSizeOptions?: number[];
+  currentSize?: number;
+  busy?: boolean;
+}>(), {
+  pageSizeOptions: () => [10, 20, 50, 100],
+  currentSize: 0,
+  busy: false,
 });
 const pageIndex = ref(0);
-const pageSize = defineModel({ default: 10 });
-
-const nextAble = computed(() => pageIndex.value != 0);
-const preAble = computed(() => props.currentSize == pageSize.value);
-
+const pageSize = defineModel<number>({ default: 10 });
 const emit = defineEmits<{
-  (e: "change", isPrevious: boolean, pageSize: number, refresh: boolean): void;
+  change: [isPrevious: boolean, pageSize: number, refresh: boolean];
 }>();
 
-const handlePrevPage = () => {
-  pageIndex.value--;
-  emit("change", true, pageSize.value, false);
-};
+function changePage(offset: number) {
+  pageIndex.value += offset;
+  emit("change", offset < 0, pageSize.value, false);
+}
 
-const handleNextPage = () => {
-  pageIndex.value++;
-  emit("change", false, pageSize.value, false);
-};
-
-const handlePageSizeChange = () => {
+function changeSize(size: number) {
+  pageSize.value = size;
   pageIndex.value = 0;
-  emit("change", false, pageSize.value, true);
-};
+  emit("change", false, size, true);
+}
 </script>
+
+<template>
+  <CommonListFooter
+    :page-index="pageIndex"
+    :page-size="pageSize"
+    :item-count="props.currentSize"
+    :can-prev="pageIndex > 0"
+    :can-next="props.currentSize === pageSize"
+    :busy="props.busy"
+    :size-options="props.pageSizeOptions"
+    @prev="changePage(-1)"
+    @next="changePage(1)"
+    @update:page-size="changeSize"
+  />
+</template>

@@ -1,38 +1,34 @@
 <template>
-  <CommonPageLayout>
+  <CommonPageLayout :title="template.name || '考试结果'" :description="template.name ? '考试结果' : undefined">
+    <template #actions>
+      <UButton
+        v-if="ids.length"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-list-checks"
+        @click="showAnswerSheet = true"
+      >查看答题卡</UButton>
+    </template>
     <QuestionRecordAnswerSheetDrawer
       v-model="showAnswerSheet"
       :ids="ids"
       :answered-ids="answeredIds"
       @click="showQuestion"
     />
-    <div class="max-w-6xl mx-auto">
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">{{ template.name || "考试结果" }}</h1>
-        <p v-if="attempt.score != null" class="mt-2 text-sm font-semibold text-gray-700">
-          成绩 {{ attempt.score }} 分
-        </p>
-        <p v-else-if="attempt.status === QuizAttemptStatus.Submitted" class="mt-2 text-sm text-gray-600">
-          已交卷，正在阅卷
-        </p>
-        <UButton
-          v-if="ids.length"
-          class="mt-4"
-          color="neutral"
-          variant="outline"
-          @click="showAnswerSheet = true"
-        >查看答题卡</UButton>
+    <div class="space-y-4">
+      <div v-if="attempt.score != null || attempt.status === QuizAttemptStatus.Submitted" class="workspace-panel workspace-toolbar">
+        <p v-if="attempt.score != null" class="text-sm font-semibold">成绩 {{ attempt.score }} 分</p>
+        <p v-else class="text-sm text-muted">已交卷，正在阅卷</p>
       </div>
-
-      <div v-if="loading" class="rounded-lg bg-white p-8 text-center text-gray-600" role="status">
+      <div v-if="loading" class="workspace-panel p-8 text-center text-gray-600" role="status">
         正在加载答卷…
       </div>
-      <div v-else-if="loadError" class="rounded-lg bg-white p-8 text-center">
+      <div v-else-if="loadError" class="workspace-panel p-8 text-center">
         <p class="text-gray-700" role="alert">{{ loadError }}</p>
         <UButton class="mt-4" color="neutral" variant="outline" @click="loadResult">重新加载</UButton>
       </div>
       <div v-else class="space-y-4">
-        <p v-if="answerNotice" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700" role="status">
+        <p v-if="answerNotice" class="workspace-panel px-4 py-3 text-sm text-gray-700" role="status">
           {{ answerNotice }}
         </p>
         <QuestionRecordResultCard
@@ -43,7 +39,7 @@
           :index="questionIndex + 1"
           :tenant-id="tenantId"
         />
-        <div v-if="!questionRecords.length" class="rounded-lg bg-white p-8 text-center text-gray-600">
+        <div v-if="!questionRecords.length" class="workspace-panel p-8 text-center text-gray-600">
           这份答卷没有题目记录。
         </div>
       </div>

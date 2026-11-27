@@ -1,8 +1,5 @@
 <template>
-  <CommonManagePageContainer>
-    <UBreadcrumb :items="links" class="py-2" />
-    <USeparator class="my-2" />
-
+  <CommonPageLayout :description="template.name || undefined">
     <!-- 阅卷入口提示 -->
     <div
       v-if="loaded && !isReadyToOpen"
@@ -14,8 +11,7 @@
       </span>
     </div>
 
-    <div v-if="loaded" class="mb-4 flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold">{{ template.name || "未命名试卷" }}</h2>
+    <div v-if="loaded" class="workspace-panel workspace-toolbar">
       <UBadge v-if="!template.isUnlimitedTime" color="info" size="sm">
         限时：{{ formatDateTime(template.beginTime) }} ~
         {{ formatDateTime(template.endTime) }}
@@ -37,75 +33,77 @@
       </div>
     </div>
 
-    <CommonDataTable
-      :columns="cols"
-      :data="attempts"
-      :selectable="false"
-    >
-      <template #assignUsername="{ row }">
-        <NuxtLink
-          :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
-          class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer"
-        >
-          {{ row.assignUsername || "未知考生" }}
-        </NuxtLink>
-      </template>
+    <section class="workspace-panel workspace-table-panel">
+      <CommonDataTable
+        :columns="cols"
+        :data="attempts"
+        :selectable="false"
+      >
+        <template #assignUsername="{ row }">
+          <NuxtLink
+            :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
+            class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer"
+          >
+            {{ row.assignUsername || "未知考生" }}
+          </NuxtLink>
+        </template>
 
-      <template #status="{ row }">
-        <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
-          {{ getStatusText(row.status) }}
-        </UBadge>
-        <span
-          v-if="needsReview(row)"
-          class="text-red-500 text-xs ml-1"
-        >· 待批</span>
-      </template>
-
-      <template #submitTime="{ row }">
-        {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
-      </template>
-
-      <template #score="{ row }">
-        <span
-          :class="
-            row.status === QuizAttemptStatus.Graded ? 'text-green-600' : ''
-          "
-        >
-          {{ row.score ?? "--" }}
-        </span>
-      </template>
-
-      <template #actions="{ row }">
-        <div class="flex flex-wrap gap-1">
-          <!-- 可批改的卷（限时已结束 或 不限时，且已提交） -->
-          <UButton
+        <template #status="{ row }">
+          <UBadge :color="getStatusColor(row.status)" size="sm" variant="subtle">
+            {{ getStatusText(row.status) }}
+          </UBadge>
+          <span
             v-if="needsReview(row)"
-            :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
-            color="primary"
-            size="xs"
-            icon="i-lucide-pen-line"
-          >
-            阅卷
-          </UButton>
-          <!-- 其它状态：只读查看 -->
-          <UButton
-            v-else
-            :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
-            color="neutral"
-            variant="outline"
-            size="xs"
-            icon="i-lucide-eye"
-          >
-            查看
-          </UButton>
-        </div>
-      </template>
-    </CommonDataTable>
+            class="text-red-500 text-xs ml-1"
+          >· 待批</span>
+        </template>
 
-    <CommonCursorPageManager
-      @change="fectchList"
-      :current-size="attempts.length"
-    />
+        <template #submitTime="{ row }">
+          {{ row.submitTime ? formatDateTime(row.submitTime) : "--" }}
+        </template>
+
+        <template #score="{ row }">
+          <span
+            :class="
+              row.status === QuizAttemptStatus.Graded ? 'text-green-600' : ''
+            "
+          >
+            {{ row.score ?? "--" }}
+          </span>
+        </template>
+
+        <template #actions="{ row }">
+          <div class="flex flex-wrap gap-1">
+            <!-- 可批改的卷（限时已结束 或 不限时，且已提交） -->
+            <UButton
+              v-if="needsReview(row)"
+              :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
+              color="primary"
+              size="xs"
+              icon="i-lucide-pen-line"
+            >
+              阅卷
+            </UButton>
+            <!-- 其它状态：只读查看 -->
+            <UButton
+              v-else
+              :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
+              color="neutral"
+              variant="outline"
+              size="xs"
+              icon="i-lucide-eye"
+            >
+              查看
+            </UButton>
+          </div>
+        </template>
+      </CommonDataTable>
+
+      <CommonCursorPageManager
+        @change="fectchList"
+        :current-size="attempts.length"
+      />
+    </section>
 
     <!-- 空状态（整场没有需批的卷） -->
     <div
@@ -114,11 +112,10 @@
     >
       {{ isReadyToOpen ? "当前没有待批阅的试卷。" : "考试尚未结束，暂不能开始批改。" }}
     </div>
-  </CommonManagePageContainer>
+  </CommonPageLayout>
 </template>
 
 <script setup lang="ts">
-import type { BreadcrumbItem } from "@nuxt/ui";
 
 const { $api } = useNuxtApp();
 const router = useRouter();
@@ -128,7 +125,6 @@ const toast = useToast();
 const tenantId = ref("");
 const templateId = ref("");
 
-const links = ref<BreadcrumbItem[]>([]);
 const template = ref<QuizTemplateDto>({});
 const attempts = ref<QuizAttempDto[]>([]);
 const loaded = ref(false);
@@ -156,16 +152,6 @@ onMounted(async () => {
     toast.add({ title: `获取试卷失败：${title}`, color: "error" });
   }
 
-  links.value.push({
-    label: "试卷管理",
-    icon: "i-lucide-book-open",
-    to: `/tenant/${tenantId.value}/dash/quiz-template`,
-  });
-  links.value.push({
-    label: template.value.name || "未命名试卷",
-    to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
-  });
-  links.value.push({ label: "批改试卷" });
 
   await fectchList(false, pageSize);
   loaded.value = true;
