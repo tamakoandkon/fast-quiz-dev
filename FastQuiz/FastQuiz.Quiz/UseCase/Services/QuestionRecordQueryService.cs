@@ -37,12 +37,10 @@ public sealed class QuestionRecordQueryService(
             throw new PermissionException();
         }
 
-        if (quizAttempt.Status != QuizAttemptStatus.InProgress)
+        if (!canReview && quizAttempt.Status is not (
+            QuizAttemptStatus.InProgress or QuizAttemptStatus.Submitted or QuizAttemptStatus.Graded))
         {
-            if (!canReview)
-            {
-                throw new PermissionException();
-            }
+            throw new PermissionException();
         }
 
         var result = await _questionRecordRepository.GetAllByQuizAttempIdAsync(

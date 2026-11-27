@@ -96,7 +96,7 @@
               v-for="(answer, answerIndex) in question.answers"
               :key="answer.id || answerIndex"
               class="flex items-start gap-2 text-sm p-2 rounded-lg border"
-              :class="getAnswerClass(question, answer, answerIndex)"
+              :class="getAnswerClass(answer)"
             >
               <span class="text-gray-400 flex-shrink-0">
                 {{ String.fromCharCode(65 + answerIndex) }}.
@@ -118,9 +118,11 @@
                 <span
                   v-if="isUserSelected(answer.id as string)"
                   class="font-semibold inline-flex items-center"
-                  :class="
-                    isCorrectAnswer(answer) ? 'text-green-600' : 'text-red-600'
-                  "
+                  :class="{
+                    'text-green-600': answer.isCorrect === true,
+                    'text-red-600': answer.isCorrect === false,
+                    'text-blue-700': answer.isCorrect === undefined,
+                  }"
                 >
                   <UIcon
                     v-if="isCorrectAnswer(answer)"
@@ -129,7 +131,7 @@
                     color="success"
                   ></UIcon>
                   <UIcon
-                    v-else
+                    v-else-if="answer.isCorrect === false"
                     color="error"
                     name="iconoir:xmark"
                     class="size-5"
@@ -184,7 +186,7 @@ const isUserSelected = (answerId?: string): boolean => {
 };
 
 // 判断这个答案是否正确
-const isCorrectAnswer = (answer: any): boolean => {
+const isCorrectAnswer = (answer: QuestionAnswerSnapshotDto): boolean => {
   return answer.isCorrect === true;
 };
 
@@ -207,30 +209,15 @@ const getUserFillAnswer = (): string => {
 };
 
 // 获取答案的样式类
-const getAnswerClass = (
-  question: any,
-  answer: any,
-  answerIndex: number,
-): string => {
-  const selected = isUserSelected(answer.id);
-  const correct = isCorrectAnswer(answer);
-  const isMultiple = question.type === "multiple";
-
-  if (correct) {
-    if (isMultiple && !selected) {
-      return "border-green-300 bg-green-50/50";
-    }
+const getAnswerClass = (answer: QuestionAnswerSnapshotDto): string => {
+  if (answer.isCorrect === true) {
     return "border-green-300 bg-green-50";
   }
-
-  if (selected && !correct) {
-    return "border-red-300 bg-red-50";
+  if (isUserSelected(answer.id ?? undefined)) {
+    return answer.isCorrect === false
+      ? "border-red-300 bg-red-50"
+      : "border-blue-300 bg-blue-50";
   }
-
-  if (isMultiple && !selected && !correct) {
-    return "border-gray-200 bg-gray-50";
-  }
-
   return "border-gray-200 bg-white";
 };
 </script>
