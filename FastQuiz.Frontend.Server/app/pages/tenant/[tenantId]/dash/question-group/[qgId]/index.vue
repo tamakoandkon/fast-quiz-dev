@@ -58,14 +58,8 @@
         :selectable="true"
         @row-right-click="switchCurrentId"
       >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-            <div>{{ row.id }}</div>
-          </CommonTruncateText>
-        </template>
         <template #markUpContent="{ row }">
-          <CommonTruncateText :text="row.markupContent || ''">
-          </CommonTruncateText>
+          <CommonTruncateText :text="row.markupContent || '未填写题干'" width="min(28rem, 52vw)" />
         </template>
         <template #remark="{ row }">
           <CommonTruncateText :text="row.remark || ''"> </CommonTruncateText>
@@ -98,7 +92,6 @@ const toast = useToast();
 const pageSize = ref(10);
 
 const cols = [
-  { key: "id", label: "ID", width: "80px" },
   { key: "markUpContent", label: "题干" },
   { key: "type", label: "题型" },
   { key: "level", label: "难度" },
@@ -231,8 +224,7 @@ const getCursor = (isPre: boolean) => {
 
 const handleDelete = async () => {
   if (!currentId.value || currentId.value.trim().length == 0) {
-    toast.add({ title: "ID参数异常" });
-    console.log(currentId.value);
+    toast.add({ title: "请先选择要删除的题目", color: "error" });
     return;
   }
   try {

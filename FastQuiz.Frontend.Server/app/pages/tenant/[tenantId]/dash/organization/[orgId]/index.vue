@@ -7,7 +7,6 @@
         v-model="showCreateModal"
         @add="handleAddUser"
         :o-id="orgId"
-        :tenant-id="tenantId"
         :users="otherUsers"
       />
       <OrganizationCreateOrganizationModal
@@ -16,79 +15,46 @@
         :parent-id="orgId"
       />
     </CommonButtonsContainer>
-    <UContextMenu :items="items">
-      <CommonDataTable
-        :columns="cols"
-        :data="users"
-        :selectable="true"
-        v-model="selected"
-        @row-right-click="(row) => switchCurrentId(row)"
-      >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-            <NuxtLink
-              :to="`/tenant/${tenantId}/dash/user/${row.id}`"
-              class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer"
-            >
-              {{ row.id }}
-            </NuxtLink>
-          </CommonTruncateText>
-        </template>
-
-        <template #name="{ row }">
-          <CommonTruncateText :text="row.username || ''" width="10rem">
-          </CommonTruncateText>
-        </template>
-      </CommonDataTable>
-    </UContextMenu>
+    <CommonDataTable :columns="cols" :data="users">
+      <template #username="{ row }">
+        <NuxtLink
+          v-if="row.id"
+          :to="`/tenant/${tenantId}/dash/user/${row.id}`"
+          class="font-medium text-primary-600 hover:underline"
+        >{{ row.username || "未命名用户" }}</NuxtLink>
+        <span v-else>{{ row.username || "未命名用户" }}</span>
+      </template>
+      <template #actions="{ row }">
+        <UButton
+          v-if="row.id"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-user-minus"
+          size="sm"
+          :aria-label="`将 ${row.username || '未命名用户'} 移出组织`"
+          @click="removeMember(row)"
+        >移出组织</UButton>
+      </template>
+    </CommonDataTable>
     <CommonCursorPageManager @change="fetchList" :current-size="users.length">
     </CommonCursorPageManager>
-
-    <!-- <OrganizationUpdateOrganizationModal
-      v-model="showEditModal"
-      @update="handleUpdate"
-      :id="currentId"
-    /> -->
   </CommonManagePageContainer>
 </template>
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 import type { BreadcrumbItem } from "@nuxt/ui";
-import type { ContextMenuItem } from "@nuxt/ui";
 const route = useRoute();
 
 const tenantId = ref("");
 const orgId = ref("");
 
-const items = ref<ContextMenuItem[][]>([
-  [
-    {
-      label: "进入",
-      icon: "i-lucide-star",
-      onSelect: () => handleEdit(),
-    },
-    {
-      label: "编辑",
-      icon: "i-lucide-edit",
-      onSelect: () => handleEdit(),
-    },
-    {
-      label: "删除",
-      color: "error",
-      icon: "i-lucide-trash",
-      onSelect: () => handleDelete(),
-    },
-  ],
-]);
 const links = ref<BreadcrumbItem[]>([]);
 
 const toast = useToast();
 
 const users = ref<UserDto[]>([]);
 const pageSize = ref(10);
-
-const selected = ref<UserDto[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
@@ -113,8 +79,8 @@ onMounted(async () => {
 
 // 3. 配置列 (TableColumn<UserDto>)
 const cols = [
-  { key: "id", label: "ID", width: "16px" },
-  { key: "name", label: "用户名" },
+  { key: "username", label: "用户名" },
+  { key: "actions", label: "操作", width: "9rem" },
 ];
 
 const showCreateModal = ref(false);
@@ -137,12 +103,6 @@ const handleAddUser = async (command: { userId: string; orgId: string }) => {
   showCreateModal.value = false;
   await fetchList(false, pageSize.value, true);
   await fetchUsersList(false, pageSize.value, true);
-};
-
-const currentId = ref("");
-
-const switchCurrentId = (row: UserDto) => {
-  currentId.value = row.id || "";
 };
 
 const fetchList = async (
@@ -182,39 +142,17 @@ const getCursor = (isPre: boolean) => {
   }
 };
 
-const showEditModal = ref(false);
-
-const handleEdit = () => {
-  showEditModal.value = true;
-};
-
-const handleUpdate = async (command: UpdateOrganizationCommand) => {
-  let result;
+const removeMember = async (user: UserDto) => {
+  if (!user.id) return;
   try {
-    result = await $api.tenant.organizationUpdate(currentId.value, command);
+    await $api.tenant.organizationUserDelete(orgId.value, user.id);
   } catch (e) {
     const error = e as any;
-    const title = error.response.data.title;
-    toast.add({ title: "修改用户失败：" + title });
+    toast.add({ title: "移出组织失败：" + (error.response?.data?.title || error.message), color: "error" });
     return;
   }
 
-  toast.add({ title: "修改用户成功" });
-  showEditModal.value = false;
-  await fetchList(false, pageSize.value, true);
-};
-
-const handleDelete = async () => {
-  try {
-    await $api.tenant.organizationUserDelete(orgId.value, currentId.value);
-  } catch (e) {
-    const error = e as any;
-    const title = error.response.data.title;
-    toast.add({ title: "删除用户失败：" + title, color: "error" });
-    return;
-  }
-
-  toast.add({ title: "删除用户成功" });
+  toast.add({ title: "已移出组织" });
   await fetchList(false, pageSize.value, true);
   await fetchUsersList(false, pageSize.value, true);
 };

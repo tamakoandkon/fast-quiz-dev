@@ -2,6 +2,9 @@
   <CommonManagePageContainer>
     <UBreadcrumb :items="links" class="py-2" />
     <USeparator class="my-2" />
+    <p v-if="quizSnapshot.totalScore != null" class="px-4 pt-2 text-sm text-muted">
+      样卷总分 {{ quizSnapshot.totalScore }} 分
+    </p>
     <div class="flex flex-col gap-5 p-4">
       <QuestionRecordViewCard
         v-for="(item, index) in questions"
@@ -49,7 +52,7 @@ onMounted(async () => {
   });
 
   links.value.push({
-    label: template.value.name as string,
+    label: template.value.name || "未命名试卷",
     icon: "i-lucide-book-open",
     to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
   });
@@ -61,7 +64,7 @@ onMounted(async () => {
   });
 
   links.value.push({
-    label: quizSnapshot.value.id as string,
+    label: "样卷详情",
     icon: "i-lucide-book-open",
     to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}/snapshots/${quizSnapshotId.value}`,
   });

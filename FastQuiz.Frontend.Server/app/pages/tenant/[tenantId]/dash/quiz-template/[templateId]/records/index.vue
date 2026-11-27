@@ -31,8 +31,8 @@
     </div>
 
     <CommonDataTable :columns="cols" :data="records" :selectable="false">
-      <template #assignId="{ row }">
-        {{ row.assignId || "--" }}
+      <template #assignUsername="{ row }">
+        {{ row.assignUsername || "未知考生" }}
       </template>
 
       <template #status="{ row }">
@@ -117,7 +117,7 @@ const onlyBest = ref(false);
 const pageSize = ref(10);
 
 const cols = [
-  { key: "assignId", label: "考生", width: "180px" },
+  { key: "assignUsername", label: "考生", width: "180px" },
   { key: "status", label: "状态" },
   { key: "startTime", label: "开始时间" },
   { key: "submitTime", label: "交卷时间" },
@@ -146,7 +146,7 @@ onMounted(async () => {
     to: `/tenant/${tenantId.value}/dash/quiz-template`,
   });
   links.value.push({
-    label: template.value.name ?? templateId.value,
+    label: template.value.name || "未命名试卷",
     to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
   });
   links.value.push({ label: "查看成绩" });
@@ -276,7 +276,7 @@ const buildCsv = (rows: QuizAttempDto[]): string => {
   for (const r of rows) {
     lines.push(
       [
-        r.assignId ?? "",
+        r.assignUsername || "未知考生",
         r.quizTemplateNema ?? "",
         getStatusText(r.status),
         r.startTime ? formatDateTime(r.startTime) : "",

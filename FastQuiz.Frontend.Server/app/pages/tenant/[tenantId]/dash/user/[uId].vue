@@ -10,9 +10,8 @@
             <UAvatar :text="user?.username?.charAt(0) ?? '?'" size="lg" />
             <div>
               <h2 class="text-lg font-semibold">
-                {{ user?.username ?? "未知用户" }}
+                {{ user?.username || "未命名用户" }}
               </h2>
-              <p class="text-sm text-gray-500">{{ user?.email ?? "未填写邮箱" }}</p>
             </div>
           </div>
           <UBadge color="primary">正常</UBadge>
@@ -21,14 +20,6 @@
 
       <!-- 信息列表 -->
       <div class="grid grid-cols-2 gap-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-500">用户 ID</span>
-          <span class="font-mono text-sm">{{ user?.id ?? "-" }}</span>
-        </div>
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-500">用户名</span>
-          <span class="text-sm">{{ user?.username ?? "-" }}</span>
-        </div>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-500">邮箱</span>
           <span class="text-sm">{{ user?.email || "未填写邮箱" }}</span>
@@ -71,7 +62,7 @@ onMounted(async () => {
   });
 
   links.value.push({
-    label: user.value?.username ?? "未知用户",
+    label: user.value?.username || "未命名用户",
     icon: "iconoir:user",
     to: `/tenant/${tenantId.value}/dash/user/${uId.value}`,
   });

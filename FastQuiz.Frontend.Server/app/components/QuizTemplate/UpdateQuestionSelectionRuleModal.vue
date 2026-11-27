@@ -39,26 +39,15 @@
 <script setup lang="ts">
 const { $api } = useNuxtApp();
 
-const props = defineProps({
-  id: {
-    type: String,
-    default: "",
-  },
-  tenantId: {
-    type: String,
-    default: "",
-  },
-});
+const props = defineProps<{
+  id: string;
+  tenantId: string;
+  groups: QuestionGroupDto[];
+}>();
 
-const groups = ref<QuestionGroupDto[]>([]);
-
-// 计算属性：将groups转换为USelect需要的格式
-const groupOptions = computed(() => {
-  return groups.value.map((group) => ({
-    id: group.id,
-    label: group.name ?? "未知题库", // 确保这里使用正确的字段名，可能是group.name或group.title等
-  }));
-});
+const groupOptions = computed(() => props.groups.flatMap(group =>
+  group.id ? [{ id: group.id, label: group.name || "未命名题库" }] : [],
+));
 
 const items = ref([
   {
@@ -101,43 +90,6 @@ const updateQuestionSelectionRule = function () {
   score.value = 1;
 };
 
-// 加载所有题库分组（不分页，加载全部）
-const loadAllGroups = async () => {
-  try {
-    let allGroups: QuestionGroupDto[] = [];
-    let cursor: string | undefined = undefined;
-    let hasMore = true;
-
-    // 循环加载所有分组，直到没有更多数据
-    while (hasMore) {
-      const result = await $api.tenant.questionGroupList(props.tenantId, {
-        Cursor: cursor,
-        Count: 200, // 每页加载50条
-        IsPrevious: false,
-        NamePrefix: undefined,
-      });
-
-      if (result.data && result.data.length > 0) {
-        allGroups = [...allGroups, ...result.data];
-        // 如果返回的数据少于请求的数量，说明没有更多数据了
-        if (result.data.length < 50) {
-          hasMore = false;
-        } else {
-          // 获取最后一个元素的ID作为下一页的游标
-          cursor = result.data[result.data.length - 1]?.id ?? undefined;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
-
-    groups.value = allGroups;
-  } catch (error) {
-    console.error("加载题库分组失败:", error);
-    groups.value = [];
-  }
-};
-
 // 监听props.id变化，加载规则详情
 watch(
   () => props.id,
@@ -149,12 +101,6 @@ watch(
   { immediate: true },
 );
 
-// 组件挂载时加载所有分组
-onMounted(async () => {
-  await loadAllGroups();
-  await fetchQuestionSelectionRuleAsync(props.id);
-});
-
 const fetchQuestionSelectionRuleAsync = async (id: string) => {
   if (!id || id.trim() === "") {
     return;
@@ -162,7 +108,7 @@ const fetchQuestionSelectionRuleAsync = async (id: string) => {
 
   let result = await $api.tenant.quizTemplateRuleDetail(
     props.tenantId,
-    props.id,
+    id,
   );
 
   groupId.value = result.data.groupId ?? "";

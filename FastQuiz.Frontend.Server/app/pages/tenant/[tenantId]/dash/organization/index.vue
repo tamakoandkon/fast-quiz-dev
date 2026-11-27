@@ -19,7 +19,6 @@
         <div
           class="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
           @click="toggleExpand(org.id!)"
-          @contextmenu.prevent="handleRightClick(org)"
         >
           <div class="flex items-center gap-3 flex-1 min-w-0">
             <UIcon
@@ -39,11 +38,8 @@
               class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer truncate"
               @click.stop
             >
-              {{ org.name }}
+              {{ org.name || "未命名组织" }}
             </NuxtLink>
-            <span class="text-xs text-gray-400 flex-shrink-0">{{
-              org.id
-            }}</span>
             <UBadge
               v-if="getChildrenCount(org.id!) > 0"
               :label="getChildrenCount(org.id!).toString()"
@@ -57,6 +53,16 @@
             <span class="text-xs text-gray-400">{{
               formatDate(org.createdAt)
             }}</span>
+            <UDropdownMenu v-if="org.id" :items="organizationActions(org.id)">
+              <UButton
+                icon="i-lucide-ellipsis"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`管理 ${org.name || '未命名组织'}`"
+                @click.stop
+              />
+            </UDropdownMenu>
           </div>
         </div>
 
@@ -87,7 +93,6 @@
               v-for="child in getChildren(org.id!)"
               :key="child.id || ''"
               class="flex items-center justify-between px-6 py-2.5 hover:bg-gray-100/50 dark:hover:bg-gray-700/30 transition-colors"
-              @contextmenu.prevent="handleChildRightClick(child)"
             >
               <div class="flex items-center gap-3 flex-1 min-w-0">
                 <UIcon
@@ -99,16 +104,22 @@
                   class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer truncate"
                   @click.stop
                 >
-                  {{ child.name }}
+                  {{ child.name || "未命名组织" }}
                 </NuxtLink>
-                <span class="text-xs text-gray-400 flex-shrink-0">{{
-                  child.id
-                }}</span>
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-xs text-gray-400">{{
                   formatDate(child.createdAt)
                 }}</span>
+                <UDropdownMenu v-if="child.id" :items="organizationActions(child.id)">
+                  <UButton
+                    icon="i-lucide-ellipsis"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    :aria-label="`管理 ${child.name || '未命名组织'}`"
+                  />
+                </UDropdownMenu>
               </div>
             </div>
           </div>
@@ -136,10 +147,9 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { ContextMenuItem } from "@nuxt/ui";
+import type { DropdownMenuItem } from "@nuxt/ui";
 
 const route = useRoute();
-const router = useRouter();
 
 const tenantId = ref("");
 const orgs = ref<OrganizationDto[]>([]);
@@ -238,30 +248,22 @@ const refreshChildren = async (parentId?: string) => {
   }
 };
 
-// 上下文菜单
-const items = ref<ContextMenuItem[][]>([
-  [
-    {
-      label: "进入",
-      icon: "i-lucide-star",
-      onSelect: () =>
-        router.push(
-          `/tenant/${tenantId.value}/dash/organization/${currentId.value}`,
-        ),
+const organizationActions = (id: string): DropdownMenuItem[][] => [
+  [{
+    label: "编辑组织",
+    icon: "i-lucide-edit",
+    onSelect: () => {
+      currentId.value = id;
+      showEditModal.value = true;
     },
-    {
-      label: "编辑",
-      icon: "i-lucide-edit",
-      onSelect: () => handleEdit(),
-    },
-    {
-      label: "删除",
-      color: "error",
-      icon: "i-lucide-trash",
-      onSelect: () => handleDelete(),
-    },
-  ],
-]);
+  }],
+  [{
+    label: "删除组织",
+    color: "error",
+    icon: "i-lucide-trash",
+    onSelect: () => handleDelete(id),
+  }],
+];
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -314,15 +316,6 @@ const getCursor = (isPre: boolean) => {
   }
 };
 
-// 右键点击
-const handleRightClick = (row: OrganizationDto) => {
-  currentId.value = row.id || "";
-};
-
-const handleChildRightClick = (child: OrganizationDto) => {
-  currentId.value = child.id || "";
-};
-
 // 主组织操作
 const handleCreateOrg = async (command: CreateOrganizationCommand) => {
   try {
@@ -335,10 +328,6 @@ const handleCreateOrg = async (command: CreateOrganizationCommand) => {
     const title = error.response?.data?.title || error.message;
     toast.add({ title: "新增组织失败：" + title, color: "error" });
   }
-};
-
-const handleEdit = () => {
-  showEditModal.value = true;
 };
 
 const handleUpdate = async (command: UpdateOrganizationCommand) => {
@@ -354,9 +343,9 @@ const handleUpdate = async (command: UpdateOrganizationCommand) => {
   }
 };
 
-const handleDelete = async () => {
+const handleDelete = async (id: string) => {
   try {
-    await $api.tenant.organizationDelete(currentId.value);
+    await $api.tenant.organizationDelete(id);
     toast.add({ title: "删除组织成功" });
     await fetchList(false, pageSize.value, true);
   } catch (e) {

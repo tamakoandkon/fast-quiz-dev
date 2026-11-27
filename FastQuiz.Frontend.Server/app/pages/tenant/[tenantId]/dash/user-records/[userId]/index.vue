@@ -6,7 +6,7 @@
     <!-- 标题与筛选 -->
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <h2 class="text-xl font-semibold">考试成绩记录</h2>
-      <span class="text-sm text-gray-500">考生：{{ userId }}</span>
+      <span class="text-sm text-gray-500">考生 {{ candidateName || "未知考生" }}</span>
 
       <div class="ml-auto flex flex-wrap items-center gap-3">
         <!-- 列表筛选：考试模板（仅列出该考生参加过的考试） -->
@@ -115,6 +115,7 @@ const toast = useToast();
 
 const tenantId = ref("");
 const userId = ref("");
+const candidateName = ref("");
 
 const links = ref<BreadcrumbItem[]>([]);
 const records = ref<QuizAttempDto[]>([]);
@@ -159,6 +160,14 @@ onMounted(async () => {
     fetchList(false, pageSize.value, true),
     loadAttendedTemplates(),
   ]);
+  if (!candidateName.value) {
+    try {
+      const { data } = await $api.tenant.userDetail(tenantId.value, userId.value);
+      candidateName.value = data.username || "";
+    } catch {
+      // Historical records can remain after the account is no longer accessible.
+    }
+  }
   loaded.value = true;
 });
 
@@ -191,9 +200,10 @@ const loadAttendedTemplates = async () => {
       );
       const batch = result.data ?? [];
       if (batch.length === 0) break;
+      candidateName.value ||= batch.find(row => row.assignUsername)?.assignUsername || "";
       for (const r of batch) {
         if (r.quizTemplateId && !seen.has(r.quizTemplateId)) {
-          seen.set(r.quizTemplateId, r.quizTemplateNema ?? r.quizTemplateId);
+          seen.set(r.quizTemplateId, r.quizTemplateNema || "未命名试卷");
         }
       }
       if (batch.length < size) break;
@@ -331,7 +341,7 @@ const buildCsv = (rows: QuizAttempDto[]): string => {
   for (const r of rows) {
     lines.push(
       [
-        r.assignId ?? "",
+        r.assignUsername || candidateName.value || "未知考生",
         r.quizTemplateNema ?? "",
         getStatusText(r.status),
         r.startTime ? formatDateTime(r.startTime) : "",
@@ -373,9 +383,10 @@ const handleExport = async (filter: ExportUserRecordsFilter) => {
 
     const csv = buildCsv(rows);
     const suffix = filter.onlyBest ? "最好成绩" : "全部记录";
-    const name = `${userId.value}-考试成绩-${suffix}-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
+    const username = candidateName.value || rows.find(row => row.assignUsername)?.assignUsername || "考生";
+    const name = sanitizeFilename(
+      `${username}-考试成绩-${suffix}-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
     downloadCsv(csv, name);
 
     toast.add({ title: `已导出 ${rows.length} 条记录` });

@@ -535,7 +535,6 @@ const startAnswer = async (templateId: string) => {
 // ---------------- 记录表列与格式化 ----------------
 
 const recordCols = [
-  { key: "id", label: "考试ID", width: "260px" },
   { key: "status", label: "状态", width: "110px" },
   { key: "startTime", label: "开始时间" },
   { key: "submitTime", label: "交卷时间" },

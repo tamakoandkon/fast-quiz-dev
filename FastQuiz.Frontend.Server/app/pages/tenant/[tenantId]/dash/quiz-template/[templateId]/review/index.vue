@@ -10,9 +10,7 @@
     >
       <UIcon name="i-lucide-clock" />
       <span>
-        本场考试为限时试卷，考试结束（
-        {{ template.endTime ? formatDateTime(template.endTime) : "--" }}
-        ）后方可开始批阅（#2）。当前交卷的作答也会在考试结束后才计入待批队列。
+        本场考试结束后开放阅卷。结束时间 {{ template.endTime ? formatDateTime(template.endTime) : "待设置" }}。
       </span>
     </div>
 
@@ -44,12 +42,12 @@
       :data="attempts"
       :selectable="false"
     >
-      <template #id="{ row }">
+      <template #assignUsername="{ row }">
         <NuxtLink
           :to="`/tenant/${tenantId}/dash/quiz-template/${templateId}/review/${row.id}`"
           class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer"
         >
-          {{ row.id ? displayId(row.id) : "--" }}
+          {{ row.assignUsername || "未知考生" }}
         </NuxtLink>
       </template>
 
@@ -138,7 +136,7 @@ const loaded = ref(false);
 const pageSize = 10;
 
 const cols = [
-  { key: "id", label: "考试 / 作答", width: "200px" },
+  { key: "assignUsername", label: "考生", width: "200px" },
   { key: "status", label: "状态" },
   { key: "submitTime", label: "交卷时间" },
   { key: "score", label: "得分" },
@@ -164,7 +162,7 @@ onMounted(async () => {
     to: `/tenant/${tenantId.value}/dash/quiz-template`,
   });
   links.value.push({
-    label: template.value.name ?? templateId.value,
+    label: template.value.name || "未命名试卷",
     to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
   });
   links.value.push({ label: "批改试卷" });
@@ -181,7 +179,6 @@ const needsReview = (row: QuizAttempDto): boolean =>
 
 const pendingCount = computed(() => attempts.value.filter(needsReview).length);
 
-const displayId = (id: string) => id.slice(0, 8);
 
 const getStatusText = (status?: QuizAttemptStatus) => {
   switch (status) {

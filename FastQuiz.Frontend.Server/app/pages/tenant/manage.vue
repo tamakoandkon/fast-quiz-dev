@@ -14,15 +14,10 @@
         v-model="selected"
         @row-right-click="(row) => switchCurrentId(row)"
       >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-            {{ row.id }}
-          </CommonTruncateText>
-        </template>
-
         <template #name="{ row }">
-          <CommonTruncateText :text="row.name || ''" width="10rem">
-          </CommonTruncateText>
+          <span class="font-medium" :title="row.name || undefined">
+            {{ row.name || "未命名租户" }}
+          </span>
         </template>
         <template #createdAt="{ row }">
           {{ formatDate(row.createdAt) }}
@@ -98,9 +93,8 @@ onMounted(async () => {
 
 // 3. 配置列 (TableColumn<UserDto>)
 const cols = [
-  { key: "id", label: "ID", width: "16px" },
-  { key: "name", label: "名称" },
-  { key: "description", label: "详情" },
+  { key: "name", label: "租户名称" },
+  { key: "description", label: "说明" },
   { key: "createdAt", label: "创建时间" },
   { key: "updatedAt", label: "更新时间" },
   { key: "actions", label: "成员管理" },
@@ -126,7 +120,7 @@ const handleCreateTenant = async (command: CreateTenantCommand) => {
 
 const currentId = ref("");
 const currentItem = computed(
-  () => tenants.value.filter((x) => x.id === currentId.value)[0],
+  () => tenants.value.find((tenant) => tenant.id === currentId.value),
 );
 
 const switchCurrentId = (row: TenantDto) => {
@@ -195,7 +189,7 @@ const handleUpdate = async (command: UpdateTenantCommand) => {
 const showConfirDelete = ref(false);
 const deleteDescription = computed(
   () =>
-    `是否删除ID: ${currentId.value}, 名称: ${currentItem.value?.name || "-"} 的租户？`,
+    `是否删除租户「${currentItem.value?.name || "未命名租户"}」？`,
 );
 
 const handleDelete = async () => {

@@ -539,8 +539,8 @@ const submit = async () => {
     templateId = created.data?.id ?? "";
 
     if (!templateId) {
-      error.value = "试卷模板已创建但未返回 ID，请到试卷管理页确认";
-      toast.add({ title: "快速发布中断：试卷模板未返回 ID", color: "error" });
+      error.value = "试卷可能已创建，请在试卷管理中确认后再试";
+      toast.add({ title: "快速发布未完成", color: "error" });
       return;
     }
 
@@ -572,7 +572,7 @@ const submit = async () => {
     const failedStep = stepTitles[Math.min(done, 3)];
 
     error.value = `${failedStep}失败：${title}${
-      templateId ? `（已创建试卷模板 ${templateId}，请到试卷管理页处理）` : ""
+      templateId ? "。已创建的试卷可在试卷管理中继续设置" : ""
     }`;
     toast.add({
       title: `快速发布中断：${failedStep}失败：${title}`,

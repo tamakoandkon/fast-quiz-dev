@@ -9,6 +9,7 @@
         v-model="showManageUserRoleModal"
         :id="currentId"
         :tenant-id="tenantId"
+        :username="currentUsername"
       />
       <!-- 新增：批量导入用户按钮 -->
       <UButton
@@ -32,24 +33,26 @@
       <CommonDataTable
         :columns="cols"
         :data="users"
-        :selectable="true"
-        v-model="selected"
-        @row-right-click="(row) => switchCurrentId(row)"
+        @row-right-click="selectUser"
       >
-        <template #id="{ row }">
-          <CommonTruncateText :text="row.id || ''" direction="rtl">
-            <NuxtLink
-              :to="`/tenant/${tenantId}/dash/user/${row.id}`"
-              class="text-primary-600 hover:text-primary-700 hover:underline cursor-pointer"
-            >
-              {{ row.id }}
-            </NuxtLink>
-          </CommonTruncateText>
+        <template #username="{ row }">
+          <NuxtLink
+            v-if="row.id"
+            :to="`/tenant/${tenantId}/dash/user/${row.id}`"
+            class="font-medium text-primary-600 hover:underline"
+          >{{ row.username || "未命名用户" }}</NuxtLink>
+          <span v-else>{{ row.username || "未命名用户" }}</span>
         </template>
-
-        <template #name="{ row }">
-          <CommonTruncateText :text="row.username || ''" width="10rem">
-          </CommonTruncateText>
+        <template #actions="{ row }">
+          <UDropdownMenu v-if="row.id" :items="userActions(row)">
+            <UButton
+              icon="i-lucide-ellipsis"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :aria-label="`管理 ${row.username || '未命名用户'}`"
+            />
+          </UDropdownMenu>
         </template>
       </CommonDataTable>
     </UContextMenu>
@@ -68,59 +71,55 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp();
-import type { ContextMenuItem } from "@nuxt/ui";
+import type { DropdownMenuItem } from "@nuxt/ui";
 import Papa from "papaparse"; // 导入 papaparse
 
 const route = useRoute();
-const router = useRouter();
 
 const tenantId = ref("");
 
-const items = ref<ContextMenuItem[][]>([
-  [
-    {
-      label: "查看详情",
-      icon: "i-lucide-star",
-      onSelect: () => {
-        router.push(`/tenant/${tenantId.value}/dash/user/${currentId.value}`);
+const userActions = (user: UserDto) => {
+  const id = user.id;
+  if (!id) return [];
+  return [
+    [
+      {
+        label: "管理角色",
+        icon: "i-lucide-shield",
+        onSelect: () => {
+          selectUser(user);
+          showManageUserRoleModal.value = true;
+        },
       },
-    },
-    {
-      label: "管理角色",
-      icon: "i-lucide-edit",
-      onSelect: () => {
-        showManageUserRoleModal.value = true;
+      {
+        label: "查看考试成绩",
+        icon: "i-lucide-clipboard-list",
+        to: `/tenant/${tenantId.value}/dash/user-records/${id}`,
       },
-    },
-    {
-      label: "查看考试成绩",
-      icon: "i-lucide-clipboard-list",
-      onSelect: () => {
-        router.push(
-          `/tenant/${tenantId.value}/dash/user-records/${currentId.value}`,
-        );
+      {
+        label: "编辑用户资料",
+        icon: "i-lucide-edit",
+        onSelect: () => {
+          selectUser(user);
+          showEditModal.value = true;
+        },
       },
-    },
-    {
-      label: "编辑",
-      icon: "i-lucide-edit",
-      onSelect: () => handleEdit(),
-    },
-    {
-      label: "删除",
-      color: "error",
-      icon: "i-lucide-trash",
-      onSelect: () => handleDelete(),
-    },
-  ],
-]);
+    ],
+    [
+      {
+        label: "移出租户",
+        color: "error",
+        icon: "i-lucide-user-minus",
+        onSelect: () => removeMember(id),
+      },
+    ],
+  ] satisfies DropdownMenuItem[][];
+};
 
 const toast = useToast();
 
 const users = ref<UserDto[]>([]);
 const pageSize = ref(10);
-
-const selected = ref<UserDto[]>([]);
 
 onMounted(async () => {
   tenantId.value = route.params.tenantId as string;
@@ -129,8 +128,8 @@ onMounted(async () => {
 
 // 3. 配置列 (TableColumn<UserDto>)
 const cols = [
-  { key: "id", label: "ID", width: "16px" },
-  { key: "name", label: "用户名" },
+  { key: "username", label: "用户名" },
+  { key: "actions", label: "操作", width: "7rem" },
 ];
 
 const showCreateModal = ref(false);
@@ -151,10 +150,13 @@ const handleCreateUser = async (command: UserRegisterCommand) => {
   await fetchList(false, pageSize.value, true);
 };
 
-const currentId = ref("");
+const currentUser = ref<UserDto>();
+const currentId = computed(() => currentUser.value?.id || "");
+const currentUsername = computed(() => currentUser.value?.username || "");
+const items = computed(() => currentUser.value ? userActions(currentUser.value) : []);
 
-const switchCurrentId = (row: UserDto) => {
-  currentId.value = row.id || "";
+const selectUser = (row: UserDto) => {
+  currentUser.value = row;
 };
 
 const fetchList = async (
@@ -196,10 +198,6 @@ const getCursor = (isPre: boolean) => {
 
 const showEditModal = ref(false);
 
-const handleEdit = () => {
-  showEditModal.value = true;
-};
-
 const handleUpdate = async (command: UpdateUserCommand) => {
   let result;
   try {
@@ -220,17 +218,16 @@ const handleUpdate = async (command: UpdateUserCommand) => {
   await fetchList(false, pageSize.value, true);
 };
 
-const handleDelete = async () => {
+const removeMember = async (userId: string) => {
   try {
-    await $api.tenant.userDelete(tenantId.value, currentId.value);
+    await $api.tenant.userDelete(tenantId.value, userId);
   } catch (e) {
     const error = e as any;
-    const title = error.response.data.title;
-    toast.add({ title: "删除用户失败：" + title, color: "error" });
+    toast.add({ title: "移出租户失败：" + (error.response?.data?.title || error.message), color: "error" });
     return;
   }
 
-  toast.add({ title: "删除用户成功" });
+  toast.add({ title: "已移出租户" });
   await fetchList(false, pageSize.value, true);
 };
 

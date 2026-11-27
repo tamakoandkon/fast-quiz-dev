@@ -12,7 +12,7 @@
             {{ template.name || "未命名试卷" }}
           </h1>
           <p class="text-sm text-gray-500 mt-1 flex items-center gap-2">
-            <span>作答 ID：{{ attemptId }}</span>
+            <span>{{ attempt.assignUsername || "未知考生" }}</span>
             <UBadge :color="getReviewBadgeColor(attempt.status)" size="sm">
               {{ getAttemptStatusText(attempt.status) }}
             </UBadge>
@@ -42,14 +42,14 @@
         "
       >
         <template v-if="attempt.status === QuizAttemptStatus.Graded">
-          本卷已完成批改（Graded），当前为只读查看。
+          本卷已批改完成，可以查看阅卷结果。
         </template>
         <template v-else-if="attempt.status === QuizAttemptStatus.Submitted">
-          考试尚未结束，暂不能开始批改。请到考试结束后再回来阅卷（#2）。
+          本场考试结束后开放阅卷。
         </template>
         <template v-else>
           该作答当前状态为「{{ getAttemptStatusText(attempt.status) }}」，
-          尚不符合可批改条件（仅 ended 后的已提交卷可阅）。
+          交卷且开放阅卷后即可批改。
         </template>
       </div>
     </div>
@@ -81,7 +81,7 @@
       >
         <div class="text-sm text-gray-600 flex items-center gap-1">
           <span>判定方式：</span>
-          <span class="text-gray-500">点击每题右侧 ✔️（对）/ ❌（错）切换（#5 手动判定）。</span>
+          <span class="text-gray-500">用每题右侧的按钮标记正确或错误。</span>
         </div>
         <UButton
           color="success"
@@ -92,7 +92,7 @@
         >
           {{
             manualQuestions.length
-              ? "完成阅卷并自动进行下一份（#6）"
+              ? "完成阅卷并打开下一份"
               : "本卷无人工题，直接标记完成"
           }}
         </UButton>
@@ -315,7 +315,7 @@ onMounted(async () => {
     to: `/tenant/${tenantId.value}/dash/quiz-template`,
   });
   links.value.push({
-    label: template.value.name ?? templateId.value,
+    label: template.value.name || "未命名试卷",
     to: `/tenant/${tenantId.value}/dash/quiz-template/${templateId.value}`,
   });
   links.value.push({
@@ -323,7 +323,7 @@ onMounted(async () => {
     to: reviewListTo.value,
   });
   links.value.push({
-    label: attemptId.value.slice(0, 8),
+    label: attempt.value.assignUsername || "答卷详情",
   });
 });
 </script>

@@ -408,8 +408,8 @@ a.workspace-card:hover { transform: translateY(-2px); border-color: var(--accent
   .data-list-page-buttons .u-button { white-space: nowrap; }
 }
 
-/* 题库变体：四列，名称主导，题目数用等宽数字，创建者退为次要信息。 */
-.data-list.is-bank { --list-cols: minmax(0, 1.55fr) 96px minmax(0, 1fr) 108px; }
+/* 题库名称占据剩余空间，题目数和操作右对齐。 */
+.data-list.is-bank { --list-cols: minmax(0, 1fr) 96px 108px; }
 .data-list.is-bank .data-list-row { min-height: 68px; }
 .data-list.is-bank .data-list-main { display: flex; align-items: flex-start; gap: 12px; }
 .data-list-text { min-width: 0; }
@@ -505,9 +505,8 @@ a.workspace-card:hover { transform: translateY(-2px); border-color: var(--accent
   .data-list.is-bank .data-list-skeleton-row {
     grid-template-areas:
       "main status"
-      "owner actions";
+      ". actions";
   }
-  .data-list.is-bank .data-list-aside { grid-area: owner; }
   .data-list.is-bank .data-list-status-cell { grid-area: status; justify-self: end; }
 }
 

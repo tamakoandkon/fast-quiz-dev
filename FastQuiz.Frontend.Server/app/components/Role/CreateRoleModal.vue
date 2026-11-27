@@ -4,8 +4,8 @@
 
     <template #body>
       <CommonFormContainer>
-        <CommonFormInput label="名称" v-model="name"></CommonFormInput>
-        <CommonFormInput label="详情" v-model="description"></CommonFormInput>
+        <CommonFormInput label="角色名称" v-model="name" />
+        <CommonFormInput label="角色说明" v-model="description" />
 
         <UFormField label="是否启用" class="w-full">
           <USwitch v-model="isEnable" />
@@ -17,7 +17,7 @@
             <UCheckbox
               v-for="perm in permissions"
               :key="perm"
-              :label="perm"
+              :label="getPermissionDisplayName(perm)"
               :value="perm"
               :model-value="selectedPermissions.includes(perm)"
               @update:model-value="(checked) => togglePermission(perm, checked)"
@@ -26,10 +26,10 @@
         </UFormField>
 
         <UButton
-          label="确认"
+          label="新增角色"
           color="primary"
           variant="subtle"
-          @click="createTenant"
+          @click="createRole"
           class="w-full justify-center"
         ></UButton>
       </CommonFormContainer>
@@ -37,6 +37,8 @@
   </UModal>
 </template>
 <script setup lang="ts">
+import { getPermissionDisplayName } from "~/utils/roleDisplay";
+
 const { $api } = useNuxtApp();
 const toast = useToast();
 
@@ -53,7 +55,7 @@ const emit = defineEmits<{
   (e: "create", payLoad: CreateRoleCommand): void;
 }>();
 
-const createTenant = function () {
+const createRole = () => {
   emit("create", {
     name: name.value,
     description: description.value,
@@ -61,13 +63,18 @@ const createTenant = function () {
     permissions: selectedPermissions.value,
   });
 
-  name.value = "";
-  description.value = "";
-  isEnable.value = true;
 };
 
 const permissions = ref<string[]>([]);
 const selectedPermissions = ref<string[]>([]);
+
+watch(show, (open) => {
+  if (open) return;
+  name.value = "";
+  description.value = "";
+  isEnable.value = true;
+  selectedPermissions.value = [];
+});
 
 const getPermissions = async () => {
   let result;

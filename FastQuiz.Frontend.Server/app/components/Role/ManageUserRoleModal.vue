@@ -1,5 +1,5 @@
 <template>
-  <UModal v-model:open="show" title="管理用户角色">
+  <UModal v-model:open="show" :title="username ? '管理角色 · ' + username : '管理用户角色'">
     <UButton label="管理用户角色" color="neutral" variant="outline" :disabled="!id" />
 
     <template #body>
@@ -28,20 +28,21 @@
                 <UCheckbox
                   :model-value="item.checked"
                   :disabled="updatingRoleId === item.id"
+                  :aria-label="'分配角色 · ' + item.name"
                   @update:model-value="
                     (checked) => handleRoleToggle(item.id, checked as boolean)
                   "
                 />
                 <div class="flex flex-col">
                   <span class="text-sm font-medium">{{ item.name }}</span>
-                  <span class="text-xs text-gray-400">{{ item.id }}</span>
+                  <span v-if="item.description" class="text-xs text-muted">{{ item.description }}</span>
                 </div>
               </div>
 
               <!-- 更新中的加载状态 -->
               <USpinner v-if="updatingRoleId === item.id" size="xs" />
               <span v-else class="text-xs text-gray-400">
-                {{ item.checked ? "已启用" : "未启用" }}
+                {{ item.checked ? "已分配" : "未分配" }}
               </span>
             </div>
           </div>
@@ -61,6 +62,8 @@
 </template>
 
 <script setup lang="ts">
+import { getRoleDisplayDescription, getRoleDisplayName } from "~/utils/roleDisplay";
+
 const { $api } = useNuxtApp();
 const toast = useToast();
 
@@ -70,7 +73,7 @@ const show = defineModel({ required: true, default: true });
 // 角色相关状态
 const allRoles = ref<RoleDto[]>([]);
 const userRoles = ref<RoleDto[]>([]);
-const roleItems = ref<Array<{ id: string; name: string; checked: boolean }>>(
+const roleItems = ref<Array<{ id: string; name: string; description: string; checked: boolean }>>(
   [],
 );
 const loading = ref(false);
@@ -83,6 +86,10 @@ const props = defineProps({
     default: "",
   },
   tenantId: {
+    type: String,
+    default: "",
+  },
+  username: {
     type: String,
     default: "",
   },
@@ -121,11 +128,12 @@ const loadData = async (userId: string) => {
 // 构建角色列表
 const buildRoleItems = (all: RoleDto[], user: RoleDto[]) => {
   const userRoleIdSet = new Set(user.map((role) => role.id));
-  roleItems.value = all.map((role) => ({
-    id: role.id as string,
-    name: role.name as string,
+  roleItems.value = all.flatMap((role) => role.id ? [{
+    id: role.id,
+    name: getRoleDisplayName(role),
+    description: getRoleDisplayDescription(role),
     checked: userRoleIdSet.has(role.id),
-  }));
+  }] : []);
 };
 
 // 处理角色切换
